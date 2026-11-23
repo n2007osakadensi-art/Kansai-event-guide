@@ -3,4 +3,4 @@
    送信内容はメールで受付アドレスに届き、確認のうえスペース版ガイドへ登録される。
    シート「編集入力」タブへの直接ステージングに切り替える場合は、Apps Script
    ゲートウェイをデプロイしてそのURLをここに入れる（EDITOR_SETUP.md参照）。 */
-window.KG_EDITOR_CONFIG = { endpoint: 'https://formsubmit.co/ajax/kansai-event-info@muse.ai' };
+window.KG_EDITOR_CONFIG = { endpoint: 'https://formsubmit.co/ajax/ff61a13c59dd4fd9d41ce42f2ff31fef' };
