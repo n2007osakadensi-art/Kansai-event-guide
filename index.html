@@ -568,7 +568,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v43';
+  window.__kgShell='v44';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2345,6 +2345,7 @@ function artistEvents(name){
 /* ---------- bundled profile DB (ガイド側の会場DB・アーティストプロフィール) ---------- */
 var venueProfiles={}, artistProfiles={}, readingByName={}, dictByName={}, artistCats={}, artistCatCache={}, dictRevMap=null, profilesLoaded=false, profilesLoading=null;
 var dirPrefFilter="すべて", dirAreaFilter="すべて", dirTypeFilter="すべて";
+var dirArtistSort="count", dirArtistInitial="すべて";
 var venueProfByName={};
 function stripVenueSuffix(s){ return String(s||"").replace(/（[^）]*）\s*$/,"").replace(/\([^)]*\)\s*$/,"").trim(); }
 function indexVenueProfiles(){
@@ -2511,6 +2512,29 @@ function renderVenueSuggest(shown){
   }).join("");
   els.venueSuggest.classList.add("show");
 }
+/* アーティストの五十音・アルファベット順ブラウズ（2026-11-24 Kota指示）:
+   頭文字は登録済みの読み（readings）を優先し、無ければ名前の先頭文字から決める。
+   読みが分からない名前は推測で振らず「その他」に置く */
+function kanaBase(ch){
+  var code=ch.charCodeAt(0);
+  if(code>=0x3041 && code<=0x3096) ch=String.fromCharCode(code+0x60);
+  var small={"ァ":"ア","ィ":"イ","ゥ":"ウ","ェ":"エ","ォ":"オ","ャ":"ヤ","ュ":"ユ","ョ":"ヨ","ッ":"ツ","ヮ":"ワ","ヵ":"カ","ヶ":"ケ"};
+  return small[ch]||ch;
+}
+var GOJUON_ROW={"ア":"あ","イ":"あ","ウ":"あ","エ":"あ","オ":"あ","カ":"か","キ":"か","ク":"か","ケ":"か","コ":"か","ガ":"か","ギ":"か","グ":"か","ゲ":"か","ゴ":"か","サ":"さ","シ":"さ","ス":"さ","セ":"さ","ソ":"さ","ザ":"さ","ジ":"さ","ズ":"さ","ゼ":"さ","ゾ":"さ","タ":"た","チ":"た","ツ":"た","テ":"た","ト":"た","ダ":"た","ヂ":"た","ヅ":"た","デ":"た","ド":"た","ナ":"な","ニ":"な","ヌ":"な","ネ":"な","ノ":"な","ハ":"は","ヒ":"は","フ":"は","ヘ":"は","ホ":"は","バ":"は","ビ":"は","ブ":"は","ベ":"は","ボ":"は","パ":"は","ピ":"は","プ":"は","ペ":"は","ポ":"は","マ":"ま","ミ":"ま","ム":"ま","メ":"ま","モ":"ま","ヤ":"や","ユ":"や","ヨ":"や","ラ":"ら","リ":"ら","ル":"ら","レ":"ら","ロ":"ら","ワ":"わ","ヲ":"わ","ン":"わ"};
+var ROMAJI_INIT={"ア":"A","イ":"I","ウ":"U","エ":"E","オ":"O","カ":"K","キ":"K","ク":"K","ケ":"K","コ":"K","ガ":"G","ギ":"G","グ":"G","ゲ":"G","ゴ":"G","サ":"S","シ":"S","ス":"S","セ":"S","ソ":"S","ザ":"Z","ジ":"J","ズ":"Z","ゼ":"Z","ゾ":"Z","タ":"T","チ":"C","ツ":"T","テ":"T","ト":"T","ダ":"D","ヂ":"D","ヅ":"D","デ":"D","ド":"D","ナ":"N","ニ":"N","ヌ":"N","ネ":"N","ノ":"N","ハ":"H","ヒ":"H","フ":"F","ヘ":"H","ホ":"H","バ":"B","ビ":"B","ブ":"B","ベ":"B","ボ":"B","パ":"P","ピ":"P","プ":"P","ペ":"P","ポ":"P","マ":"M","ミ":"M","ム":"M","メ":"M","モ":"M","ヤ":"Y","ユ":"Y","ヨ":"Y","ラ":"R","リ":"R","ル":"R","レ":"R","ロ":"R","ワ":"W","ヲ":"W","ン":"N"};
+function artistSortKey(name){ return readingByName[name]||name; }
+function gojuonRowOf(name){
+  var src=readingByName[name]||name; if(!src) return "";
+  return GOJUON_ROW[kanaBase(src.charAt(0))]||"";
+}
+function abcInitOf(name){
+  if(!name) return "";
+  var c0=name.charAt(0);
+  if((c0>="A"&&c0<="Z")||(c0>="a"&&c0<="z")) return c0.toUpperCase();
+  var src=readingByName[name]||name;
+  return ROMAJI_INIT[kanaBase(src.charAt(0))]||"";
+}
 function renderDir(){
   var isArtists = view==="artists";
   els.dirSearch.placeholder = isArtists ? "アーティスト名・読み仮名で検索" : "会場名・住所・エリア・ジャンルで検索";
@@ -2530,13 +2554,35 @@ function renderDir(){
       catList.splice(insAt<0?0:insAt+1, 0, "ユニドル");
     }
     if(catList.indexOf(dirCatFilter)<0 && dirCatFilter!=="すべて" && dirCatFilter!=="未分類・要確認") dirCatFilter="すべて";
-    els.dirFilters.innerHTML='<div class="fopts">'+["すべて"].concat(catList).concat(["未分類・要確認"]).map(function(c){
+    var catRow='<div class="fopts">'+["すべて"].concat(catList).concat(["未分類・要確認"]).map(function(c){
       var n = c==="すべて" ? null : (c==="未分類・要確認" ? uncCount : catCount[c]);
       return '<button type="button" class="fopt" data-dircat="'+esc(c)+'" aria-pressed="'+(dirCatFilter===c)+'">'+(c==="未分類・要確認"?"":catIcon(c,13))+esc(c)+(n!=null?'（'+n+'）':'')+'</button>';
     }).join("")+'</div>';
-    var shownA=items.filter(function(it){
-      if(dirCatFilter==="未分類・要確認"){ if(it.cat) return false; }
-      else if(dirCatFilter!=="すべて" && it.cat!==dirCatFilter) return false;
+    var shownCat=items.filter(function(it){
+      if(dirCatFilter==="未分類・要確認") return !it.cat;
+      if(dirCatFilter!=="すべて") return it.cat===dirCatFilter;
+      return true;
+    });
+    var sortRow='<div class="fopts" style="margin-top:6px"><span style="font-size:12px;color:var(--muted);align-self:center">並び順</span>'+[["count","件数順"],["gojuon","五十音順"],["abc","アルファベット順"]].map(function(m){
+      return '<button type="button" class="fopt" data-dirsort="'+m[0]+'" aria-pressed="'+(dirArtistSort===m[0])+'">'+m[1]+'</button>';
+    }).join("")+'</div>';
+    var indexRow="";
+    if(dirArtistSort!=="count"){
+      var initCount={};
+      shownCat.forEach(function(it){ var k = dirArtistSort==="gojuon" ? (gojuonRowOf(it.name)||"その他") : (abcInitOf(it.name)||"その他"); initCount[k]=(initCount[k]||0)+1; });
+      var initList = dirArtistSort==="gojuon" ? ["あ","か","さ","た","な","は","ま","や","ら","わ"].filter(function(k){ return initCount[k]; }) : Object.keys(initCount).filter(function(k){ return k!=="その他"; }).sort();
+      if(initCount["その他"]) initList.push("その他");
+      if(initList.indexOf(dirArtistInitial)<0 && dirArtistInitial!=="すべて") dirArtistInitial="すべて";
+      indexRow='<div class="fopts" style="margin-top:6px">'+["すべて"].concat(initList).map(function(k){
+        return '<button type="button" class="fopt" data-dirinit="'+esc(k)+'" aria-pressed="'+(dirArtistInitial===k)+'">'+esc(k)+(k!=="すべて"?'（'+initCount[k]+'）':'')+'</button>';
+      }).join("")+'</div>';
+    } else if(dirArtistInitial!=="すべて"){ dirArtistInitial="すべて"; }
+    els.dirFilters.innerHTML=catRow+sortRow+indexRow;
+    var shownA=shownCat.filter(function(it){
+      if(dirArtistSort!=="count" && dirArtistInitial!=="すべて"){
+        var kk = dirArtistSort==="gojuon" ? (gojuonRowOf(it.name)||"その他") : (abcInitOf(it.name)||"その他");
+        if(kk!==dirArtistInitial) return false;
+      }
       if(!q) return true;
       var prof=it.profile||{};
       var hay=(it.name+" "+(it.area||"")+" "+(it.prefecture||"")+" "+(readingByName[it.name]||"")
@@ -2544,6 +2590,11 @@ function renderDir(){
         +" "+(groupMembers(it.name).join(" "))).toLowerCase();
       return hay.indexOf(q.replace(/\s+/g," "))>=0 || normSearch(hay).indexOf(normSearch(dirQuery.trim()))>=0;
     });
+    if(dirArtistSort==="gojuon"){
+      shownA.sort(function(a,b){ var c=artistSortKey(a.name).localeCompare(artistSortKey(b.name),"ja"); return c||a.name.localeCompare(b.name,"ja"); });
+    } else if(dirArtistSort==="abc"){
+      shownA.sort(function(a,b){ var ia=abcInitOf(a.name), ib=abcInitOf(b.name); if(ia!==ib) return ia<ib?-1:1; var c=artistSortKey(a.name).localeCompare(artistSortKey(b.name),"ja"); return c||a.name.localeCompare(b.name,"ja"); });
+    }
     var dbNoteA = profilesLoaded ? "（うちプロフィール登録 "+Object.keys(artistProfiles).length+"組）" : "（プロフィールを読み込み中…）";
     els.dirCount.innerHTML="<strong>"+shownA.length+"件</strong> のアーティスト（全"+items.length+"件）"+dbNoteA;
     els.dirEmpty.hidden = shownA.length>0;
@@ -2552,7 +2603,7 @@ function renderDir(){
       var oshiBtn = '<button class="oshi-mini'+(favPerfs.has(it.name)?" on":"")+'" type="button" data-oshi-toggle="'+esc(it.name)+'" aria-label="推し登録">'+(favPerfs.has(it.name)?"★":"☆")+'</button>';
       var counts = '<span class="dir-counts"><strong>'+it.upcoming+'件</strong>開催予定（全'+it.total+'件）</span>';
       return '<div class="dir-row"><button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">プロフィール</span>':"")+(favPerfs.has(it.name)?'<span style="color:var(--oshi);font-size:12.5px">★ 推し</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+oshiBtn+counts+'</div>';
-    }).join("") + (shownA.length>300 ? '<p style="font-size:13px;color:var(--muted);text-align:center">上位300件まで表示しています。検索や絞り込みで探してください。</p>' : "");
+    }).join("") + (shownA.length>300 ? '<p style="font-size:13px;color:var(--muted);text-align:center">'+(dirArtistSort==="count"?"上位":"先頭")+'300件まで表示しています。検索や絞り込みで探してください。</p>' : "");
     return;
   }
   /* ----- 会場DB：都道府県とエリアを主軸にする（イベント絞り込みとは独立に動く） -----
@@ -4722,6 +4773,8 @@ els.detailBody.addEventListener("click", function(e){
 els.dirSearch.addEventListener("input", function(){ dirQuery=els.dirSearch.value; renderDir(); });
 els.dirFilters.addEventListener("click", function(e){
   var c=e.target.closest("[data-dircat]"); if(c){ dirCatFilter=c.getAttribute("data-dircat"); renderDir(); return; }
+  var ds=e.target.closest("[data-dirsort]"); if(ds){ dirArtistSort=ds.getAttribute("data-dirsort"); dirArtistInitial="すべて"; renderDir(); return; }
+  var di=e.target.closest("[data-dirinit]"); if(di){ dirArtistInitial=di.getAttribute("data-dirinit"); renderDir(); return; }
   var dp=e.target.closest("[data-dirpref]"); if(dp){ dirPrefFilter=dp.getAttribute("data-dirpref"); dirAreaFilter="すべて"; renderDir(); return; }
   var da=e.target.closest("[data-dirarea]"); if(da){ dirAreaFilter=da.getAttribute("data-dirarea"); renderDir(); return; }
   var dt=e.target.closest("[data-dirtype]"); if(dt){ dirTypeFilter=dt.getAttribute("data-dirtype"); renderDir(); return; }
