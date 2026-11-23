@@ -20,7 +20,13 @@
     + '.kp-status{font-size:13.5px;margin-top:12px;line-height:1.6}'
     + '.kp-sendbar{position:sticky;bottom:0;background:inherit;display:flex;gap:10px;padding:12px 0 2px;z-index:2}'
     + '.kp-send{flex:1;min-height:48px;border:0;border-radius:10px;background:var(--accent,#b8860b);color:#fff;font-size:15px;font-weight:700;cursor:pointer}'
-    + '.kp-cancel{min-height:48px;padding:0 18px;border-radius:10px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-size:15px;cursor:pointer}';
+    + '.kp-cancel{min-height:48px;padding:0 18px;border-radius:10px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-size:15px;cursor:pointer}'
+    + '.kp-mrow{border:1px solid var(--border,#bbb);border-radius:10px;padding:10px 12px 12px;margin-top:10px}'
+    + '.kp-mhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}'
+    + '.kp-mhead span{font-size:13px;font-weight:700}'
+    + '.kp-mdel{min-height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-size:13px;cursor:pointer}'
+    + '.kp-mrow label{margin-top:10px}'
+    + '.kp-madd{width:100%;min-height:44px;margin-top:10px;border-radius:10px;border:1px dashed var(--border,#bbb);background:transparent;color:inherit;font-size:14px;cursor:pointer}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   var ov = document.createElement('div');
   ov.className = 'kp-overlay';
@@ -39,6 +45,24 @@
     return '<label for="' + id + '">' + label + '</label><input id="' + id + '" type="text" value="' + esc(val) + '">';
   }
   var cur = { kind: '', name: '' };
+  function memberRow(mb, idx) {
+    mb = mb || {};
+    return '<div class="kp-mrow">'
+      + '<div class="kp-mhead"><span>メンバー' + (idx + 1) + '</span><button type="button" class="kp-mdel">削除</button></div>'
+      + '<label>名前<input type="text" class="kp-m-n" value="' + esc(mb.n || '') + '"></label>'
+      + '<label>役割<input type="text" class="kp-m-r" value="' + esc(mb.r || '') + '"></label>'
+      + '<label>X<input type="text" class="kp-m-x" value="' + esc(mb.x || '') + '"></label>'
+      + '<label>Instagram<input type="text" class="kp-m-i" value="' + esc(mb.i || '') + '"></label>'
+      + '<label>所属グループ（任意）<input type="text" class="kp-m-g" value="' + esc(mb.g || '') + '"></label>'
+      + '</div>';
+  }
+  function renumberMembers() {
+    var rows = ov.querySelectorAll('.kp-mrow');
+    for (var i = 0; i < rows.length; i++) {
+      var sp = rows[i].querySelector('.kp-mhead span');
+      if (sp) sp.textContent = 'メンバー' + (i + 1);
+    }
+  }
   function open(kind, name) {
     var bridge = window.KGEditorBridge;
     if (!bridge) return;
@@ -55,8 +79,10 @@
       h += field('TikTok', 'kp-f-t', p.t || '');
       h += field('紹介文', 'kp-f-p', p.p || '', true);
       h += field('別名（、区切り）', 'kp-f-al', (p.al || []).join('、'));
-      var ml = (p.m || []).map(function (mb) { return [mb.n || '', mb.r || '', mb.x || '', mb.i || ''].join(' | '); }).join('\n');
-      h += field('メンバー（1行に1人：名前 | 役割 | X | Instagram）', 'kp-f-m', ml, true);
+      h += '<label>メンバー</label><div id="kp-members">'
+        + (p.m || []).map(function (mb, i) { return memberRow(mb, i); }).join('')
+        + '</div><button type="button" class="kp-madd" id="kp-madd">＋ メンバーを追加</button>'
+        + '<p class="kp-note">スペース版と同じく、1人に1ブロックで名前・役割・X・Instagramを別々の欄に入力します。不要なメンバーは「削除」で外してください。</p>';
     } else {
       h += field('住所', 'kp-f-ad', p.ad || '');
       h += field('ジャンル', 'kp-f-gn', p.gn || '');
@@ -75,6 +101,19 @@
     $('kp-status').textContent = '';
     ov.classList.add('open');
   }
+  $('kp-fields').addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'kp-madd') {
+      var box = $('kp-members'); if (!box) return;
+      box.insertAdjacentHTML('beforeend', memberRow({}, box.querySelectorAll('.kp-mrow').length));
+      renumberMembers();
+      return;
+    }
+    var del = e.target && e.target.closest ? e.target.closest('.kp-mdel') : null;
+    if (del) {
+      var row = del.closest('.kp-mrow');
+      if (row) { row.remove(); renumberMembers(); }
+    }
+  });
   function close() { ov.classList.remove('open'); }
   $('kp-close').addEventListener('click', close);
   $('kp-cancel').addEventListener('click', close);
@@ -84,16 +123,19 @@
     var status = function (t) { $('kp-status').textContent = t; };
     var payload;
     if (cur.kind === 'artist') {
-      var members = val('kp-f-m') ? val('kp-f-m').split('\n').map(function (line) {
-        var parts = line.split('|').map(function (x) { return x.trim(); });
-        return { name: parts[0] || '', role: parts[1] || '', x: parts[2] || '', instagram: parts[3] || '' };
-      }).filter(function (mb) { return mb.name; }) : [];
+      var members = [];
+      ov.querySelectorAll('.kp-mrow').forEach(function (row) {
+        function rv(cls) { var el = row.querySelector(cls); return el ? el.value.trim() : ''; }
+        var mb = { name: rv('.kp-m-n'), role: rv('.kp-m-r'), x: rv('.kp-m-x'), instagram: rv('.kp-m-i'), group: rv('.kp-m-g') };
+        if (mb.name) members.push(mb);
+      });
+      var membersText = members.map(function (mb) { return [mb.name, mb.role, mb.x, mb.instagram, mb.group].join('｜'); }).join('\n');
       payload = {
         kind: 'artistProfile', targetName: cur.name,
         category: val('kp-f-cat'), linkWeb: val('kp-f-w'), linkX: val('kp-f-x'),
         linkInstagram: val('kp-f-i'), linkTikTok: val('kp-f-t'), profileText: val('kp-f-p'),
         aliases: val('kp-f-al') ? val('kp-f-al').split(/[、,，]/).map(function (x) { return x.trim(); }).filter(Boolean) : [],
-        members: members, source: val('kp-f-src'), notes: val('kp-f-note')
+        members: members, membersText: membersText, source: val('kp-f-src'), notes: val('kp-f-note')
       };
     } else {
       payload = {
