@@ -3776,11 +3776,12 @@ document.getElementById("icsBtn").addEventListener("click", function(){
 });
 
 /* ---------- data loading (JSONP primary, fetch fallback) ---------- */
-function applyData(events){
+function applyData(events, cachedSavedAt, cachedSlim){
   allEvents=events;
   attachVenueSupp();
-  var now=new Date();
-  els.updatedAt.textContent = now.getFullYear()+"年"+(now.getMonth()+1)+"月"+now.getDate()+"日 "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  var shownAt = cachedSavedAt ? new Date(cachedSavedAt) : new Date();
+  var stamp = shownAt.getFullYear()+"年"+(shownAt.getMonth()+1)+"月"+shownAt.getDate()+"日 "+String(shownAt.getHours()).padStart(2,"0")+":"+String(shownAt.getMinutes()).padStart(2,"0");
+  els.updatedAt.textContent = cachedSavedAt ? ("保存データ（"+(cachedSlim?"開催予定のみ・":"")+stamp+"取得）を表示中") : stamp;
   var upcomingN=allEvents.filter(function(ev){ return !isEnded(ev); }).length;
   els.totalCount.innerHTML = "掲載 <strong>"+allEvents.length.toLocaleString()+"件</strong>（開催予定・開催中 "+upcomingN.toLocaleString()+"件／終了 "+(allEvents.length-upcomingN).toLocaleString()+"件は既定で非表示）";
   els.loadingState.hidden=true; els.errorState.hidden=true; els.controls.hidden=false; els.listMain.classList.remove("hidden");
@@ -3843,19 +3844,86 @@ function loadViaJsonp(done, fail){
   script.src=SHEET_JSONP_BASE+cbName+"&_="+Date.now();
   document.head.appendChild(script);
 }
+/* ---------- 端末内キャッシュ（IndexedDB） ----------
+   取得できたイベントデータを端末に保存しておき、次回からは保存データを
+   即表示して、最新の取得は裏で続ける。圏外・回線が重いときも保存データで
+   一覧・検索・詳細が見られる（Kota指示 2026-11-23） */
+var EV_CACHE_DB="kg-event-guide-cache", EV_CACHE_KEY="events-v1";
+function evCacheOpen(){
+  return new Promise(function(resolve, reject){
+    if(!window.indexedDB){ reject(new Error("indexedDB unavailable")); return; }
+    var req=indexedDB.open(EV_CACHE_DB, 1);
+    req.onupgradeneeded=function(){ req.result.createObjectStore("kv"); };
+    req.onsuccess=function(){ resolve(req.result); };
+    req.onerror=function(){ reject(req.error); };
+  });
+}
+function evCacheGet(){
+  return evCacheOpen().then(function(db){
+    return new Promise(function(resolve){
+      var req=db.transaction("kv","readonly").objectStore("kv").get(EV_CACHE_KEY);
+      req.onsuccess=function(){ resolve(req.result||null); };
+      req.onerror=function(){ resolve(null); };
+    });
+  }).catch(function(){ return null; });
+}
+function evCacheStore(value){
+  return evCacheOpen().then(function(db){
+    return new Promise(function(resolve){
+      var tx=db.transaction("kv","readwrite");
+      var done=false;
+      function finish(v){ if(!done){ done=true; resolve(v); } }
+      tx.objectStore("kv").put(value, EV_CACHE_KEY);
+      tx.oncomplete=function(){ finish(true); };
+      tx.onerror=function(){ finish(false); };
+      tx.onabort=function(){ finish(false); };
+    });
+  }).catch(function(){ return false; });
+}
+function evCachePut(events){
+  /* 容量不足の端末では全件保存が失敗することがある。その場合は
+     開催予定のみの軽量版で保存し直す（終了分はオンライン時に取得する） */
+  return evCacheStore({savedAt:Date.now(), events:events, slim:false}).then(function(saved){
+    if(saved) return true;
+    var upcoming=events.filter(function(ev){ return !isEnded(ev); });
+    if(upcoming.length===events.length) return false;
+    return evCacheStore({savedAt:Date.now(), events:upcoming, slim:true});
+  });
+}
 function load(){
   els.loadingState.hidden=false; els.errorState.hidden=true; els.controls.hidden=true;
   els.listMain.classList.add("hidden"); els.planView.classList.remove("show");
+  if(els.loadHint) els.loadHint.textContent="Googleスプレッドシートから最新のイベント情報を取得中です。少しお待ちください。";
+  /* 端末内に保存データがあれば即表示し、最新の取得は裏で続ける。
+     保存データがない初回だけ、従来どおり取得完了を待つ */
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  evCacheGet().then(function(cached){
+    if(cached && cached.events && cached.events.length){
+      applyData(cached.events, cached.savedAt, cached.slim);
+      var ageMin=(Date.now()-(cached.savedAt||0))/60000;
+      var conn=navigator.connection||{};
+      var et=conn.effectiveType||"";
+      var dataSaver=!!conn.saveData || et==="slow-2g" || et==="2g";
+      /* 速度制限・低速回線への対策：取得から30分以内は再取得しない（通信量と
+         待ち時間を節約）。データセーバー有効時・2G相当の低速回線では裏での
+         再取得も行わず、保存データの表示だけにする */
+      if(ageMin>=30 && !dataSaver) startNetworkLoad(true);
+    }else{
+      startNetworkLoad(false);
+    }
+  });
+}
+function startNetworkLoad(background){
   /* 主経路は従来どおり JSONP（responseHandler: 形式）。6秒で応答がなければ
      fetch を並行して開始し、先に成功した方を採用する（スマホ回線での待ち時間を短縮）。
-     両方失敗した場合のみ JSONP をもう一度試し、それでもだめならエラー表示にする */
-  if(els.loadHint) els.loadHint.textContent="Googleスプレッドシートから最新のイベント情報を取得中です。少しお待ちください。";
+     両方失敗した場合のみ JSONP をもう一度試し、それでもだめならエラー表示にする。
+     background=true（保存データ表示中）は、失敗してもエラー画面にせず保存データを残す */
   var settled=false, jsonpFailed=false, fetchStarted=false, fetchFailed=false, hedgeTimer=null;
   var hint1=setTimeout(function(){ if(!settled && els.loadHint) els.loadHint.textContent="読み込みに時間がかかっています。そのままお待ちください。"; }, 7000);
   var hint2=setTimeout(function(){ if(!settled && els.loadHint) els.loadHint.textContent="通信が混み合っているようです。別の方法でも取得を試しています。"; }, 16000);
   function clearTimers(){ clearTimeout(hint1); clearTimeout(hint2); if(hedgeTimer) clearTimeout(hedgeTimer); }
-  function ok(events){ if(settled) return; settled=true; clearTimers(); applyData(events); }
-  function failAll(err){ if(settled) return; settled=true; clearTimers(); showError(err); }
+  function ok(events){ if(settled) return; settled=true; clearTimers(); applyData(events); evCachePut(events); }
+  function failAll(err){ if(settled) return; settled=true; clearTimers(); if(background){ els.updatedAt.textContent += "（最新を取得できませんでした）"; } else { showError(err); } }
   function maybeFail(err){
     if(settled) return;
     if(jsonpFailed && fetchFailed){
