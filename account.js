@@ -16,8 +16,8 @@
     '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推しとお気に入りをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button></div>' +
     '<div id="kg-account-choice" hidden><p><strong>この端末のデータをどうしますか？</strong></p><p>統合すると、この端末の推しとお気に入りがアカウントに追加されます。共有端末や別の方のデータなら「アカウントのデータを使う」を選んでください。</p><button id="kg-merge" type="button">この端末のデータを統合</button> <button id="kg-use-cloud" type="button">アカウントのデータを使う</button></div>' +
     '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
-    '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。端末やブラウザを変えても、コードを入れれば推し・お気に入りが維持できます。メールアドレスなどの個人情報は登録しません。</p><button id="kg-code-issue" type="button">会員コードを発行する</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p></div>' +
-    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。コードを失くすとデータに戻れなくなります。</p><button id="kg-code-logout" type="button">この端末からログアウト</button></div></div>' +
+    '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。端末やブラウザを変えても、コードを入れれば推し・お気に入りが維持できます。メールアドレスなどの個人情報は登録しません。</p><button id="kg-code-issue" type="button">会員コードを発行する</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、設定しておいた質問と回答でログインできます（ログイン後、コードを再発行できます）。</p><p><input id="kg-rec-q" type="text" placeholder="あなたの質問" autocomplete="off" style="min-width:200px;padding:6px"><br><input id="kg-rec-a" type="text" placeholder="その回答" autocomplete="off" style="min-width:200px;padding:6px"> <button id="kg-recovery-login" type="button">質問と回答でログイン</button></p></div>' +
+    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><p style="font-size:13px">コードを失くしたとき用に、質問と回答を設定できます（自分で決めた質問と、その回答）。</p><p><input id="kg-qa-q" type="text" placeholder="質問（例：初めて行ったライブは？）" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-qa-a" type="text" placeholder="回答" autocomplete="off" style="min-width:220px;padding:6px"> <button id="kg-qa-save" type="button">質問と回答を保存</button></p><button id="kg-code-logout" type="button">この端末からログアウト</button></div></div>' +
     '<p style="font-size:13px">メールアドレス・推し・お気に入りを認証・保存サービスで扱います。サービス提供者のプライバシーポリシーをご確認ください。</p></dialog>';
   document.body.appendChild(overlay);
   var dialog = $('kg-account-dialog');
@@ -109,34 +109,43 @@
     text('同期中…'); if(!running) flush(uid,g).then(function(ok){if(ok && sameUser(uid,g))text('同期済み。');});
   });
   /* 会員コード方式（Kotaの提案、2026-11-23）：サイト発行のコードが鍵。個人情報なし。
-     データは memberdata/{SHA-256(コード)} に1人1文書で保存する。 */
+     アカウント本体は memberdata/{acct}（ランダムID、1人1文書）。
+     コードの索引は codes/{SHA-256(コード)}、復旧の索引は recovery/{SHA-256(質問:回答)}。
+     コードを失くしても、本人が決めた質問と回答でログインし、コードを再発行できる。 */
   var CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   function newCode(){ var a=new Uint8Array(20); crypto.getRandomValues(a); var s=''; for(var i=0;i<20;i++){ s+=CODE_ALPHABET[a[i]%CODE_ALPHABET.length]; if(i%5===4&&i<19)s+='-'; } return s; }
+  function newAcct(){ var a=new Uint8Array(32); crypto.getRandomValues(a); return Array.from(a).map(function(b){return b.toString(16).padStart(2,'0');}).join(''); }
   function normCode(s){ return (s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
-  async function codeKey(code){ var buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode('kg-member:'+normCode(code))); return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join(''); }
-  function memberRef(key){ return client.doc(client.db,'memberdata',key); }
-  async function memberPull(key){ var snap=await client.getDoc(memberRef(key)); if(!snap.exists())return null; var d=snap.data()||{}; return {event:Array.isArray(d.events)?d.events:[], artist:Array.isArray(d.artists)?d.artists:[]}; }
-  async function memberPush(key){ var local=bridge.read(); await client.setDoc(memberRef(key), {events:local.event, artists:local.artist, updatedAt:Date.now()}); }
-  function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has)$('kg-code-display').textContent=member.code; }
-  function scheduleMemberPush(){ if(!member||!memberReady)return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member)return; memberPush(member.key).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
-  async function activateMember(code, key, fromRestore){
-    var cloud = await memberPull(key);
-    if(!cloud) return false;
-    member = {code:code, key:key};
-    localStorage.setItem('kg_member_code_v1', code);
+  function normQA(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+  async function sha256hex(t){ var buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join(''); }
+  function codeHashOf(code){ return sha256hex('kg-code:'+normCode(code)); }
+  function recoveryHashOf(q,a){ return sha256hex('kg-recovery:'+normQA(q)+':'+normQA(a)); }
+  function memberRef(acct){ return client.doc(client.db,'memberdata',acct); }
+  async function memberDoc(acct){ var snap=await client.getDoc(memberRef(acct)); return snap.exists() ? (snap.data()||{}) : null; }
+  function cloudOf(d){ return {event:Array.isArray(d.events)?d.events:[], artist:Array.isArray(d.artists)?d.artists:[]}; }
+  async function memberPushFavorites(acct){ var local=bridge.read(); await client.setDoc(memberRef(acct), {events:local.event, artists:local.artist, updatedAt:Date.now()}, {merge:true}); }
+  async function memberSetMeta(acct, fields){ await client.setDoc(memberRef(acct), fields, {merge:true}); }
+  function saveMemberSession(){ if(member) localStorage.setItem('kg_member_session_v2', JSON.stringify({acct:member.acct, code:member.code||null})); }
+  function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has) $('kg-code-display').textContent = member.code ? member.code : '（未設定）'; }
+  function scheduleMemberPush(){ if(!member||!memberReady)return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member)return; memberPushFavorites(member.acct).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
+  async function activateMember(acct, code, fromRestore){
+    var d = await memberDoc(acct);
+    if(!d) return false;
+    member = {acct:acct, code:code||null};
+    saveMemberSession();
     renderMember();
-    if(localStorage.getItem('kg_member_selected_v1')===key){ bridge.replace(cloud); memberReady=true; text('同期済み（会員コード）。'); }
-    else { pendingMemberCloud=cloud; choiceMode='member'; parts(false, !user, !!user, true); text('同期方法を選んでください。'); if(!fromRestore) showModal(); }
+    if(localStorage.getItem('kg_member_selected_v2')===acct){ bridge.replace(cloudOf(d)); memberReady=true; text('同期済み（会員コード）。'); }
+    else { pendingMemberCloud=cloudOf(d); choiceMode='member'; parts(false, !user, !!user, true); text('同期方法を選んでください。'); if(!fromRestore) showModal(); }
     return true;
   }
   async function applyMemberChoice(merge){
-    if(!member) return; var key=member.key;
+    if(!member) return;
     try {
-      var cloud = pendingMemberCloud || await memberPull(key) || {event:[],artist:[]};
+      var cloud = pendingMemberCloud || {event:[],artist:[]};
       if(merge){ var local=bridge.read(); ['event','artist'].forEach(function(k){ var s=new Set(cloud[k]); local[k].forEach(function(v){s.add(v);}); cloud[k]=Array.from(s); }); }
-      await client.setDoc(memberRef(key), {events:cloud.event, artists:cloud.artist, updatedAt:Date.now()});
       bridge.replace(cloud);
-      localStorage.setItem('kg_member_selected_v1', key);
+      await memberPushFavorites(member.acct);
+      localStorage.setItem('kg_member_selected_v2', member.acct);
       memberReady=true; pendingMemberCloud=null;
       parts(false, !user, !!user, false);
       text('同期済み（会員コード）。');
@@ -145,15 +154,15 @@
   $('kg-code-issue').onclick=async function(){
     if(!client){ text('接続の準備中です。少し待ってからお試しください。'); return; }
     if(member){ text('すでに会員コードでログイン中です。'); return; }
-    var code=newCode();
     try {
-      var key=await codeKey(code);
-      member={code:code, key:key};
-      await memberPush(key);
-      localStorage.setItem('kg_member_code_v1', code);
-      localStorage.setItem('kg_member_selected_v1', key);
+      var acct=newAcct(); var code=newCode(); var ch=await codeHashOf(code);
+      var local=bridge.read();
+      await client.setDoc(memberRef(acct), {events:local.event, artists:local.artist, updatedAt:Date.now(), codeHash:ch});
+      await client.setDoc(client.doc(client.db,'codes',ch), {acct:acct});
+      member={acct:acct, code:code}; saveMemberSession();
+      localStorage.setItem('kg_member_selected_v2', acct);
       memberReady=true; renderMember();
-      text('会員コードを発行しました。コードを控えてください。');
+      text('会員コードを発行しました。コードを控えてください。質問と回答を設定すると、コードを失くしても戻れます。');
     } catch(e){ member=null; text('コードを発行できませんでした（'+((e&&e.code)||'エラー')+'）。データベースの準備ができていない可能性があります。'); }
   };
   $('kg-code-login').onclick=async function(){
@@ -161,15 +170,57 @@
     var code=$('kg-code-input').value;
     if(normCode(code).length<20){ text('コードの形式が違うようです。'); return; }
     try {
-      var key=await codeKey(code);
-      if(!await activateMember(code, key)) text('そのコードのデータが見つかりませんでした。');
+      var ch=await codeHashOf(code);
+      var snap=await client.getDoc(client.doc(client.db,'codes',ch));
+      if(!snap.exists()){ text('そのコードが見つかりませんでした。'); return; }
+      if(!await activateMember(snap.data().acct, code)) text('データが見つかりませんでした。');
     } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。'); }
   };
-  $('kg-code-copy').onclick=function(){ if(!member)return; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(member.code).then(function(){ text('コードをコピーしました。'); }, function(){ text('コピーできませんでした。コードをメモしてください。'); }); } };
+  $('kg-recovery-login').onclick=async function(){
+    if(!client){ text('接続の準備中です。少し待ってからお試しください。'); return; }
+    var q=$('kg-rec-q').value, a=$('kg-rec-a').value;
+    if(!normQA(q)||!normQA(a)){ text('質問と回答の両方を入力してください。'); return; }
+    try {
+      var rh=await recoveryHashOf(q,a);
+      var snap=await client.getDoc(client.doc(client.db,'recovery',rh));
+      if(!snap.exists()){ text('質問と回答が一致するアカウントが見つかりませんでした。'); return; }
+      var ok=await activateMember(snap.data().acct, null);
+      if(!ok){ text('データが見つかりませんでした。'); return; }
+      if(memberReady) text('質問と回答でログインしました。コードは未設定です。「コードを再発行」で新しいコードを作ってください。');
+    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。'); }
+  };
+  $('kg-code-copy').onclick=function(){ if(!member||!member.code)return; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(member.code).then(function(){ text('コードをコピーしました。'); }, function(){ text('コピーできませんでした。コードをメモしてください。'); }); } };
+  $('kg-code-reissue').onclick=async function(){
+    if(!member||!client) return;
+    if(!confirm('新しいコードを発行します。今までのコードは使えなくなります。よろしいですか？')) return;
+    try {
+      var d=await memberDoc(member.acct);
+      var code=newCode(); var ch=await codeHashOf(code);
+      await client.setDoc(client.doc(client.db,'codes',ch), {acct:member.acct});
+      if(d && d.codeHash && d.codeHash!==ch){ try{ await client.deleteDoc(client.doc(client.db,'codes',d.codeHash)); }catch(_){} }
+      await memberSetMeta(member.acct, {codeHash:ch});
+      member.code=code; saveMemberSession(); renderMember();
+      text('新しいコードを発行しました。控えてください。');
+    } catch(e){ text('再発行できませんでした（'+((e&&e.code)||'エラー')+'）。'); }
+  };
+  $('kg-qa-save').onclick=async function(){
+    if(!member||!client) return;
+    var q=$('kg-qa-q').value, a=$('kg-qa-a').value;
+    if(!normQA(q)||!normQA(a)){ text('質問と回答の両方を入力してください。'); return; }
+    try {
+      var d=await memberDoc(member.acct);
+      var rh=await recoveryHashOf(q,a);
+      if(d && d.recoveryHash && d.recoveryHash!==rh){ try{ await client.deleteDoc(client.doc(client.db,'recovery',d.recoveryHash)); }catch(_){} }
+      await client.setDoc(client.doc(client.db,'recovery',rh), {acct:member.acct});
+      await memberSetMeta(member.acct, {recoveryHash:rh});
+      $('kg-qa-a').value='';
+      text('質問と回答を保存しました。コードを失くしても、この質問と回答でログインできます。');
+    } catch(e){ text('保存できませんでした（'+((e&&e.code)||'エラー')+'）。'); }
+  };
   $('kg-code-logout').onclick=function(){
     if(!member)return;
-    if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。コードを控えていない場合、データに戻れなくなります。よろしいですか？'))return;
-    localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1');
+    if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。よろしいですか？'))return;
+    localStorage.removeItem('kg_member_session_v2'); localStorage.removeItem('kg_member_selected_v2'); localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1');
     member=null; memberReady=false; pendingMemberCloud=null; renderMember();
     bridge.replace({event:[],artist:[]});
     text('ログアウトしました。');
@@ -203,8 +254,9 @@
       auth.onAuthStateChanged(client.auth,function(u){setupSession(u ? {user:{id:u.uid,email:u.email}} : null);});
       if(auth.getRedirectResult){ auth.getRedirectResult(client.auth).catch(function(err){ text('ログインできませんでした（'+((err&&err.code)||'不明なエラー')+'）。もう一度お試しください。'); }); }
       $('kg-member').hidden=false;
-      var savedCode=localStorage.getItem('kg_member_code_v1');
-      if(savedCode){ codeKey(savedCode).then(function(key){ return activateMember(savedCode, key, true); }).catch(function(){ /* 復元できない場合は未ログインのまま */ }); }
+      try{ localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1'); }catch(_){}
+      var savedSession=null; try{ savedSession=JSON.parse(localStorage.getItem('kg_member_session_v2')||'null'); }catch(_){}
+      if(savedSession && savedSession.acct){ activateMember(savedSession.acct, savedSession.code||null, true).catch(function(){ /* 復元できない場合は未ログインのまま */ }); }
     } catch(e){parts(true,false,false,false);text('ログイン機能を読み込めません。通信と設定をご確認ください。');}
   })();
 })();
