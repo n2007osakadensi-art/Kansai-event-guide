@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="関西イベントガイド">
+  <rect width="192" height="192" rx="30" fill="#c62828"/>
+  <rect x="27" y="40" width="138" height="126" rx="18" fill="#fff"/>
+  <path d="M27 58a18 18 0 0 1 18-18h102a18 18 0 0 1 18 18v19H27z" fill="#f5dfe0"/>
+  <rect x="52" y="26" width="15" height="34" rx="7.5" fill="#fff"/>
+  <rect x="125" y="26" width="15" height="34" rx="7.5" fill="#fff"/>
+  <text x="96" y="130" text-anchor="middle" font-family="system-ui, sans-serif" font-size="42" font-weight="800" fill="#c62828">関西</text>
+</svg>
