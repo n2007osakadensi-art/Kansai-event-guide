@@ -560,6 +560,45 @@
   .home-ticker{display:flex;align-items:stretch;background:#17181c;color:#f4f2ec;border-radius:12px;overflow:hidden;min-height:50px;margin:0 0 14px;box-shadow:var(--shadow)}
   .home-ticker .sg-ticker-track{animation-duration:60s}
 </style>
+<script>
+/* 起動の見張り（2026-11-23）: 保存データや更新の仕組みが壊れて固まった場合に、
+   自分で直して読み込み直すための保険。固まったまま何もできない状態を防ぐ。
+   ?reset=1 で開くと、保存データと画面の控えを消して素の状態から読み直す。 */
+(function(){
+  var KEY='kg_boot_guard_v1';
+  function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
+  function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
+  var st=read()||{};
+  var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
+  save({pending:Date.now(), fails:fails});
+  window.__kgBooted=false;
+  window.__kgBootMarkOk=function(){ window.__kgBooted=true; save({pending:0, fails:0, ok:Date.now()}); };
+  function wipeDerived(){
+    var jobs=[];
+    if(window.caches && caches.keys){ jobs.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); }).catch(function(){})); }
+    jobs.push(new Promise(function(res){ try{ var rq=indexedDB.deleteDatabase('kg-event-guide-cache'); rq.onsuccess=rq.onerror=rq.onblocked=function(){ res(); }; setTimeout(res,3000); }catch(e){ res(); } }));
+    return Promise.all(jobs);
+  }
+  function wipeAll(){
+    var jobs=[wipeDerived()];
+    if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations){ jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){ return r.unregister(); })); }).catch(function(){})); }
+    return Promise.all(jobs);
+  }
+  function cleanUrl(){ try{ var u=new URL(location.href); u.searchParams.delete('reset'); return u.href; }catch(e){ return location.pathname; } }
+  window.KG_RESET_SITE=function(){ wipeAll().then(function(){ save({pending:0,fails:0}); location.replace(cleanUrl()); }); };
+  var params=null; try{ params=new URLSearchParams(location.search); }catch(e){}
+  if(params && params.get('reset')==='1'){ wipeAll().then(function(){ save({pending:0,fails:0}); location.replace(cleanUrl()); }); return; }
+  if(fails>=2){ wipeDerived().then(function(){ save({pending:Date.now(),fails:0}); location.reload(); }); return; }
+  setTimeout(function(){
+    if(window.__kgBooted) return;
+    var d=document.createElement('div');
+    d.setAttribute('style','position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;background:#fff;color:#222;border:2px solid #c0392b;border-radius:12px;padding:14px 16px;font-family:system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3);line-height:1.6');
+    d.innerHTML='<strong style="font-size:15px">読み込みが止まっているようです</strong><br><span style="font-size:13px">端末内に保存されたサイトのデータが壊れていると、固まったままになることがあります。保存データを消して読み込み直すと直る場合があります（お気に入り・推しは消えません）。</span><br><button type="button" style="margin-top:10px;min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#c0392b;color:#fff;font-size:15px;font-weight:700;cursor:pointer">保存データを消して再読み込み</button>';
+    d.querySelector('button').addEventListener('click', function(){ window.KG_RESET_SITE(); });
+    (document.body||document.documentElement).appendChild(d);
+  }, 20000);
+})();
+</script>
 </head>
 <body style="overflow: hidden;">
 <header class="site">
@@ -2284,7 +2323,7 @@ function artistEvents(name){
   return (idx[name]||[]).slice();
 }
 /* ---------- bundled profile DB (ガイド側の会場DB・アーティストプロフィール) ---------- */
-var venueProfiles={}, artistProfiles={}, readingByName={}, dictByName={}, artistCats={}, profilesLoaded=false, profilesLoading=null;
+var venueProfiles={}, artistProfiles={}, readingByName={}, dictByName={}, artistCats={}, artistCatCache={}, dictRevMap=null, profilesLoaded=false, profilesLoading=null;
 var dirPrefFilter="すべて", dirAreaFilter="すべて", dirTypeFilter="すべて";
 var venueProfByName={};
 function stripVenueSuffix(s){ return String(s||"").replace(/（[^）]*）\s*$/,"").replace(/\([^)]*\)\s*$/,"").trim(); }
@@ -2329,8 +2368,9 @@ function loadProfiles(){
     if(res[1]){ artistProfiles=res[1]; }
     if(res[2]){ Object.keys(res[2]).forEach(function(rd){ var nm=res[2][rd]; if(nm && !readingByName[nm]) readingByName[nm]=rd; }); }
     if(res[3]){ venueSuppById=res[3]; attachVenueSupp(); }
-    if(res[4]){ dictByName=res[4]; dictWords.memo={}; }
+    if(res[4]){ dictByName=res[4]; dictWords.memo={}; buildDictRevMap(); }
     if(res[5]){ artistCats=res[5]; }
+    artistCatCache={};
     profilesLoaded=true; profilesLoading=null;
     artistProfCache={};
     allEvents.forEach(function(ev){ ev._hay=null; });
@@ -2343,8 +2383,10 @@ function loadProfiles(){
   }
 }
 function artistCanonicalOf(name){
-  /* 検索辞書で正式名に解決する（辞書は正式名キー→表記ゆれ配列） */
+  /* 検索辞書で正式名に解決する（辞書は正式名キー→表記ゆれ配列）。
+     逆引き表は辞書の読み込み時に一度だけ作る */
   if(dictByName[name]) return name;
+  if(dictRevMap) return dictRevMap[name]||null;
   var hit=null;
   Object.keys(dictByName).some(function(k){ if((dictByName[k]||[]).indexOf(name)>=0){ hit=k; return true; } return false; });
   return hit;
@@ -2352,8 +2394,15 @@ function artistCanonicalOf(name){
 function artistCategoryOf(name){
   /* アーティストのカテゴリ解決はこの関数だけを使う（スペース版の解決順に合わせる）:
      プロフィールのカテゴリ（手動上書き）→ 分類マップ → 辞書で正式名に解決して再試行
-     → メンバーなら所属グループの結果。どれにも無ければ未分類（推測で入れない）。 */
+     → メンバーなら所属グループの結果。どれにも無ければ未分類（推測で入れない）。
+     結果は名前ごとに覚えて、毎回の描画で全件を解き直さない */
   if(!name) return "";
+  if(Object.prototype.hasOwnProperty.call(artistCatCache, name)) return artistCatCache[name];
+  var resolved=artistCategoryResolve(name);
+  artistCatCache[name]=resolved;
+  return resolved;
+}
+function artistCategoryResolve(name){
   var prof=artistProfileFor(name);
   if(prof && prof.c) return prof.c;
   if(artistCats[name]) return artistCats[name];
@@ -2370,6 +2419,10 @@ function artistCategoryOf(name){
     if(artistCats[groups[i]]) return artistCats[groups[i]];
   }
   return "";
+}
+function buildDictRevMap(){
+  dictRevMap={};
+  Object.keys(dictByName).forEach(function(k){ (dictByName[k]||[]).forEach(function(word){ if(!dictRevMap[word]) dictRevMap[word]=k; }); });
 }
 function buildArtists(){
   var idx=buildPerfIndex();
@@ -4008,6 +4061,7 @@ function applyData(events, cachedSavedAt, cachedSlim, cachedLite){
     setTimeout(function(){ if(!prefs.onboarded && !kgAdminOn() && !kgHasLocalSession()) obOpen(); }, 900);
   }
   loadProfiles();
+  if(window.__kgBootMarkOk) window.__kgBootMarkOk();
 }
 function showError(err){
   els.loadingState.hidden=true; els.errorState.hidden=false;
@@ -4065,9 +4119,12 @@ function evCacheOpen(){
   return new Promise(function(resolve, reject){
     if(!window.indexedDB){ reject(new Error("indexedDB unavailable")); return; }
     var req=indexedDB.open(EV_CACHE_DB, 1);
+    var settled=false;
+    var timer=setTimeout(function(){ if(!settled){ settled=true; reject(new Error("idb open timeout")); } }, 5000);
     req.onupgradeneeded=function(){ req.result.createObjectStore("kv"); };
-    req.onsuccess=function(){ resolve(req.result); };
-    req.onerror=function(){ reject(req.error); };
+    req.onsuccess=function(){ if(!settled){ settled=true; clearTimeout(timer); resolve(req.result); } };
+    req.onerror=function(){ if(!settled){ settled=true; clearTimeout(timer); reject(req.error); } };
+    req.onblocked=function(){ if(!settled){ settled=true; clearTimeout(timer); reject(new Error("idb blocked")); } };
   });
 }
 function evCacheGet(){
@@ -4078,6 +4135,17 @@ function evCacheGet(){
       req.onerror=function(){ resolve(null); };
     });
   }).catch(function(){ return null; });
+}
+function evCacheDelete(){
+  return evCacheOpen().then(function(db){
+    return new Promise(function(resolve){
+      var tx=db.transaction("kv","readwrite");
+      tx.objectStore("kv").delete(EV_CACHE_KEY);
+      tx.oncomplete=function(){ resolve(true); };
+      tx.onerror=function(){ resolve(false); };
+      tx.onabort=function(){ resolve(false); };
+    });
+  }).catch(function(){ return false; });
 }
 function evCacheStore(value){
   return evCacheOpen().then(function(db){
@@ -4172,12 +4240,14 @@ function load(force){
   /* 端末内に保存データがあれば即表示し、最新の取得は裏で続ける。
      保存データがない初回だけ、従来どおり取得完了を待つ */
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
-  restoreLocalMirror().then(function(){
+  var mirrorWait=Promise.race([restoreLocalMirror(), new Promise(function(res){ setTimeout(res, 4000); })]);
+  mirrorWait.then(function(){
   resyncLocalState();
   evCacheGet().then(function(cached){
     if(cached && cached.events && cached.events.length){
       detailsState = cached.lite ? "pending" : "merged";
-      applyData(cached.events, cached.savedAt, cached.slim, cached.lite);
+      try{ applyData(cached.events, cached.savedAt, cached.slim, cached.lite); }
+      catch(e){ evCacheDelete(); startNetworkLoad(false); return; }
       var ageMin=(Date.now()-(cached.savedAt||0))/60000;
       var conn=navigator.connection||{};
       var et=conn.effectiveType||"";

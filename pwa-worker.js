@@ -6,7 +6,7 @@
 'use strict';
 
 var CACHE_PREFIX='kg-event-guide-shell-';
-var CACHE_NAME=CACHE_PREFIX+'v40';
+var CACHE_NAME=CACHE_PREFIX+'v41';
 var SHELL_FILES=[
   './index.html',
   './app.webmanifest',
@@ -84,8 +84,18 @@ self.addEventListener('fetch',function(event){
     var cache=await caches.open(CACHE_NAME);
     try{
       /* 画面（ナビゲーション）はHTTPキャッシュを経由せず取り直す。
-         GitHub Pagesの max-age=600 の間は古い画面が返り、更新が届かないため */
-      var response=await fetch(isNavigation?new Request(request,{cache:'reload'}):request);
+         GitHub Pagesの max-age=600 の間は古い画面が返り、更新が届かないため。
+         取得が10秒を超えたら待たずに保存済みの画面へ落とす（固まり防止） */
+      var fetchReq=isNavigation?new Request(request,{cache:'reload'}):request;
+      var response;
+      if(isNavigation && self.AbortController){
+        var ac=new AbortController();
+        var ft=setTimeout(function(){ ac.abort(); }, 10000);
+        try{ response=await fetch(fetchReq,{signal:ac.signal}); }
+        finally{ clearTimeout(ft); }
+      } else {
+        response=await fetch(fetchReq);
+      }
       if(response&&response.ok&&response.type==='basic'){
         try{
           await cache.put(request,response.clone());
