@@ -430,13 +430,18 @@
       if (dropped.length) payload.preservedUnloadedFields = dropped;
     }
     if (!cfg.endpoint) { status('送信先が未設定です（受付の準備中）。入力内容はまだ送信されていません。'); return; }
+    var sendBtn = $('ke-send'); sendBtn.disabled = true;
     status('送信しています…');
     try {
-      var res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload) });
-      var data = await res.json();
+      var ctl = ('AbortController' in window) ? new AbortController() : null;
+      var timer = ctl ? setTimeout(function () { ctl.abort(); }, 25000) : null;
+      var res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload), signal: ctl ? ctl.signal : undefined });
+      if (timer) clearTimeout(timer);
+      var data = await res.json().catch(function () { return null; });
       if (data && (data.ok || data.success === 'true' || data.success === true)) { status('送信しました。確認のうえガイドへ反映されます。'); }
       else { status('送信できませんでした。時間をおいてお試しください。'); }
-    } catch (e) { status('送信できたか確認できませんでした。通信状態をご確認ください。'); }
+    } catch (e) { status('送信の確認ができませんでした（受付からの応答がありませんでした）。受付に届いている場合があるので、少し時間をおき、届いていないときだけ再送してください。'); }
+    finally { sendBtn.disabled = false; }
   };
   /* 入口：ヘッダー（ログイン/同期の隣、スペース版と同じメイン画面の位置）に
      「＋ 新規登録・修正」ボタンを常時出す。送信は受付への申請形式なので、
