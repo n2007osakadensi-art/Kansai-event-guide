@@ -568,7 +568,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v44';
+  window.__kgShell='v45';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2593,17 +2593,18 @@ function renderDir(){
     if(dirArtistSort==="gojuon"){
       shownA.sort(function(a,b){ var c=artistSortKey(a.name).localeCompare(artistSortKey(b.name),"ja"); return c||a.name.localeCompare(b.name,"ja"); });
     } else if(dirArtistSort==="abc"){
-      shownA.sort(function(a,b){ var ia=abcInitOf(a.name), ib=abcInitOf(b.name); if(ia!==ib) return ia<ib?-1:1; var c=artistSortKey(a.name).localeCompare(artistSortKey(b.name),"ja"); return c||a.name.localeCompare(b.name,"ja"); });
+      shownA.sort(function(a,b){ var ia=abcInitOf(a.name), ib=abcInitOf(b.name); if(ia!==ib) return ia<ib?-1:1; var c=a.name.localeCompare(b.name,"ja"); return c||artistSortKey(a.name).localeCompare(artistSortKey(b.name),"ja"); });
     }
     var dbNoteA = profilesLoaded ? "（うちプロフィール登録 "+Object.keys(artistProfiles).length+"組）" : "（プロフィールを読み込み中…）";
     els.dirCount.innerHTML="<strong>"+shownA.length+"件</strong> のアーティスト（全"+items.length+"件）"+dbNoteA;
     els.dirEmpty.hidden = shownA.length>0;
-    els.dirList.innerHTML=shownA.slice(0,300).map(function(it){
+    var dirCap = dirArtistSort==="count" ? 300 : 600;
+    els.dirList.innerHTML=shownA.slice(0,dirCap).map(function(it){
       var sub = it.cat || (readingByName[it.name]||"");
       var oshiBtn = '<button class="oshi-mini'+(favPerfs.has(it.name)?" on":"")+'" type="button" data-oshi-toggle="'+esc(it.name)+'" aria-label="推し登録">'+(favPerfs.has(it.name)?"★":"☆")+'</button>';
       var counts = '<span class="dir-counts"><strong>'+it.upcoming+'件</strong>開催予定（全'+it.total+'件）</span>';
       return '<div class="dir-row"><button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">プロフィール</span>':"")+(favPerfs.has(it.name)?'<span style="color:var(--oshi);font-size:12.5px">★ 推し</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+oshiBtn+counts+'</div>';
-    }).join("") + (shownA.length>300 ? '<p style="font-size:13px;color:var(--muted);text-align:center">'+(dirArtistSort==="count"?"上位":"先頭")+'300件まで表示しています。検索や絞り込みで探してください。</p>' : "");
+    }).join("") + (shownA.length>dirCap ? '<p style="font-size:13px;color:var(--muted);text-align:center">'+(dirArtistSort==="count"?"上位":"先頭")+dirCap+'件まで表示しています。検索や絞り込みで探してください。</p>' : "");
     return;
   }
   /* ----- 会場DB：都道府県とエリアを主軸にする（イベント絞り込みとは独立に動く） -----
