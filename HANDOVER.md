@@ -25,6 +25,8 @@ https://docs.google.com/spreadsheets/d/1oUuy1PvoQgNa5f1HoXqMHgLUfdPW_ctVNxyHih0c
 
 ## イベント調査の引き継ぎ（他AIが調査を担当する場合）
 
+**イベント記載の定義・ルールの正本は `docs/event-listing-rules.md`**（スペース版ガイドとスマホ対応版の統合ルール）。以下は要点のみで、作業時は正本に従うこと。他AIへの指示文は `docs/instruction-for-ai.md` にあります。
+
 - 入力先はシートの **`外部AI入力` タブ**。ここに提案を書いても自動では公開されません。処理側が「一次情報で再検証 → 本体へ登録 → シート同期 → 表示確認」まで行って初めて掲載されます。書き方の列構成はタブのヘッダーに従うこと。
 - 対象は「見に行ける・参加できる」イベントのみ。対象外: 配信のみのイベント、ポイント還元・抽選会単体・セール等の販促のみの催し。事前申込制・抽選制・公開収録・FCイベントは対象。
 - 裏取りは一次情報（主催・会場・出演者の公式サイト/SNS、チケット販売ページ）で行う。公式情報だけでは詳細が足りない場合は、複数の告知やニュース記事を集めてすり合わせ、一致した内容を1つの正確な情報にする。**情報源同士で矛盾が残る部分は推測で埋めず「要確認」として残す。**
@@ -74,3 +76,5 @@ https://docs.google.com/spreadsheets/d/1oUuy1PvoQgNa5f1HoXqMHgLUfdPW_ctVNxyHih0c
 - `docs/login-design-spec.md` — 会員コード方式の設計
 - `docs/editor-spec.md` — 編集フォームの仕様
 - `docs/after-expo-feature-spec.md` — アフター万博特集の選定ルール
+- `docs/event-listing-rules.md` — イベント記載の定義・ルール（正本）
+- `docs/instruction-for-ai.md` — 他AIへ渡す指示文
