@@ -9,8 +9,9 @@
   var css = ''
     + '.kp-overlay{position:fixed;inset:0;background:rgba(10,10,20,.55);z-index:1200;display:none;align-items:flex-start;justify-content:center;padding:10px;box-sizing:border-box}'
     + '.kp-overlay.open{display:flex}'
-    + '.kp-box{background:var(--surface,#fff);color:var(--text,#222);width:min(680px,100%);max-height:94dvh;overflow-y:auto;border-radius:14px;box-sizing:border-box;padding:0 16px 16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}'
-    + '.kp-top{position:sticky;top:0;background:inherit;display:flex;align-items:center;justify-content:space-between;padding:12px 0 8px;z-index:2}'
+    + '.kp-box{background:var(--surface,#fff);color:var(--text,#222);width:min(680px,100%);max-height:94dvh;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-sizing:border-box;padding:0;box-shadow:0 12px 40px rgba(0,0,0,.35)}'
+    + '.kp-top{flex:none;display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px}'
+    + '.kp-scroll{overflow-y:auto;flex:1;padding:0 16px;-webkit-overflow-scrolling:touch}'
     + '.kp-top strong{font-size:16px}'
     + '.kp-x{width:44px;height:44px;border-radius:10px;border:1px solid var(--border,#ccc);background:transparent;color:inherit;font-size:18px;cursor:pointer}'
     + '.kp-box label{display:block;font-size:13px;font-weight:600;margin:14px 0 4px;line-height:1.45}'
@@ -18,7 +19,7 @@
     + '.kp-box textarea{min-height:76px}'
     + '.kp-note{font-size:12.5px;color:var(--muted,#777);line-height:1.6;margin-top:8px}'
     + '.kp-status{font-size:13.5px;margin-top:12px;line-height:1.6}'
-    + '.kp-sendbar{position:sticky;bottom:0;background:inherit;display:flex;gap:10px;padding:12px 0 2px;z-index:2}'
+    + '.kp-sendbar{flex:none;display:flex;gap:10px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border,#ddd)}'
     + '.kp-send{flex:1;min-height:48px;border:0;border-radius:10px;background:var(--accent,#b8860b);color:#fff;font-size:15px;font-weight:700;cursor:pointer}'
     + '.kp-cancel{min-height:48px;padding:0 18px;border-radius:10px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-size:15px;cursor:pointer}'
     + '.kp-mrow{border:1px solid var(--border,#bbb);border-radius:10px;padding:10px 12px 12px;margin-top:10px}'
@@ -34,9 +35,9 @@
   ov.className = 'kp-overlay';
   ov.innerHTML = '<div class="kp-box" role="dialog" aria-modal="true">'
     + '<div class="kp-top"><strong id="kp-title">プロフィールの追加・修正</strong><button type="button" class="kp-x" id="kp-close" aria-label="閉じる">✕</button></div>'
-    + '<div id="kp-fields"></div>'
+    + '<div class="kp-scroll"><div id="kp-fields"></div>'
     + '<p class="kp-note">現在のプロフィール値を表示しています。直す箇所だけ変更して送信してください。空欄にした項目は「未設定への変更」として送られます。送信内容は受付で確認され、ガイド本体のプロフィールに反映されます。反映後にこの画面を開き直すと新しい値で確認できます。</p>'
-    + '<p class="kp-status" id="kp-status"></p>'
+    + '<p class="kp-status" id="kp-status"></p></div>'
     + '<div class="kp-sendbar"><button type="button" class="kp-send" id="kp-send">送信する</button><button type="button" class="kp-cancel" id="kp-cancel">閉じる</button></div>'
     + '</div>';
   document.body.appendChild(ov);

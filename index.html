@@ -333,6 +333,8 @@
   .member-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
   .member-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--surface2);border-radius:10px;padding:8px 12px;font-size:14px}
   .member-row .mname{font-weight:700}
+  .member-row .mgroup{color:var(--accent);font-size:12.5px;font-weight:700}
+  .venue-hero{width:100%;border-radius:12px;margin-top:12px;display:block}
   .member-row .mrole{color:var(--muted);font-size:12.5px}
   .member-row .mlinks{margin-left:auto;display:flex;gap:10px}
   .member-row a{color:var(--accent);font-weight:700;font-size:13px;text-decoration:none}
@@ -568,7 +570,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v48';
+  window.__kgShell='v49';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2722,7 +2724,7 @@ function renderDetail(){
               var ml="";
               if(mb.x) ml+='<a href="'+esc(mb.x)+'" target="_blank" rel="noopener">X</a>';
               if(mb.i) ml+='<a href="'+esc(mb.i)+'" target="_blank" rel="noopener">Instagram</a>';
-              return '<div class="member-row"><span class="mname">'+esc(mb.n||"")+'</span>'+(mb.r?'<span class="mrole">'+esc(mb.r)+'</span>':"")+(ml?'<span class="mlinks">'+ml+'</span>':"")+'</div>';
+              return '<div class="member-row"><span class="mname">'+esc(mb.n||"")+'</span>'+(mb.g?'<span class="mgroup">'+esc(mb.g)+'</span>':"")+(mb.r?'<span class="mrole">'+esc(mb.r)+'</span>':"")+(ml?'<span class="mlinks">'+ml+'</span>':"")+'</div>';
             }).join("")+'</div>';
       }
     }
@@ -2752,6 +2754,7 @@ function renderDetail(){
       +'<p style="margin-top:4px">開催予定 '+upcoming.length+'件 ／ 全 '+evs.length+'件のイベントが掲載されています。</p>';
     if(vprof){
       if(vprof.sm) head+='<p class="prof-text">'+esc(vprof.sm)+'</p>';
+      if(vprof.hi) head+='<img class="venue-hero" src="'+esc(vprof.hi)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
       var vrows="";
       if(vprof.ad) vrows+='<dt>住所</dt><dd>'+esc(vprof.ad)+'</dd>';
       if(vprof.ac) vrows+='<dt>アクセス</dt><dd>'+esc(vprof.ac)+'</dd>';
@@ -2759,15 +2762,23 @@ function renderDetail(){
       if(vprof.hr) vrows+='<dt>営業時間</dt><dd>'+esc(vprof.hr)+'</dd>';
       var vparts=venueGenreParts(vprof); var vg=genrePath(vparts.form,vparts.sub); if(vprof.gn) vrows+='<dt>ジャンル</dt><dd>'+esc(vg)+'</dd>';
       if(vprof.tp) vrows+='<dt>施設種別</dt><dd>'+esc(vprof.tp)+'</dd>';
+      if(vprof.gg) vrows+='<dt>ジャンル分類</dt><dd>'+esc(vprof.gg)+'</dd>';
+      if(vprof.am && vprof.am.length){
+        var AM_LBL={barrierFree:"バリアフリー",lockers:"ロッカー",atm:"ATM",nursing:"授乳室",parking:"駐車場",pets:"ペット",smoking:"喫煙所",toilet:"トイレ",aed:"AED",battery:"充電",prayer:"祈祷室",wifi:"Wi-Fi"};
+        vprof.am.forEach(function(a){ if(a && a.t) vrows+='<dt>'+esc(AM_LBL[a.k]||a.k||"設備")+'</dt><dd>'+esc(a.t)+'</dd>'; });
+      }
       if(vrows) head+='<dl class="detail" style="margin-top:12px">'+vrows+'</dl>';
       var vlinks="";
       if(vprof.ws) vlinks+='<a class="link-btn lb-web" href="'+esc(vprof.ws)+'" target="_blank" rel="noopener">公式サイト</a>';
       if(vprof.x) vlinks+='<a class="link-btn lb-x" href="'+esc(vprof.x)+'" target="_blank" rel="noopener">X</a>';
       if(vprof.ig) vlinks+='<a class="link-btn lb-ig" href="'+esc(vprof.ig)+'" target="_blank" rel="noopener">Instagram</a>';
       if(vprof.fm) vlinks+='<a class="link-btn lb-ticket" href="'+esc(vprof.fm)+'" target="_blank" rel="noopener">施設案内</a>';
+      if(vprof.mi && vprof.mi.length) vprof.mi.forEach(function(e){ if(e && e.u) vlinks+='<a class="link-btn lb-ticket" href="'+esc(e.u)+'" target="_blank" rel="noopener">'+esc(e.l||e.k||"フロアガイド")+'</a>'; });
       var mq=(vprof.lt!=null&&vprof.lg!=null)?(vprof.lt+","+vprof.lg):(vprof.ad||name);
       vlinks+='<a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">地図を開く</a>';
       head+='<div class="link-row">'+vlinks+'</div>';
+    } else {
+      head+='<div class="link-row"><a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
     }
     head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailProfEditBtn">プロフィールの追加・修正を送る</button></div>';
     head+='</div>';
@@ -5262,7 +5273,7 @@ window.KGEditorBridge = {
   getArtistProfile: function(name){
     var p = artistProfileFor(name);
     var out = { name: name, cat: artistCategoryOf(name), profile: null };
-    if (p) out.profile = { c: p.c || '', p: p.p || '', w: p.w || '', x: p.x || '', i: p.i || '', t: p.t || '', al: (p.al || []).slice(), m: (p.m || []).map(function(mb){ return { n: mb.n || '', r: mb.r || '', x: mb.x || '', i: mb.i || '' }; }) };
+    if (p) out.profile = { c: p.c || '', p: p.p || '', w: p.w || '', x: p.x || '', i: p.i || '', t: p.t || '', al: (p.al || []).slice(), m: (p.m || []).map(function(mb){ return { n: mb.n || '', r: mb.r || '', x: mb.x || '', i: mb.i || '', g: mb.g || '' }; }) };
     return out;
   },
   getVenueProfile: function(name){
