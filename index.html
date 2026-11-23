@@ -3904,10 +3904,11 @@ function load(){
       var conn=navigator.connection||{};
       var et=conn.effectiveType||"";
       var dataSaver=!!conn.saveData || et==="slow-2g" || et==="2g";
-      /* 速度制限・低速回線への対策：取得から30分以内は再取得しない（通信量と
-         待ち時間を節約）。データセーバー有効時・2G相当の低速回線では裏での
-         再取得も行わず、保存データの表示だけにする */
-      if(ageMin>=30 && !dataSaver) startNetworkLoad(true);
+      /* 速度制限・低速回線への対策：更新は頻繁でないため、再取得は半日（12時間）
+         に1回で足りる（Kota指示 2026-11-23）。それまでは再ダウンロードせず
+         保存データを表示する。データセーバー有効時・2G相当の低速回線では
+         裏での再取得も行わず、回線が安定した環境に戻ってから更新する */
+      if(ageMin>=720 && !dataSaver) startNetworkLoad(true);
     }else{
       startNetworkLoad(false);
     }
@@ -3922,7 +3923,16 @@ function startNetworkLoad(background){
   var hint1=setTimeout(function(){ if(!settled && els.loadHint) els.loadHint.textContent="読み込みに時間がかかっています。そのままお待ちください。"; }, 7000);
   var hint2=setTimeout(function(){ if(!settled && els.loadHint) els.loadHint.textContent="通信が混み合っているようです。別の方法でも取得を試しています。"; }, 16000);
   function clearTimers(){ clearTimeout(hint1); clearTimeout(hint2); if(hedgeTimer) clearTimeout(hedgeTimer); }
-  function ok(events){ if(settled) return; settled=true; clearTimers(); applyData(events); evCachePut(events); }
+  function ok(events){ if(settled) return; settled=true; clearTimers();
+    var newCount=0;
+    if(background){
+      var oldIds={}; allEvents.forEach(function(ev){ oldIds[ev.id]=1; });
+      events.forEach(function(ev){ if(!oldIds[ev.id]) newCount++; });
+    }
+    applyData(events); evCachePut(events);
+    /* 裏で更新できたら、新しく増えた予定だけ軽く知らせる（Kota指示 2026-11-23） */
+    if(background && newCount>0) toast("最新の情報に更新しました（新しい予定が"+newCount+"件増えました）");
+  }
   function failAll(err){ if(settled) return; settled=true; clearTimers(); if(background){ els.updatedAt.textContent += "（最新を取得できませんでした）"; } else { showError(err); } }
   function maybeFail(err){
     if(settled) return;
