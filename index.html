@@ -2615,6 +2615,10 @@ function render(){
           + "</div>";
       }
     }
+    if(empty && view==="all"){
+      var zg=zeroHitGuideHTML();
+      if(zg) dsEl.innerHTML+=zg;
+    }
   }
   els.grid.style.display = empty? "none":"grid";
 }
@@ -3416,6 +3420,95 @@ els.catChips.addEventListener("click", function(e){
   var b=e.target.closest("[data-cat]"); if(!b) return; activeCat=b.getAttribute("data-cat"); render();
 });
 /* ---------- suggest ---------- */
+/* 検索語に含まれる日付表現を取り出す（「日付＋名前」で探す使い方の判定用） */
+function queryDateParts(raw){
+  var s=String(raw||"");
+  var found=[];
+  var rest=s.replace(/20\d{2}[\/\-年]\s*\d{1,2}[\/\-月]\s*\d{1,2}日?/g, function(m){ found.push(m); return " "; })
+    .replace(/\d{1,2}月\s*\d{1,2}日/g, function(m){ found.push(m); return " "; })
+    .replace(/\d{1,2}\/\d{1,2}/g, function(m){ found.push(m); return " "; })
+    .replace(/\s+/g," ").trim();
+  return {dates:found, rest:rest};
+}
+function zeroHitRowHTML(ev, sub){
+  return '<button type="button" class="rel-row" data-rel-id="'+esc(String(ev.id))+'"><span class="rel-date">'+esc(fmtDate(ev.date))+(ev.startMin!=null?' '+esc(minToTime(ev.startMin)):'')+'</span><span class="rel-title">'+esc(ev.title)+(sub?' <span style="color:var(--muted);font-size:12.5px">'+esc(sub)+'</span>':'')+'</span><span class="rel-venue">'+esc(ev.venue||"")+'</span></button>';
+}
+/* 名前候補の収集（サジェストと同じ照合規則で、アーティスト／会場／イベントを集める） */
+function zeroHitCandidates(text){
+  if(!text) return [];
+  function score(label){ var n=normSearch(label); return (n.indexOf(text)===0?0:10000)+label.length; }
+  var artists=[], venues=[], events=[], seenA={}, seenV={}, seenE={};
+  allEvents.forEach(function(ev){
+    ev._perfList.forEach(function(p){
+      if(seenA[p]) return;
+      var hit = normSearch(p).indexOf(text)>=0
+        || (readingByName[p] && normSearch(readingByName[p]).indexOf(text)>=0)
+        || dictHit(p, text)
+        || (function(){ var ap=artistProfileFor(p); return !!(ap && ap.al && ap.al.some(function(a){ return normSearch(a).indexOf(text)>=0; })); })();
+      if(hit){ seenA[p]=1; artists.push({kind:"artist", klabel:"アーティスト", label:p, value:p, score:score(p)}); }
+    });
+    var v=(ev.venue||"").trim();
+    if(v && !seenV[v]){
+      var vhit = normSearch(v).indexOf(text)>=0;
+      if(!vhit && normSearch(venueQualStrip(v)).indexOf(text)>=0) vhit=true;
+      if(!vhit && dictHit(v, text)) vhit=true;
+      if(!vhit){ var vp=venueProfileFor(v); if(vp && vp.al && vp.al.some(function(a){ return normSearch(a).indexOf(text)>=0; })) vhit=true; if(!vhit && vp && vp.n && (dictHit(vp.n, text) || normSearch(venueQualStrip(vp.n)).indexOf(text)>=0)) vhit=true; }
+      if(vhit){ seenV[v]=1; venues.push({kind:"venue", klabel:"会場", label:v, value:v, score:score(v)}); }
+    }
+    if(!seenE[ev.title] && normSearch(ev.title).indexOf(text)>=0){
+      seenE[ev.title]=1;
+      events.push({kind:"eventTitle", klabel:"イベント", label:ev.title, value:ev.title, score:score(ev.title)});
+    }
+  });
+  var byScore=function(a,b){ return a.score-b.score; };
+  artists.sort(byScore); venues.sort(byScore); events.sort(byScore);
+  return artists.slice(0,2).concat(venues.slice(0,2), events.slice(0,2));
+}
+/* 0件のときの案内（スペース版ガイドと同仕様）：
+   ・無い話数・回数を指定されたら、そのシリーズの開催を出す
+   ・検索語に日付が含まれていて0件なら、日付を外した名前で合う開催を
+     実際の日付・会場つきで「日付違いの候補」として出す
+   ・名前の候補（アーティスト／会場／イベント）を「こちらでは？」として出す */
+function zeroHitGuideHTML(){
+  if(exactTarget || currentTicketUrlQuery()!=null) return "";
+  var qraw=String(query||"").trim();
+  if(!qraw) return "";
+  var epQ=episodeQueryOf(qraw);
+  if(epQ){
+    var series=allEvents.filter(function(ev){ return episodeBaseKey(ev.title)===epQ.baseKey; });
+    if(series.length){
+      series.sort(function(a,b){
+        var na=officialEpisodeNum(a.title), nb=officialEpisodeNum(b.title);
+        var ka=na!=null?na:(guideEpisodeNum(a, epQ.baseKey)||9999), kb=nb!=null?nb:(guideEpisodeNum(b, epQ.baseKey)||9999);
+        if(ka!==kb) return ka-kb;
+        return a.date<b.date?-1:1;
+      });
+      return '<div style="text-align:left;max-width:680px;margin:14px auto 0"><p style="font-size:14px;margin:0 0 8px">その番号の開催は見つかりませんでした。シリーズの開催はこちらです：</p>'
+        + series.slice(0,8).map(function(ev){ var off=officialEpisodeNum(ev.title); var sub=off!=null?("vol."+off):("ガイド集計 第"+guideEpisodeNum(ev, epQ.baseKey)+"回"); return zeroHitRowHTML(ev, sub); }).join("") + '</div>';
+    }
+  }
+  var dp=queryDateParts(qraw);
+  if(dp.dates.length && dp.rest){
+    var saved=query; query=dp.rest;
+    var hits=allEvents.filter(function(ev){ return contentPass(ev,{ignorePeriod:true,ignoreEnded:true}); });
+    query=saved;
+    if(hits.length){
+      hits.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
+      return '<div style="text-align:left;max-width:680px;margin:14px auto 0"><p style="font-size:14px;margin:0 0 8px">日付違いの候補があります（名前が合う開催です）：</p>'
+        + hits.slice(0,5).map(function(ev){ return zeroHitRowHTML(ev, ""); }).join("") + '</div>';
+    }
+  }
+  var nameText=qraw;
+  if(epQ) nameText=qraw.replace(/vol\.?\s*\d+/i,"").replace(/第\s*\d+\s*[回話]/g,"").replace(/[#＃]\s*\d+/g,"").replace(/\d{1,4}\s*回?\s*$/,"").trim();
+  else if(dp.dates.length && dp.rest) nameText=dp.rest;
+  var cands=zeroHitCandidates(normSearch(nameText.replace(/\s+/g," ")));
+  if(cands.length){
+    return '<p style="margin:14px 0 8px;font-size:14px">こちらでは？：</p><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">'
+      + cands.map(function(it){ return '<button type="button" class="btn-ghost" data-suggest="'+esc(it.value)+'" data-suggest-kind="'+it.kind+'" style="padding:8px 12px;border-radius:8px">'+esc(it.klabel)+'：'+esc(it.label)+'</button>'; }).join("")
+      + '</div>';
+  }
+  return "";
+}
 function renderSuggest(){
   var q=els.searchInput.value.trim();
   if(q.length<1 || exactTarget){ els.suggest.classList.remove("show"); els.suggest.innerHTML=""; return; }
@@ -3501,6 +3594,17 @@ els.searchInput.addEventListener("input", function(){
 });
 els.clearSearch.addEventListener("click", function(){ els.searchInput.value=""; query=""; exactTarget=null; els.clearSearch.style.display="none"; render(); els.searchInput.focus(); });
 document.getElementById("emptyState").addEventListener("click", function(e){
+  var rb=e.target.closest("[data-rel-id]");
+  if(rb){ var t=allEvents.find(function(ev){ return String(ev.id)===rb.getAttribute("data-rel-id"); }); if(t) openModal(t); return; }
+  var sb=e.target.closest("[data-suggest]");
+  if(sb){
+    exactTarget={kind:sb.getAttribute("data-suggest-kind")||"event", value:sb.getAttribute("data-suggest")};
+    els.searchInput.value=exactTarget.value; query=exactTarget.value;
+    els.clearSearch.style.display="block";
+    view="all";
+    render();
+    return;
+  }
   var b=e.target.closest("[data-date-suggest]"); if(!b) return;
   var d=b.getAttribute("data-date-suggest"); if(!d) return;
   periodPreset="all"; dateFrom=d; dateTo=d;
