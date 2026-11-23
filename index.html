@@ -1464,7 +1464,23 @@ function normSearch(s){
 }
 /* スペース版ガイドの検索辞書（正式名→別表記・略称・読みの集合）。
    プロフィールの別名に無い語でも、辞書にあれば照合対象に含める */
-function dictWords(name){ return (name && dictByName[name]) || []; }
+function dictWords(name){
+  if(!name) return [];
+  var memo=dictWords.memo||(dictWords.memo={});
+  if(Object.prototype.hasOwnProperty.call(memo, name)) return memo[name];
+  var ws=dictByName[name] ? dictByName[name].slice() : [];
+  if(!dictByName[name]){
+    /* 辞書の正式名が接頭辞になる名前（例: 辞書「SO.ON project」→ 出演者「SO.ON project OSAKA」）も、
+       空白区切りの接頭辞一致に限って同じ語集合を使う */
+    Object.keys(dictByName).forEach(function(k){
+      if(k.length>=4 && name.length>k.length && name.indexOf(k)===0 && /[\s　]/.test(name.charAt(k.length))){
+        dictByName[k].forEach(function(w){ if(ws.indexOf(w)<0) ws.push(w); });
+      }
+    });
+  }
+  memo[name]=ws;
+  return ws;
+}
 function dictHit(name, textNorm){
   var ws=dictWords(name);
   for(var i=0;i<ws.length;i++){ if(normSearch(ws[i]).indexOf(textNorm)>=0) return true; }
@@ -2044,7 +2060,7 @@ function loadProfiles(){
     if(res[1]){ artistProfiles=res[1]; }
     if(res[2]){ Object.keys(res[2]).forEach(function(rd){ var nm=res[2][rd]; if(nm && !readingByName[nm]) readingByName[nm]=rd; }); }
     if(res[3]){ venueSuppById=res[3]; attachVenueSupp(); }
-    if(res[4]){ dictByName=res[4]; }
+    if(res[4]){ dictByName=res[4]; dictWords.memo={}; }
     profilesLoaded=true; profilesLoading=null;
     artistProfCache={};
     allEvents.forEach(function(ev){ ev._hay=null; });
