@@ -72,5 +72,14 @@
 ## 変更履歴
 - 2026-11-23 Muse: 3系統（4sypf8ライブ版／site_muse／vx PWA更新パッケージ）を統合。
   PWAフル版・データ引っ越し・絞り込み条件保存を取り込み、検索ルール3・4・5を新規実装、6の読みを1件追加（詳細 RESULTS.md）。
-  本リポジトリを作成し GitHub Pages で公開（予定→公開後にURLと確認結果を追記）。
+  本リポジトリ（n2007osakadensi-art/Kansai-event-guide）を作成し GitHub Pages で公開。
   公開シート・ガイド本体・Notionのデータ変更なし。
+- 2026-11-23 Muse: GitHub Pages 公開を確認（実ブラウザ検証）。
+  有効URL: https://n2007osakadensi-art.github.io/Kansai-event-guide/（大文字K必須、小文字版は404）。
+  表示確認: タイトル「関西イベントガイド（シート＋Notion試作）」、シートから8,023件を読み込み
+  （最終更新 2026-11-23 09:23）、タブ・検索・絞り込みUI表示、エラーなし。
+  Pagesの方式: ブランチ公開（main / root）。Actions用ワークフローは GitHub App の権限不足で
+  リポジトリに置けないため使っていない（.github/workflows はローカル保管のみ）。
+  更新方法: このリポジトリへファイルを commit すれば同じURLに自動反映される。
+  大きなファイル（index.html等）は push_files、小さなファイルは create_or_update_file で配置する
+  （ワークフローファイルを含む一括pushは権限で失敗する）。

@@ -4,7 +4,8 @@
 チャットやAI（Muse／Arenaなど）が変わっても、ここを起点に更新を引き継げます。
 
 - 所有者: n2007osakadensi-art（Kota本人）
-- 公開URL（GitHub Pages）: https://n2007osakadensi-art.github.io/kansai-event-guide/
+- 公開URL（GitHub Pages）: https://n2007osakadensi-art.github.io/Kansai-event-guide/
+  ※ リポジトリ名の大文字 K を含むこの表記が有効なURLです（小文字版は404）。
 - 暫定URL（CodeSandbox、旧版）: https://vx9d37.csb.app/ ／ https://4sypf8.csb.app/
   ※ CodeSandbox版は匿名の暫定公開で、こことは自動同期しません。
 
