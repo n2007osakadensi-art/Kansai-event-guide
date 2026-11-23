@@ -3483,6 +3483,8 @@ function recoReasonsFor(ev, pv){
   return rs.slice(0,3);
 }
 
+/* 管理者モードの端末ではアンケートを出さない（Kota指示 2026-11-23） */
+function kgAdminOn(){ try{ return localStorage.getItem("kg_admin_mode_v1")==="1"; }catch(e){ return false; } }
 /* ---------- ホームのおすすめ表示（未回答バー／ジャンル提案バー／おすすめ棚） ---------- */
 function renderHomeExtras(){
   /* 検索中は検索結果だけを表示する（Kota指示 2026-11-23）：
@@ -3491,7 +3493,7 @@ function renderHomeExtras(){
   /* CTAは「未回答」だけでなく「スキップ済みでも未選択」の間も出し続け、
      アンケートへの入口が消えないようにする。選択が1つでもあれば消える */
   if(els.prefsCta){
-    var showCta = isHome && !hasPrefSelection();
+    var showCta = isHome && !hasPrefSelection() && !kgAdminOn();
     els.prefsCta.classList.toggle("hidden", !showCta);
     if(showCta){
       var ct=document.getElementById("prefsCtaText"), cb=document.getElementById("prefsCtaBtn");
@@ -3845,9 +3847,9 @@ function applyData(events, cachedSavedAt, cachedSlim){
      回答／スキップが完了した端末（onboarded）では二度と自動表示しない。
      プロフィール取得（loadProfiles）より前に予約する：補助データ側の失敗で
      アンケートの自動表示まで道連れに落とさないため */
-  if(!prefs.onboarded && !obAutoShown){
+  if(!prefs.onboarded && !obAutoShown && !kgAdminOn()){
     obAutoShown=true;
-    setTimeout(function(){ if(!prefs.onboarded) obOpen(); }, 900);
+    setTimeout(function(){ if(!prefs.onboarded && !kgAdminOn()) obOpen(); }, 900);
   }
   loadProfiles();
 }
