@@ -205,3 +205,5 @@
   （画面確認で「今からでも開演には間に合う」という表示が出たため）。
 
 - 2026-11-23 14:01 Firebase設定値を反映（KotaがAndroidでプロジェクト kansai-event-guide を作成し、ウェブアプリ guide-web を登録、firebaseConfig を提供）。account-config.js に apiKey/authDomain/projectId/appId を記入して公開。残：承認済みドメイン n2007osakadensi-art.github.io の追加確認と Firestore 作成＋ルール公開（コンソール側）。
+
+- 2026-11-23 14:2x ログイン方式を変更：ドメイン追加後もKota実機（iPhone/Android両方）で「Googleでログイン」が弾かれたため、account.js をスマホ・PWAではリダイレクト方式（signInWithRedirect）に変更（PCはポップアップ継続、失敗時はエラーコードをダイアログに表示）。getProjectConfig で承認済みドメインに n2007osakadensi-art.github.io が登録済みなことは確認済み。SWキャッシュ v4→v5。

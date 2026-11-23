@@ -105,9 +105,20 @@
   });
   $('kg-google-login').onclick=async function(){
     if(!client)return;
-    var button=$('kg-google-login');button.disabled=true;text('Googleログインを開いています…');
-    try { await client.signInWithPopup(client.auth,new client.GoogleAuthProvider()); }
-    catch(err){ text('ログインできませんでした。ポップアップの設定と公開ドメインの認証設定をご確認ください。'); }
+    var button=$('kg-google-login');button.disabled=true;
+    var provider=new client.GoogleAuthProvider();
+    var standalone=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;
+    var mobile=/iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent||'');
+    /* スマホとインストール済みPWAではポップアップ方式が弾かれやすいため、
+       Googleのログイン画面へ遷移して戻るリダイレクト方式を使う（Kota実機で両OSとも弾かれたため、2026-11-23）。 */
+    if(standalone||mobile){
+      text('Googleのログイン画面へ移動します…');
+      try { await client.signInWithRedirect(client.auth,provider); return; }
+      catch(err){ text('ログイン画面へ移動できませんでした（'+((err&&err.code)||'不明なエラー')+'）。'); button.disabled=false; return; }
+    }
+    text('Googleログインを開いています…');
+    try { await client.signInWithPopup(client.auth,provider); }
+    catch(err){ text('ログインできませんでした（'+((err&&err.code)||'不明なエラー')+'）。ポップアップの設定と公開ドメインの認証設定をご確認ください。'); }
     finally{button.disabled=false;}
   };
   if(!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) { parts(true,false,false,false); text('ログイン機能は準備中です。'); return; }
@@ -120,6 +131,7 @@
       var instance=app.initializeApp(cfg);
       client=Object.assign({},db,auth,{auth:auth.getAuth(instance),db:db.getFirestore(instance)});
       auth.onAuthStateChanged(client.auth,function(u){setupSession(u ? {user:{id:u.uid,email:u.email}} : null);});
+      if(auth.getRedirectResult){ auth.getRedirectResult(client.auth).catch(function(err){ text('ログインできませんでした（'+((err&&err.code)||'不明なエラー')+'）。もう一度お試しください。'); }); }
     } catch(e){parts(true,false,false,false);text('ログイン機能を読み込めません。通信と設定をご確認ください。');}
   })();
 })();
