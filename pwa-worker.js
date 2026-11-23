@@ -6,7 +6,7 @@
 'use strict';
 
 var CACHE_PREFIX='kg-event-guide-shell-';
-var CACHE_NAME=CACHE_PREFIX+'v9';
+var CACHE_NAME=CACHE_PREFIX+'v10';
 var SHELL_FILES=[
   './index.html',
   './app.webmanifest',
@@ -14,6 +14,8 @@ var SHELL_FILES=[
   './device-transfer.js',
   './account-config.js',
   './account.js',
+  './editor-config.js',
+  './editor.js',
   './pwa-worker.js',
   './icons/icon-192.png',
   './icons/icon-512.png',

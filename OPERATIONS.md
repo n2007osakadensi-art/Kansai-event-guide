@@ -217,3 +217,5 @@
 - 2026-11-23 15:4x ルールv3を微修正：memberdata/codes/recovery は allow get, write とし、一覧取得（list）を禁止（ハッシュ一覧の外部取得を防止）。サイト側コード変更なし。
 
 - 2026-11-23 15:5x Q&Aの一意性を実装（Kota指示）：質問と回答の設定時に recovery 索引を照合し、他アカウントと全く同じ組み合わせは登録不可にした。SW v8→v9。
+
+- 2026-11-23 15:5x 試作サイトの編集機能に着工（Kota指示）：スペース版と同じ登録・修正フォーム editor.js（入口はログイン・同期ダイアログ内）、送信は Apps Script ゲートウェイ経由でシート「編集入力」タブへ（ステージング方式。events タブはガイド同期で上書きされるため直接書かない）。gateway スクリプトと EDITOR_SETUP.md を同梱。SW v9→v10。ゲートウェイのデプロイとURL発行はKota側の作業（EDITOR_SETUP.md）。仕様は hidden_files/trial-site-editor-spec-20261123.md。
