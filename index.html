@@ -2339,7 +2339,7 @@ function renderDir(){
 }
 function openDirDetail(kind, name){
   detailCtx={kind:kind, name:name}; teamFilter="すべて";
-  view = kind==="artist" ? "artistDetail" : "venueDetail";
+  view = kind==="artist" ? "artistDetail" : kind==="venue" ? "venueDetail" : "organizerDetail";
   render();
   window.scrollTo({top:0});
 }
@@ -2348,6 +2348,7 @@ function renderDetail(){
   var kind=detailCtx.kind, name=detailCtx.name;
   var evs;
   if(kind==="artist"){ evs=artistEvents(name); }
+  else if(kind==="organizer"){ evs=allEvents.filter(function(ev){ return (ev.organizerName||"").trim()===name; }); }
   else {
     evs=allEvents.filter(function(ev){ return sameVenueFacility((ev.venue||"").trim(), name); });
   }
@@ -2392,6 +2393,12 @@ function renderDetail(){
         +'</div>';
     }
     head+='</div>';
+  } else if(kind==="organizer"){
+    head='<div class="detail-head"><span class="cat-chip" style="background:var(--accent)">主催</span>'
+      +'<h2>'+esc(name)+'</h2>'
+      +'<p>開催予定 '+upcoming.length+'件 ／ 全 '+evs.length+'件のイベントを掲載データから集計しています。</p>'
+      +(upcoming.length? '<p style="margin-top:4px">次の開催：'+esc(fmtDate(upcoming[0].date))+'「'+esc(upcoming[0].title)+'」</p>' : '<p style="margin-top:4px">開催予定のイベントはまだ掲載されていません。</p>')
+      +'</div>';
   } else {
     var vinfo=buildVenues().filter(function(v){ return v.name===name; })[0]||{};
     var vprof=vinfo.profile||venueProfileFor(name);
@@ -2558,7 +2565,7 @@ function render(){
   var isPlan = view==="plan";
   var isCal = view==="calendar";
   var isDir = view==="artists" || view==="venues";
-  var isDetail = view==="artistDetail" || view==="venueDetail";
+  var isDetail = view==="artistDetail" || view==="venueDetail" || view==="organizerDetail";
   var isPrefs = view==="prefs";
   var isList = !isPlan && !isCal && !isDir && !isDetail && !isPrefs;
   els.listMain.classList.toggle("hidden", !isList);
@@ -2567,7 +2574,7 @@ function render(){
   els.dirView.classList.toggle("hidden", !isDir);
   els.detailView.classList.toggle("hidden", !isDetail);
   els.prefsView.classList.toggle("hidden", !isPrefs);
-  var tabView = isDetail ? (view==="artistDetail" ? "artists" : "venues") : view;
+  var tabView = isDetail ? (view==="artistDetail" ? "artists" : view==="venueDetail" ? "venues" : "all") : view;
   document.querySelectorAll(".view-tab").forEach(function(t){ t.setAttribute("aria-selected", t.getAttribute("data-view")===tabView ? "true":"false"); });
   if(isPlan){ renderPlan(); return; }
   if(isCal){ renderCalendar(); return; }
@@ -2743,7 +2750,7 @@ function relatedEventsHTML(ev){
   if(org){
     var olist=allEvents.filter(function(e2){ return String(e2.id)!==selfId && (e2.organizerName||"").trim()===org && !isEnded(e2); }).sort(byDateAsc);
     var ot=take(olist);
-    if(ot.length) axes.push({label:"同じ主催の次の予定", list:ot, total:olist.length});
+    if(ot.length) axes.push({label:"同じ主催の次の予定", list:ot, total:olist.length, org:org});
   }
   if(!axes.length) return "";
   var html='<h3 style="margin:20px 0 8px;font-size:15px">関連イベント</h3>';
@@ -2752,6 +2759,7 @@ function relatedEventsHTML(ev){
     html+=ax.list.slice(0,5).map(function(e2){
       return '<button type="button" class="rel-row" data-rel-id="'+esc(String(e2.id))+'"><span class="rel-date">'+esc(fmtDate(e2.date))+(e2.startMin!=null?' '+esc(minToTime(e2.startMin)):'')+'</span><span class="rel-title">'+esc(e2.title)+'</span><span class="rel-venue">'+esc(e2.venue||"")+'</span></button>';
     }).join("");
+    if(ax.org) html+='<button type="button" class="rel-row" data-org-open="'+esc(ax.org)+'"><span class="rel-title">主催「'+esc(ax.org)+'」の全スケジュールを見る</span><span class="rel-venue">→</span></button>';
     html+='</div>';
   });
   return html;
@@ -2792,7 +2800,7 @@ function openModal(ev){
     + (place?'<dt>エリア</dt><dd>'+esc(place)+'</dd>':"")
     + '<dt>カテゴリ</dt><dd>'+esc(evCategories(ev).join("、")||"—")+'</dd>'
     + (ev.price||pc?'<dt>料金</dt><dd>'+esc(ev.price||"")+(pc?(ev.price?" ":"")+'<span class="badge-long">'+PRICE_LABELS[pc]+'</span>':"")+'</dd>':"")
-    + (ev.organizerName?'<dt>主催</dt><dd>'+esc(ev.organizerName)+'</dd>':"")
+    + (ev.organizerName?'<dt>主催</dt><dd><button type="button" class="venue-link" data-org-open="'+esc(ev.organizerName)+'">'+esc(ev.organizerName)+'</button></dd>':"")
     + '</dl>'
     + (ev._perfList.length? '<h3 style="margin:20px 0 8px;font-size:15px">出演者</h3><div class="perf-list">'
         + ev._perfList.map(function(p){ var on=favPerfs.has(p); return '<button class="perf'+(on?" on":"")+'" type="button" data-perf="'+esc(p)+'" aria-pressed="'+on+'"><span class="star">'+(on?"★":"☆")+'</span>'+esc(p)+'</button>'; }).join("")
@@ -2819,6 +2827,12 @@ function openModal(ev){
     b.addEventListener("click", function(){
       closeModal();
       openDirDetail("venue", b.getAttribute("data-venue-open"));
+    });
+  });
+  els.modal.querySelectorAll("[data-org-open]").forEach(function(b){
+    b.addEventListener("click", function(){
+      closeModal();
+      openDirDetail("organizer", b.getAttribute("data-org-open"));
     });
   });
   els.modal.querySelectorAll("[data-rel-id]").forEach(function(b){
@@ -3809,7 +3823,7 @@ document.getElementById("closeFilterBtn").addEventListener("click", function(){
   selPrefs.forEach(function(p){ bumpLearn(learn.areas, p, 1); });
   selAreas.forEach(function(a){ bumpLearn(learn.areas, a, 1); });
   saveLearn();
-  if(view==="artistDetail"||view==="venueDetail"||view==="artists"||view==="venues") view="all";
+  if(view==="artistDetail"||view==="venueDetail"||view==="organizerDetail"||view==="artists"||view==="venues") view="all";
   render(); window.scrollTo({top:0,behavior:"smooth"});
 });
 document.getElementById("clearFilterBtn").addEventListener("click", function(){
