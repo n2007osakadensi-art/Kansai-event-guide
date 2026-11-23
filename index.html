@@ -3620,6 +3620,10 @@ function recoReasonsFor(ev, pv){
 
 /* 管理者モードの端末ではアンケートを出さない（Kota指示 2026-11-23） */
 function kgAdminOn(){ try{ return localStorage.getItem("kg_admin_mode_v1")==="1"; }catch(e){ return false; } }
+/* この端末にログインのセッション（会員コード／Google）があるか。
+   入口の順序（Kota、2026-11-23）：ログインが先、アンケートは後。
+   セッションがある端末では、アンケートを自動では出さない */
+function kgHasLocalSession(){ try{ return !!(localStorage.getItem("kg_member_session_v2") || localStorage.getItem("kg_account_selected_user_v1")); }catch(e){ return false; } }
 /* ---------- ホームのおすすめ表示（未回答バー／ジャンル提案バー／おすすめ棚） ---------- */
 function renderHomeExtras(){
   /* 検索中は検索結果だけを表示する（Kota指示 2026-11-23）：
@@ -3995,9 +3999,9 @@ function applyData(events, cachedSavedAt, cachedSlim, cachedLite){
      回答／スキップが完了した端末（onboarded）では二度と自動表示しない。
      プロフィール取得（loadProfiles）より前に予約する：補助データ側の失敗で
      アンケートの自動表示まで道連れに落とさないため */
-  if(!prefs.onboarded && !obAutoShown && !kgAdminOn()){
+  if(!prefs.onboarded && !obAutoShown && !kgAdminOn() && !kgHasLocalSession()){
     obAutoShown=true;
-    setTimeout(function(){ if(!prefs.onboarded && !kgAdminOn()) obOpen(); }, 900);
+    setTimeout(function(){ if(!prefs.onboarded && !kgAdminOn() && !kgHasLocalSession()) obOpen(); }, 900);
   }
   loadProfiles();
 }
