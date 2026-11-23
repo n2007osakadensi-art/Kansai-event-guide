@@ -573,7 +573,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v51';
+  window.__kgShell='v52';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -610,6 +610,54 @@
   }catch(e){}
   window.__kgLastStall=function(){ try{ return localStorage.getItem('kg_laststall_v1')||''; }catch(e){ return ''; } };
   setInterval(function(){ try{ localStorage.setItem('kg_hb_v1', String(Date.now())); }catch(e){} }, 1000);
+  /* 保存データの隔離: 形式が壊れている保存データは、アプリ本体が読み込む前に
+     退避して初期状態で起動できるようにする（本体は消さず kg_quarantine_ に残す） */
+  (function(){
+    var checks={
+      'kg_trial_fav_events_v1':'arr','kg_trial_fav_performers_v1':'arr',
+      'kg_trial_prefs_v1':'obj','kg_trial_learn_v1':'obj',
+      'kg_filter_profiles_v1':'arr','kg_member_session_v2':'obj'
+    };
+    function bad(raw, kind){
+      if(raw===null) return false;
+      try{ var v=JSON.parse(raw); if(kind==='arr') return !Array.isArray(v); return !(v && typeof v==='object' && !Array.isArray(v)); }
+      catch(e){ return true; }
+    }
+    try{
+      Object.keys(checks).forEach(function(k){
+        var raw=localStorage.getItem(k);
+        if(bad(raw, checks[k])){
+          try{ localStorage.setItem('kg_quarantine_'+k, raw); }catch(e){}
+          localStorage.removeItem(k);
+          diagPush('保存データを隔離しました: '+k);
+        }
+      });
+    }catch(e){}
+  })();
+  /* スクロールロックの見張り: モーダル等が閉じているのに body のスクロール
+     ロックだけが残っていたら自動で解除する。ロックの付け外しの不整合や
+     途中で止まった処理があっても「見えるのにスクロールも操作もできない」
+     状態を引きずらないための保険（アプリ本体が死んでも効くよう head 側に置く） */
+  setInterval(function(){
+    try{
+      var b=document.body; if(!b) return;
+      if(b.style.overflow!=='hidden' && !b.classList.contains('filter-open')) return;
+      var anyOpen=document.querySelector('.overlay.open, .lb.open, .ob-overlay.open, .sg-overlay.open, dialog[open]');
+      if(!anyOpen){
+        var kp=document.querySelector('.kp-overlay');
+        if(kp && window.getComputedStyle(kp).display!=='none') anyOpen=true;
+      }
+      var fp=document.getElementById('filterPanel');
+      var filterOpen=fp && !fp.classList.contains('hidden');
+      if(anyOpen || filterOpen) return;
+      b.style.overflow=''; b.style.top='';
+      b.classList.remove('filter-open');
+      document.documentElement.classList.remove('filter-open');
+      var bd=document.getElementById('filterBackdrop'); if(bd) bd.classList.add('hidden');
+      if(fp) fp.classList.add('hidden');
+      diagPush('残っていたスクロールロックを自動解除しました');
+    }catch(e){}
+  }, 2500);
   function wipeDerived(){
     var jobs=[];
     if(window.caches && caches.keys){ jobs.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); }).catch(function(){})); }
@@ -638,7 +686,7 @@
 })();
 </script>
 </head>
-<body style="overflow: hidden;">
+<body>
 <header class="site">
   <div class="site-in">
     <h1>関西イベントガイド<span class="trial">（シート＋Notion試作）</span></h1>

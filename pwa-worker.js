@@ -6,7 +6,7 @@
 'use strict';
 
 var CACHE_PREFIX='kg-event-guide-shell-';
-var CACHE_NAME=CACHE_PREFIX+'v51';
+var CACHE_NAME=CACHE_PREFIX+'v52';
 var SHELL_FILES=[
   './index.html',
   './app.webmanifest',
@@ -24,8 +24,7 @@ var SHELL_FILES=[
   './assets/artists.json',
   './assets/dict.json',
   './assets/readings.json',
-  './assets/venue-supp.json',
-  './assets/venues.json'
+  './assets/venue-supp.json'
 ];
 var SCOPE_URL=new URL(self.registration.scope);
 function absolute(path){return new URL(path,SCOPE_URL).href;}
