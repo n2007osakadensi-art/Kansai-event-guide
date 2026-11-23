@@ -34,11 +34,14 @@
        match /users/{uid}/favorites/{docId} {
          allow read, write: if request.auth != null && request.auth.uid == uid;
        }
+       match /memberdata/{key} {
+         allow read, write: if key.matches('^[a-f0-9]{64}$');
+       }
      }
    }
    ```
 
-   （意味: ログインした本人が、自分の推し・お気に入りだけを読み書きできる）
+   （意味: users はログインした本人が自分の分だけ読み書きできる。memberdata は会員コード方式用で、コードのハッシュ（64桁）を知る者だけがそのデータを読み書きできる）
 
 5. **ウェブアプリを登録して設定値をコピー**
    - プロジェクトの概要ページで「</>（ウェブ）」アイコン → アプリのニックネームは任意

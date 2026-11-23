@@ -209,3 +209,5 @@
 - 2026-11-23 14:2x ログイン方式を変更：ドメイン追加後もKota実機（iPhone/Android両方）で「Googleでログイン」が弾かれたため、account.js をスマホ・PWAではリダイレクト方式（signInWithRedirect）に変更（PCはポップアップ継続、失敗時はエラーコードをダイアログに表示）。getProjectConfig で承認済みドメインに n2007osakadensi-art.github.io が登録済みなことは確認済み。SWキャッシュ v4→v5。
 
 - 2026-11-23 15:1x ログイン方式を再変更：リダイレクト先行ではKota実機で「最後まで進んでもログインにならない」ため、全端末ポップアップ優先＋失敗時のみリダイレクトへ自動切替に戻した。SWキャッシュ v5→v6。Firestore作成は未確認（作成されれば同期まで通る）。
+
+- 2026-11-23 15:3x 会員コード方式を実装（Kotaの提案）：account.js のダイアログに会員コード欄を追加。発行（20文字コード→SHA-256をキーに memberdata へ1人1文書で保存）・コードでログイン・コピー・ログアウト。Googleログインは管理者用に併存。SW v6→v7。ルールv2（memberdata追加）を LOGIN_SETUP.md に反映。Firestore作成とルール差し替えはKota側の残作業。

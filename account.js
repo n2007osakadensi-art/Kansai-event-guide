@@ -5,6 +5,7 @@
   var cfg = window.KG_ACCOUNT_CONFIG || {}, bridge = window.KGAccountBridge;
   var client = null, user = null, initialized = false, running = false, generation = 0;
   var currentMarker = 'kg_account_selected_user_v1';
+  var member = null, memberReady = false, choiceMode = 'google', pendingMemberCloud = null, memberPushTimer = null;
   var $ = function (id) { return document.getElementById(id); };
   var overlay = document.createElement('div');
   overlay.innerHTML = '<dialog id="kg-account-dialog" aria-labelledby="kg-account-title" style="width:min(94vw,480px);max-height:90vh;overflow:auto;border:1px solid #ccc;border-radius:16px;padding:22px;color:CanvasText;background:Canvas;box-shadow:0 8px 30px #0005">' +
@@ -14,6 +15,9 @@
     '<div id="kg-login-form" hidden><p>Googleアカウントでログインします。</p><button id="kg-google-login" type="button">Googleでログイン</button></div>' +
     '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推しとお気に入りをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button></div>' +
     '<div id="kg-account-choice" hidden><p><strong>この端末のデータをどうしますか？</strong></p><p>統合すると、この端末の推しとお気に入りがアカウントに追加されます。共有端末や別の方のデータなら「アカウントのデータを使う」を選んでください。</p><button id="kg-merge" type="button">この端末のデータを統合</button> <button id="kg-use-cloud" type="button">アカウントのデータを使う</button></div>' +
+    '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
+    '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。端末やブラウザを変えても、コードを入れれば推し・お気に入りが維持できます。メールアドレスなどの個人情報は登録しません。</p><button id="kg-code-issue" type="button">会員コードを発行する</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p></div>' +
+    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。コードを失くすとデータに戻れなくなります。</p><button id="kg-code-logout" type="button">この端末からログアウト</button></div></div>' +
     '<p style="font-size:13px">メールアドレス・推し・お気に入りを認証・保存サービスで扱います。サービス提供者のプライバシーポリシーをご確認ください。</p></dialog>';
   document.body.appendChild(overlay);
   var dialog = $('kg-account-dialog');
@@ -72,7 +76,7 @@
       if(!await flush(uid,g)) return;
       try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; text('同期済み。'); }
       catch(e) { text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
-    } else { parts(false,false,false,true); text('同期方法を選んでください。'); showModal(); }
+    } else { choiceMode='google'; parts(false,false,false,true); text('同期方法を選んでください。'); showModal(); }
   }
   async function applyChoice(merge) {
     if(!user) return; var uid=user.id,g=generation; text('データを確認しています…');
@@ -89,11 +93,12 @@
       parts(false,false,true,false); text('同期済み。');
     } catch(e) { text('同期に失敗しました。端末内データは保持されています。もう一度お試しください。'); }
   }
-  $('kg-merge').onclick=function(){applyChoice(true);};
-  $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) applyChoice(false); };
+  $('kg-merge').onclick=function(){ if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
+  $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
   $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');}catch(e){text('同期に失敗しました。端末内のデータは保持されています。');} };
   $('kg-signout').onclick=async function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。アカウントのデータは残ります。'))return; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); bridge.replace({event:[],artist:[]}); };
   window.addEventListener('kg:favorites-change',function(e){
+    if(member && memberReady && !(user && initialized)) { scheduleMemberPush(); return; }
     if(!user || !initialized)return;
     var uid=user.id,g=generation,d=e.detail,kind=d.key===bridge.keys.event?'event':d.key===bridge.keys.artist?'artist':null;
     if(!kind)return; var a=new Set(d.before||[]),b=new Set(d.after||[]),ops=[];
@@ -103,6 +108,72 @@
     try{enqueue(uid,ops);}catch(err){text('同期待ちの保存に失敗しました。');showModal();return;}
     text('同期中…'); if(!running) flush(uid,g).then(function(ok){if(ok && sameUser(uid,g))text('同期済み。');});
   });
+  /* 会員コード方式（Kotaの提案、2026-11-23）：サイト発行のコードが鍵。個人情報なし。
+     データは memberdata/{SHA-256(コード)} に1人1文書で保存する。 */
+  var CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  function newCode(){ var a=new Uint8Array(20); crypto.getRandomValues(a); var s=''; for(var i=0;i<20;i++){ s+=CODE_ALPHABET[a[i]%CODE_ALPHABET.length]; if(i%5===4&&i<19)s+='-'; } return s; }
+  function normCode(s){ return (s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
+  async function codeKey(code){ var buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode('kg-member:'+normCode(code))); return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join(''); }
+  function memberRef(key){ return client.doc(client.db,'memberdata',key); }
+  async function memberPull(key){ var snap=await client.getDoc(memberRef(key)); if(!snap.exists())return null; var d=snap.data()||{}; return {event:Array.isArray(d.events)?d.events:[], artist:Array.isArray(d.artists)?d.artists:[]}; }
+  async function memberPush(key){ var local=bridge.read(); await client.setDoc(memberRef(key), {events:local.event, artists:local.artist, updatedAt:Date.now()}); }
+  function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has)$('kg-code-display').textContent=member.code; }
+  function scheduleMemberPush(){ if(!member||!memberReady)return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member)return; memberPush(member.key).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
+  async function activateMember(code, key, fromRestore){
+    var cloud = await memberPull(key);
+    if(!cloud) return false;
+    member = {code:code, key:key};
+    localStorage.setItem('kg_member_code_v1', code);
+    renderMember();
+    if(localStorage.getItem('kg_member_selected_v1')===key){ bridge.replace(cloud); memberReady=true; text('同期済み（会員コード）。'); }
+    else { pendingMemberCloud=cloud; choiceMode='member'; parts(false, !user, !!user, true); text('同期方法を選んでください。'); if(!fromRestore) showModal(); }
+    return true;
+  }
+  async function applyMemberChoice(merge){
+    if(!member) return; var key=member.key;
+    try {
+      var cloud = pendingMemberCloud || await memberPull(key) || {event:[],artist:[]};
+      if(merge){ var local=bridge.read(); ['event','artist'].forEach(function(k){ var s=new Set(cloud[k]); local[k].forEach(function(v){s.add(v);}); cloud[k]=Array.from(s); }); }
+      await client.setDoc(memberRef(key), {events:cloud.event, artists:cloud.artist, updatedAt:Date.now()});
+      bridge.replace(cloud);
+      localStorage.setItem('kg_member_selected_v1', key);
+      memberReady=true; pendingMemberCloud=null;
+      parts(false, !user, !!user, false);
+      text('同期済み（会員コード）。');
+    } catch(e){ text('同期に失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。'); }
+  }
+  $('kg-code-issue').onclick=async function(){
+    if(!client){ text('接続の準備中です。少し待ってからお試しください。'); return; }
+    if(member){ text('すでに会員コードでログイン中です。'); return; }
+    var code=newCode();
+    try {
+      var key=await codeKey(code);
+      member={code:code, key:key};
+      await memberPush(key);
+      localStorage.setItem('kg_member_code_v1', code);
+      localStorage.setItem('kg_member_selected_v1', key);
+      memberReady=true; renderMember();
+      text('会員コードを発行しました。コードを控えてください。');
+    } catch(e){ member=null; text('コードを発行できませんでした（'+((e&&e.code)||'エラー')+'）。データベースの準備ができていない可能性があります。'); }
+  };
+  $('kg-code-login').onclick=async function(){
+    if(!client){ text('接続の準備中です。少し待ってからお試しください。'); return; }
+    var code=$('kg-code-input').value;
+    if(normCode(code).length<20){ text('コードの形式が違うようです。'); return; }
+    try {
+      var key=await codeKey(code);
+      if(!await activateMember(code, key)) text('そのコードのデータが見つかりませんでした。');
+    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。'); }
+  };
+  $('kg-code-copy').onclick=function(){ if(!member)return; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(member.code).then(function(){ text('コードをコピーしました。'); }, function(){ text('コピーできませんでした。コードをメモしてください。'); }); } };
+  $('kg-code-logout').onclick=function(){
+    if(!member)return;
+    if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。コードを控えていない場合、データに戻れなくなります。よろしいですか？'))return;
+    localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1');
+    member=null; memberReady=false; pendingMemberCloud=null; renderMember();
+    bridge.replace({event:[],artist:[]});
+    text('ログアウトしました。');
+  };
   $('kg-google-login').onclick=async function(){
     if(!client)return;
     var button=$('kg-google-login');button.disabled=true;
@@ -131,6 +202,9 @@
       client=Object.assign({},db,auth,{auth:auth.getAuth(instance),db:db.getFirestore(instance)});
       auth.onAuthStateChanged(client.auth,function(u){setupSession(u ? {user:{id:u.uid,email:u.email}} : null);});
       if(auth.getRedirectResult){ auth.getRedirectResult(client.auth).catch(function(err){ text('ログインできませんでした（'+((err&&err.code)||'不明なエラー')+'）。もう一度お試しください。'); }); }
+      $('kg-member').hidden=false;
+      var savedCode=localStorage.getItem('kg_member_code_v1');
+      if(savedCode){ codeKey(savedCode).then(function(key){ return activateMember(savedCode, key, true); }).catch(function(){ /* 復元できない場合は未ログインのまま */ }); }
     } catch(e){parts(true,false,false,false);text('ログイン機能を読み込めません。通信と設定をご確認ください。');}
   })();
 })();
