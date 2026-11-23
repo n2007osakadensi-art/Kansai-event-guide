@@ -191,6 +191,13 @@
   .perf.on{border-color:var(--oshi);background:var(--oshi-bg);color:var(--ink)}
   .perf .star{color:var(--oshi);margin-right:4px}
   .perf-hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .rel-axis{margin-bottom:12px}
+  .rel-label{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px}
+  .rel-row{display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 12px;margin-bottom:6px;cursor:pointer;font-size:14px}
+  .rel-date{color:var(--muted);font-size:12.5px;white-space:nowrap}
+  .rel-title{font-weight:600;flex:1;word-break:break-word}
+  .rel-venue{color:var(--muted);font-size:12.5px;white-space:nowrap}
+  .venue-link{color:var(--accent);text-decoration:underline;text-underline-offset:3px;cursor:pointer;background:none;border:0;padding:0;font:inherit;text-align:left}
   .desc{white-space:pre-wrap;word-break:break-word;font-size:14.5px}
   .tt{border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .tt-row{display:flex;gap:12px;padding:9px 13px;font-size:14.5px;border-bottom:1px solid var(--line)}
@@ -1546,10 +1553,19 @@ function episodeBaseKey(s){
 function episodeQueryOf(raw){
   var s=String(raw||"");
   var m=s.match(/vol\.?\s*(\d+)/i) || s.match(/第\s*(\d+)\s*[回話]/) || s.match(/[#＃]\s*(\d+)/);
-  if(!m) return null;
-  var base=s.replace(/vol\.?\s*\d+/i,"").replace(/第\s*\d+\s*[回話]/g,"").replace(/[#＃]\s*\d+/g,"").trim();
-  if(!base) return null;
-  return {num:parseInt(m[1],10), baseKey:episodeBaseKey(base)};
+  if(m){
+    var base=s.replace(/vol\.?\s*\d+/i,"").replace(/第\s*\d+\s*[回話]/g,"").replace(/[#＃]\s*\d+/g,"").trim();
+    if(!base) return null;
+    return {num:parseInt(m[1],10), baseKey:episodeBaseKey(base), bare:false};
+  }
+  /* 「シリーズ名 107」「シリーズ名 107回」のような番号だけの書き方も話数として扱う。
+     この形は通常の部分一致と併用する（contentPass側で bare を見て両方を試す） */
+  var m2=s.match(/(\d{1,4})\s*回?\s*$/);
+  if(m2){
+    var base2=s.slice(0, s.length-m2[0].length).trim();
+    if(base2.length>=2) return {num:parseInt(m2[1],10), baseKey:episodeBaseKey(base2), bare:true};
+  }
+  return null;
 }
 function officialEpisodeNum(title){
   var s=String(title||"");
@@ -1713,7 +1729,7 @@ function contentPass(ev, opts){
      スペースで分割して複数の条件にしたり、語を抜き出して別の条件に
      変えたりはしない */
   var epQ=episodeQueryOf(query);
-  if(epQ){
+  if(epQ && !epQ.bare){
     /* 話数・回数検索はタイトル系列＋番号で照合する（公式番号優先、無ければガイド集計） */
     return episodeMatch(ev, epQ);
   }
@@ -1721,7 +1737,11 @@ function contentPass(ev, opts){
   if(q && searchHay(ev).indexOf(q)<0){
     /* 簡易検索：年号・副題を落としたタイトルキーでも照合する（登録タイトルは変えない） */
     var sq=simpleTitleKey(String(query||"").trim());
-    if(!sq || simpleHay(ev).indexOf(sq)<0) return false;
+    if(!sq || simpleHay(ev).indexOf(sq)<0){
+      /* 番号だけの書き方（「シリーズ名 107」等）は話数照合でも拾う */
+      if(epQ && epQ.bare && episodeMatch(ev, epQ)) return true;
+      return false;
+    }
   }
   return true;
 }
@@ -2329,11 +2349,7 @@ function renderDetail(){
   var evs;
   if(kind==="artist"){ evs=artistEvents(name); }
   else {
-    var vp0=venueProfileFor(name);
-    evs=allEvents.filter(function(ev){
-      if((ev.venue||"").trim()===name) return true;
-      return !!vp0 && venueProfileFor(ev.venue)===vp0;
-    });
+    evs=allEvents.filter(function(ev){ return sameVenueFacility((ev.venue||"").trim(), name); });
   }
   var upcoming=evs.filter(function(ev){ return !isEnded(ev); });
   var past=evs.filter(function(ev){ return isEnded(ev); });
@@ -2690,6 +2706,52 @@ function buildICS(){
 
 /* ---------- modal ---------- */
 var currentEv=null;
+/* 詳細画面の「関連イベント」（スペース版ガイドと同仕様）：
+   他の開催日／同時開催（同じ主催・同日）／この日の他のイベント／
+   同じ会場のイベント（今後を優先し、少なければ直近の終了分で補充）／同じ主催の次の予定。
+   各軸 最大5件、軸をまたいだ重複は先の軸を優先して除く */
+function relatedEventsHTML(ev){
+  var selfId=String(ev.id);
+  var used={}; used[selfId]=1;
+  var axes=[];
+  function byDateAsc(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; }
+  function take(list){ var out=[]; list.forEach(function(e2){ var k=String(e2.id); if(!used[k]){ used[k]=1; out.push(e2); } }); return out; }
+  var bk=episodeBaseKey(ev.title);
+  var series=allEvents.filter(function(e2){ return String(e2.id)!==selfId && episodeBaseKey(e2.title)===bk; }).sort(byDateAsc);
+  if(series.length) axes.push({label:"他の開催日", list:take(series), total:series.length});
+  var org=(ev.organizerName||"").trim();
+  if(org && ev.date){
+    var douji=allEvents.filter(function(e2){ return String(e2.id)!==selfId && (e2.organizerName||"").trim()===org && e2.date===ev.date; }).sort(byDateAsc);
+    if(douji.length) axes.push({label:"同時開催（同じ主催・同日）", list:take(douji), total:douji.length});
+  }
+  if(ev.date){
+    var sameDay=allEvents.filter(function(e2){ return String(e2.id)!==selfId && e2.date===ev.date; }).sort(byDateAsc);
+    var sd=take(sameDay);
+    if(sd.length) axes.push({label:"この日の他のイベント", list:sd, total:sameDay.length});
+  }
+  if(ev.venue){
+    var vlist=allEvents.filter(function(e2){ return String(e2.id)!==selfId && sameVenueFacility((e2.venue||"").trim(), (ev.venue||"").trim()); });
+    var vup=vlist.filter(function(e2){ return !isEnded(e2); }).sort(byDateAsc);
+    var vpast=vlist.filter(function(e2){ return isEnded(e2); }).sort(function(a,b){ return a.date<b.date?1:-1; });
+    var vt=take(vup.concat(vpast));
+    if(vt.length) axes.push({label:"同じ会場のイベント", list:vt, total:vlist.length});
+  }
+  if(org){
+    var olist=allEvents.filter(function(e2){ return String(e2.id)!==selfId && (e2.organizerName||"").trim()===org && !isEnded(e2); }).sort(byDateAsc);
+    var ot=take(olist);
+    if(ot.length) axes.push({label:"同じ主催の次の予定", list:ot, total:olist.length});
+  }
+  if(!axes.length) return "";
+  var html='<h3 style="margin:20px 0 8px;font-size:15px">関連イベント</h3>';
+  axes.forEach(function(ax){
+    html+='<div class="rel-axis"><div class="rel-label">'+esc(ax.label)+(ax.total>ax.list.length?'（全'+ax.total+'件）':'')+'</div>';
+    html+=ax.list.slice(0,5).map(function(e2){
+      return '<button type="button" class="rel-row" data-rel-id="'+esc(String(e2.id))+'"><span class="rel-date">'+esc(fmtDate(e2.date))+(e2.startMin!=null?' '+esc(minToTime(e2.startMin)):'')+'</span><span class="rel-title">'+esc(e2.title)+'</span><span class="rel-venue">'+esc(e2.venue||"")+'</span></button>';
+    }).join("");
+    html+='</div>';
+  });
+  return html;
+}
 function openModal(ev){
   currentEv=ev;
   learnFromEvent(ev, 1);
@@ -2722,7 +2784,7 @@ function openModal(ev){
     + '<h2 id="modalTitle">'+esc(ev.title)+'</h2>'
     + '<dl class="detail">'
     + '<dt>日時</dt><dd>'+esc(dateLabel(ev))+(ev.timeLabel?"　"+esc(ev.timeLabel):"")+'</dd>'
-    + (ev.venue?'<dt>会場</dt><dd>'+esc(ev.venue)+vsChipHTML(ev)+'</dd>':"")
+    + (ev.venue?'<dt>会場</dt><dd><button type="button" class="venue-link" data-venue-open="'+esc(ev.venue)+'">'+esc(ev.venue)+'</button>'+vsChipHTML(ev)+'</dd>':"")
     + (place?'<dt>エリア</dt><dd>'+esc(place)+'</dd>':"")
     + '<dt>カテゴリ</dt><dd>'+esc(evCategories(ev).join("、")||"—")+'</dd>'
     + (ev.price||pc?'<dt>料金</dt><dd>'+esc(ev.price||"")+(pc?(ev.price?" ":"")+'<span class="badge-long">'+PRICE_LABELS[pc]+'</span>':"")+'</dd>':"")
@@ -2730,9 +2792,10 @@ function openModal(ev){
     + '</dl>'
     + (ev._perfList.length? '<h3 style="margin:20px 0 8px;font-size:15px">出演者</h3><div class="perf-list">'
         + ev._perfList.map(function(p){ var on=favPerfs.has(p); return '<button class="perf'+(on?" on":"")+'" type="button" data-perf="'+esc(p)+'" aria-pressed="'+on+'"><span class="star">'+(on?"★":"☆")+'</span>'+esc(p)+'</button>'; }).join("")
-        + '</div><p class="perf-hint">出演者名をタップすると「推し」に登録／解除できます。推しの出演イベントには ★ マークが付きます。</p>' : "")
+        + '</div><p class="perf-hint">出演者名をタップすると、その出演者の公演一覧（プロフィール）へ移動します。推しの登録は公演一覧ページのボタンからできます。</p>' : "")
     + '<h3 style="margin:20px 0 8px;font-size:15px">詳細・タイムテーブル</h3>'+descHTML
     + (links? '<div class="link-row">'+links+'</div>':"")
+    + relatedEventsHTML(ev)
     + '</div>';
   els.overlay.classList.add("open");
   document.body.style.overflow="hidden";
@@ -2744,8 +2807,20 @@ function openModal(ev){
   els.modal.querySelectorAll("[data-perf]").forEach(function(b){
     b.addEventListener("click", function(){
       var name=b.getAttribute("data-perf");
-      if(favPerfs.has(name)){ favPerfs.delete(name); toast("推しから外しました："+name); } else { favPerfs.add(name); toast("推しに登録しました："+name); bumpLearn(learn.artists, name, 2); saveLearn(); }
-      saveSet(LS_OSHI, favPerfs); openModal(ev); render();
+      closeModal();
+      openDirDetail("artist", name);
+    });
+  });
+  els.modal.querySelectorAll("[data-venue-open]").forEach(function(b){
+    b.addEventListener("click", function(){
+      closeModal();
+      openDirDetail("venue", b.getAttribute("data-venue-open"));
+    });
+  });
+  els.modal.querySelectorAll("[data-rel-id]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var t=allEvents.find(function(e2){ return String(e2.id)===b.getAttribute("data-rel-id"); });
+      if(t) openModal(t);
     });
   });
   els.modal.scrollTop=0;
