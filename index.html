@@ -4087,6 +4087,67 @@ function evCachePut(events){
     return evCacheStore({savedAt:Date.now(), events:upcoming, slim:true});
   });
 }
+/* ---------- ローカル保存の二重化（IndexedDBミラー） ----------
+   容量不足やブラウザの保存制限で localStorage への書き込みが失敗・消去される
+   端末では、推し・お気に入り・アンケート回答・ログイン状態が毎回消えてしまう。
+   対象キーは保存のたびに IndexedDB へ控えを取り、起動時に localStorage 側に
+   無いものを控えから復元する（どんな端末でも安定して使えることへの対策） */
+var MIRROR_KEYS=["kg_trial_fav_events_v1","kg_trial_fav_performers_v1","kg_trial_prefs_v1","kg_trial_learn_v1","kg_trial_show_ended","kg_filter_profiles_v1","kg_member_session_v2","kg_member_selected_v2","kg_member_selected_v1","kg_member_code_v1","kg_account_selected_user_v1","kg_admin_mode_v1","kg_admin_hash_v1","kg_guest_mode_v1"];
+var MIRROR_PREFIXES=["kg_account_pending_v1_"];
+var MIRROR_IDB_KEY="local-mirror-v1";
+var mirrorRestoring=false, mirrorTimer=null;
+function mirrorKeyWanted(k){ if(!k) return false; if(MIRROR_KEYS.indexOf(k)>=0) return true; for(var i=0;i<MIRROR_PREFIXES.length;i++){ if(k.indexOf(MIRROR_PREFIXES[i])===0) return true; } return false; }
+function mirrorSnapshot(){
+  var out={};
+  try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k && mirrorKeyWanted(k)){ var v=localStorage.getItem(k); if(v!=null) out[k]=v; } } }catch(e){}
+  return out;
+}
+function mirrorWrite(){
+  if(mirrorRestoring) return;
+  if(mirrorTimer) clearTimeout(mirrorTimer);
+  mirrorTimer=setTimeout(function(){
+    var snap=mirrorSnapshot();
+    evCacheOpen().then(function(db){
+      try{ db.transaction("kv","readwrite").objectStore("kv").put(snap, MIRROR_IDB_KEY); }catch(e){}
+    }).catch(function(){});
+  }, 250);
+}
+(function installMirrorHooks(){
+  try{
+    var proto=window.Storage.prototype; if(!proto || proto.__kgMirror) return;
+    var origSet=proto.setItem, origRem=proto.removeItem;
+    proto.setItem=function(k,v){ var r=origSet.apply(this, arguments); try{ if(this===window.localStorage && mirrorKeyWanted(String(k))) mirrorWrite(); }catch(e){} return r; };
+    proto.removeItem=function(k){ var r=origRem.apply(this, arguments); try{ if(this===window.localStorage && mirrorKeyWanted(String(k))) mirrorWrite(); }catch(e){} return r; };
+    proto.__kgMirror=true;
+  }catch(e){}
+})();
+function mirrorRead(){
+  return evCacheOpen().then(function(db){
+    return new Promise(function(resolve){
+      var req=db.transaction("kv","readonly").objectStore("kv").get(MIRROR_IDB_KEY);
+      req.onsuccess=function(){ resolve(req.result||null); };
+      req.onerror=function(){ resolve(null); };
+    });
+  }).catch(function(){ return null; });
+}
+function restoreLocalMirror(){
+  return mirrorRead().then(function(snap){
+    if(!snap) return;
+    mirrorRestoring=true;
+    try{
+      Object.keys(snap).forEach(function(k){
+        if(!mirrorKeyWanted(k)) return;
+        if(localStorage.getItem(k)==null && typeof snap[k]==="string") localStorage.setItem(k, snap[k]);
+      });
+    }catch(e){}
+    mirrorRestoring=false;
+  });
+}
+function resyncLocalState(){
+  favEvents=loadSet(LS_FAV); favPerfs=loadSet(LS_OSHI);
+  prefs=loadPrefs(); learn=loadLearn();
+  try{ showEnded=localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
+}
 function load(force){
   els.loadingState.hidden=false; els.errorState.hidden=true; els.controls.hidden=true;
   els.listMain.classList.add("hidden"); els.planView.classList.remove("show");
@@ -4094,6 +4155,8 @@ function load(force){
   /* 端末内に保存データがあれば即表示し、最新の取得は裏で続ける。
      保存データがない初回だけ、従来どおり取得完了を待つ */
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  restoreLocalMirror().then(function(){
+  resyncLocalState();
   evCacheGet().then(function(cached){
     if(cached && cached.events && cached.events.length){
       applyData(cached.events, cached.savedAt, cached.slim);
@@ -4112,6 +4175,7 @@ function load(force){
     }else{
       startNetworkLoad(false);
     }
+  });
   });
 }
 function startNetworkLoad(background){
