@@ -1,5 +1,8 @@
-/* 試作サイトの編集入力 — スペース版ガイドのイベント編集フォームに項目・並び・
-   入力補助を揃えた版（2026-11-23、Kota指示で統一）。
+/* 試作サイトの編集入力 — スペース版ガイドのイベント編集フォーム（正本）に
+   項目・並び・入力補助・保存時の挙動を揃えた版（2026-11-23、Kota指示文で統一。
+   正本の実物確認に基づく：セクション順、一括分割の区切り仕様、料金区分は
+   自動判定の参考表示のみ、重複チェックと公開状態の項目は正本にも無いため
+   追加しない。詳細は docs/editor-spec.md）。
    送信先は受付メール kansai-event-info@muse.ai（FormSubmit AJAX経由）。
    届いた内容は確認のうえスペース版ガイドへ登録され、シート同期経由で各面に
    反映される。シート events タブはガイド同期で全件上書きされるため、ここから
@@ -50,64 +53,68 @@
     field('種別', '<select id="ke-kind"><option value="new">新規登録</option><option value="edit">修正</option></select>') +
     field('対象イベントID（修正のとき）', '<input id="ke-target" type="text" inputmode="numeric">') +
     '<p><button id="ke-load" type="button">現在の内容を読み込む（修正のとき）</button></p>' +
-    '<p class="mini">修正のときは、読み込むとこのサイトが表示中のデータで各欄が埋まります。そこから直して送信してください。</p>' +
+    '<p class="mini">修正のときは、読み込むとこのサイトが表示中のデータで各欄が埋まります。そこから直して送信してください。このサイトの表示データに無い項目（追加会場・主催リンクなど）は、読み込みで空欄でもガイド側の既存値が保持されます（変更した項目だけが届きます）。</p>' +
     sec('テキスト貼り付け取り込み') +
     field('告知文を貼り付け', '<textarea id="ke-paste" placeholder="フライヤーや告知の文章を貼ると、日付・時刻・URLなどを各欄へ振り分けます"></textarea>') +
     '<p><button id="ke-paste-btn" type="button">各欄へ取り込む</button></p>' +
-    sec('基本情報') +
+    sec('画像') +
+    field('画像URL（1行に1つ、最大8件。並び順＝表示順。公式フライヤーの原寸URL）', '<textarea id="ke-images"></textarea>') +
+    sec('タイトル') +
     field('タイトル（必須）※公式名そのまま', '<input id="ke-title" type="text" maxlength="200">') +
+    sec('日付') +
     '<div class="row2">' +
     field('日付（必須）', '<input id="ke-date" type="date">') +
     field('終了日（複数日のとき）', '<input id="ke-dateend" type="date">') +
     '</div>' +
-    field('時刻ラベル（例：開場12:00／開演12:30）', '<input id="ke-time" type="text">') +
+    sec('時刻') +
     '<div class="row2">' +
     field('開始時刻', '<input id="ke-start" type="time">') +
     field('終了時刻', '<input id="ke-end" type="time">') +
     '</div>' +
+    field('時刻の表示文（例：開場12:00／開演12:30）', '<input id="ke-time" type="text">') +
     sec('会場') +
-    field('会場（正式名称＋自治体。例：エスタシオンホール（和歌山市））', '<input id="ke-venue" type="text">') +
-    field('追加会場（1行に1会場、複数会場のとき）', '<textarea id="ke-venues"></textarea>') +
+    field('会場（会場DBの正式キー「名称（自治体）」。候補から選べます）', '<input id="ke-venue" type="text" list="ke-venue-list"><datalist id="ke-venue-list"></datalist>') +
     field('会場補足（会場内のスペース・階など）', '<input id="ke-venuespace" type="text">') +
-    '<div class="row2">' +
-    field('府県', '<select id="ke-pref"><option>大阪府</option><option>京都府</option><option>兵庫県</option><option>滋賀県</option><option>奈良県</option><option>和歌山県</option></select>') +
-    field('エリア（市区町村）', '<input id="ke-area" type="text">') +
-    '</div>' +
+    field('追加の会場（1行に1会場、複数会場のとき）', '<textarea id="ke-venues"></textarea>') +
+    sec('出演者') +
+    field('出演者（1行に1組。まとめて貼って「一括分割」も使えます）', '<textarea id="ke-performers"></textarea>') +
+    '<p><button id="ke-split" type="button">一括分割（改行・、・／・｜などで区切る）</button></p>' +
+    '<div id="ke-perf-preview" class="mini"></div>' +
     sec('カテゴリ') +
     field('カテゴリ', '<input id="ke-category" type="text">') +
     field('追加カテゴリ（1行に1つ）', '<textarea id="ke-categories"></textarea>') +
     field('サブカテゴリ（1行に1つ）', '<textarea id="ke-subcategories"></textarea>') +
-    sec('料金') +
+    '<label class="chk"><input id="ke-collab" type="checkbox"> コラボカフェ</label>' +
+    '<label class="chk"><input id="ke-closed" type="checkbox"> 完結・完了（詳細はこれで確定）</label>' +
+    sec('エリア・都道府県') +
+    '<div class="row2">' +
+    field('府県', '<select id="ke-pref"><option>大阪府</option><option>京都府</option><option>兵庫県</option><option>滋賀県</option><option>奈良県</option><option>和歌山県</option></select>') +
+    field('エリア（市区町村）', '<input id="ke-area" type="text">') +
+    '</div>' +
+    sec('料金・チケット') +
     field('料金（例：前売 3,500円／当日 4,000円（ドリンク代別））', '<input id="ke-price" type="text">') +
-    field('料金区分（ガイド側の自動判定の目安）', '<select id="ke-priceclass"><option value="">不明</option><option value="free">無料</option><option value="paid">有料</option><option value="partial">一部無料</option></select>') +
-    sec('出演者') +
-    field('出演者（1行に1組。まとめて貼って「一括分割」も使えます）', '<textarea id="ke-performers"></textarea>') +
-    '<p><button id="ke-split" type="button">一括分割（、・／などで区切る）</button></p>' +
-    '<div id="ke-perf-preview" class="mini"></div>' +
-    sec('タイムテーブル') +
+    '<label class="chk"><input id="ke-isfree" type="checkbox"> 無料イベント（観覧・入場無料）</label>' +
+    '<p class="mini" id="ke-pc-auto">料金区分は保存時に自動で決まります（編集はできません）。</p>' +
+    field('チケット販売ページ', '<input id="ke-ticket" type="url">') +
+    sec('公式リンク・SNS') +
+    field('公式サイト', '<input id="ke-linkweb" type="url">') +
+    field('X', '<input id="ke-linkx" type="url">') +
+    field('Instagram', '<input id="ke-linkig" type="url">') +
+    sec('撮影') +
+    field('撮影について・詳細', '<input id="ke-photonote" type="text">') +
+    sec('詳細・タイムテーブル') +
     '<div id="ke-tt"></div>' +
     '<p><button id="ke-tt-add" type="button">＋ 行を追加</button></p>' +
-    '<p class="mini">時刻／ステージ／区分（開場・開演・終演など）／内容・出演者の順で1行ずつ。ステージが違うだけでは公演を分けず、この表にステージ別で書きます。</p>' +
-    sec('説明') +
-    field('説明文', '<textarea id="ke-desc"></textarea>') +
+    '<p class="mini">時刻／ステージ／区分（開場・開演・終演など）／内容・出演者の順で1行ずつ。ステージが違うだけでは公演を分けず、この表にステージ別で書きます。送信時にステージごとに開始時刻順へ並べ替えます。</p>' +
+    field('説明文（補足）', '<textarea id="ke-desc"></textarea>') +
     sec('主催') +
     field('主催者名', '<input id="ke-organizer" type="text">') +
     field('主催 公式サイト', '<input id="ke-orgweb" type="url">') +
     field('主催 X', '<input id="ke-orgx" type="url">') +
     field('主催 Instagram', '<input id="ke-orgig" type="url">') +
-    sec('リンク') +
-    field('公式サイト', '<input id="ke-linkweb" type="url">') +
-    field('チケット販売', '<input id="ke-ticket" type="url">') +
-    field('X', '<input id="ke-linkx" type="url">') +
-    field('Instagram', '<input id="ke-linkig" type="url">') +
-    sec('画像') +
-    field('画像URL（1行に1つ、最大8件。並び順＝表示順。公式フライヤーの原寸URL）', '<textarea id="ke-images"></textarea>') +
-    sec('その他') +
-    '<label class="chk"><input id="ke-collab" type="checkbox"> コラボカフェ</label>' +
-    '<label class="chk"><input id="ke-closed" type="checkbox"> 詳細は確定（これ以上の詳細なし）</label>' +
-    field('情報源', '<select id="ke-source"><option value="primary">一次情報</option><option value="summary">まとめ情報</option><option value="unconfirmed">未確認</option></select>') +
-    field('写真メモ', '<input id="ke-photonote" type="text">') +
-    field('備考', '<textarea id="ke-notes"></textarea>') +
+    sec('備考') +
+    field('備考（注意事項）', '<textarea id="ke-notes"></textarea>') +
+    field('出典種別', '<select id="ke-source"><option value="primary">一次情報</option><option value="summary">まとめのみ</option><option value="unconfirmed">要確認</option></select>') +
     '<div class="kg-sendbar"><button id="ke-send" type="button">送信する</button><button id="ke-cancel" type="button">閉じる</button></div>';
   document.body.appendChild(dlg);
   function status(t) { $('kg-editor-status').textContent = t; }
@@ -147,23 +154,66 @@
   }
   $('ke-tt-add').onclick = function () { ttRow(); };
   ttRow();
-  /* ---------- 出演者の一括分割（分割禁止の名前はそのまま） ---------- */
+  /* ---------- 出演者の一括分割（スペース版 performerSplit と同一仕様） ----------
+     NFKC正規化のうえ、区切りは 改行・、,，;；・/／|｜• のみ。空白と✕/×では割らない。
+     例外4件と登録辞書名は「トークン全体として立つ場合」だけ保護する。
+     完全一致の重複は先勝ち1件、末尾コロンのラベル断片は捨てる。 */
   var NEVER_SPLIT = ['ジョニー・デッパ', 'と、いうわけで', '君に、胸キュン。', 'mofu/mofu'];
+  var SEP_RE = /[\n\r、,，;；・\/／|｜•]/;
+  var dictNames = [];
+  function sortDictNames() {
+    var seen = {}, out = [];
+    dictNames.forEach(function (n) { if (n && n.length >= 2 && !seen[n]) { seen[n] = 1; out.push(n); } });
+    dictNames = out.sort(function (a, b) { return b.length - a.length; });
+  }
+  function loadDictNames() {
+    if (loadDictNames.done) return; loadDictNames.done = true;
+    fetch('assets/artists.json').then(function (r) { return r.json(); }).then(function (j) {
+      Object.keys(j).forEach(function (k) { dictNames.push(k); ((j[k] && j[k].m) || []).forEach(function (m) { if (m && m.n) dictNames.push(m.n); }); });
+      sortDictNames();
+    }).catch(function () {});
+    fetch('assets/dict.json').then(function (r) { return r.json(); }).then(function (j) {
+      Object.keys(j).forEach(function (k) { dictNames.push(k); });
+      sortDictNames();
+    }).catch(function () {});
+    fetch('assets/venues.json').then(function (r) { return r.json(); }).then(function (j) {
+      var dl = $('ke-venue-list'); if (!dl) return;
+      Object.keys(j).forEach(function (k) { var o = document.createElement('option'); o.value = k; dl.appendChild(o); });
+    }).catch(function () {});
+  }
+  function protectTokens(work, names, hold) {
+    names.forEach(function (name) {
+      var idx = 0;
+      while (true) {
+        var i = work.indexOf(name, idx); if (i < 0) break;
+        var before = i === 0 ? '' : work.charAt(i - 1);
+        var after = (i + name.length) >= work.length ? '' : work.charAt(i + name.length);
+        if ((before === '' || SEP_RE.test(before)) && (after === '' || SEP_RE.test(after))) {
+          var token = '\u0001' + hold.length + '\u0002'; hold.push(name);
+          work = work.slice(0, i) + token + work.slice(i + name.length);
+          idx = i + token.length;
+        } else idx = i + 1;
+      }
+    });
+    return work;
+  }
   function splitPerformers(text) {
-    var work = String(text || ''), hold = [];
-    NEVER_SPLIT.forEach(function (name, i) {
-      if (work.indexOf(name) >= 0) { work = work.split(name).join('\u0001' + i + '\u0002'); hold[i] = name; }
+    var work = String(text || '').normalize('NFKC'), hold = [];
+    work = protectTokens(work, NEVER_SPLIT, hold);
+    if (dictNames.length) work = protectTokens(work, dictNames, hold);
+    var seen = {}, out = [];
+    work.split(SEP_RE).forEach(function (frag) {
+      var t = frag.trim();
+      if (!t || /[:：]$/.test(t)) return;
+      var cm = t.match(/^[^:：]{1,12}[:：]/);
+      if (cm) t = t.slice(cm[0].length).trim();
+      if (!t) return;
+      t = t.replace(/\u0001(\d+)\u0002/g, function (_, i) { return hold[+i] || ''; }).trim();
+      if (t && !seen[t]) { seen[t] = 1; out.push(t); }
     });
-    var parts = work.split(/[\n、,・\/／&＆×xX]/).map(function (s) { return s.trim(); }).filter(Boolean);
-    return parts.map(function (s) {
-      return s.replace(/\u0001(\d+)\u0002/g, function (_, i) { return hold[+i] || ''; });
-    });
+    return out;
   }
-  function perfList() {
-    var raw = $('ke-performers').value;
-    var byLine = raw.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
-    return byLine.length > 1 || raw.indexOf('\n') >= 0 ? byLine : splitPerformers(raw);
-  }
+  function perfList() { return splitPerformers($('ke-performers').value); }
   function perfPreview() {
     var list = perfList();
     $('ke-perf-preview').textContent = list.length ? '出演者 ' + list.length + '組：' + list.join(' / ') : '';
@@ -174,6 +224,52 @@
     setLines('ke-performers', list);
     perfPreview();
   };
+  /* ---------- 料金区分の自動判定（スペース版の保存時ルールの鏡像・参考表示） ---------- */
+  function judgePriceClass(price, isFree) {
+    var t = String(price || '');
+    function amounts(str) { var out = [], re = /(?:¥|￥)\s*([0-9,]+)|([0-9,]+)\s*円/g, m; while ((m = re.exec(str))) out.push(parseInt((m[1] || m[2]).replace(/,/g, ''), 10)); return out; }
+    var drinkMention = /(ドリンク|1D|2D)/.test(t) && !/(ドリンク不要|ドリンク代なし|ドリンク代無し)/.test(t);
+    var tNoDrink = t.replace(/(ドリンク代|ドリンク|1ドリンク|2ドリンク|1D|2D)\s*(別途|別|のみ)?\s*(?:¥|￥)?\s*[0-9,]+\s*円?/g, '');
+    var hasPositive = amounts(tNoDrink).some(function (a) { return a > 0; });
+    if (hasPositive) {
+      if (/(一般|通常)[^。\n]{0,12}(無料|¥\s*0(?![0-9])|￥\s*0(?![0-9])|(^|[^0-9,])0円)/.test(t)) return 'partial';
+      if (/(女性|学生)[^。\n]{0,10}無料/.test(t) && !/(中学生|小学生)[^。\n]{0,6}無料/.test(t) && drinkMention) return 'partial';
+      if (/(観覧|入場)[^。\n]{0,4}無料/.test(t) && /(優先|前方)/.test(t)) return 'partial';
+      return 'paid';
+    }
+    if (isFree || /無料/.test(t)) return drinkMention ? 'drink' : 'free';
+    return '';
+  }
+  var PC_LABEL = { free: '無料', drink: 'ドリンク代のみ', partial: '一部無料', paid: '有料', '': '未区分' };
+  function updatePcAuto() {
+    var el = $('ke-pc-auto'); if (!el) return;
+    var pc = judgePriceClass($('ke-price').value, $('ke-isfree').checked);
+    el.textContent = '料金区分（参考表示）: ' + (PC_LABEL[pc] || '未区分') + ' — 保存時にガイド側で自動判定されます（編集はできません）。';
+  }
+  $('ke-price').addEventListener('input', updatePcAuto);
+  $('ke-isfree').addEventListener('change', updatePcAuto);
+  /* ---------- タイムテーブルの変更検知（未編集なら元の説明文を保持） ---------- */
+  var ttTouched = false, noteTouched = false, loadedEventId = '';
+  $('ke-tt').addEventListener('input', function () { ttTouched = true; });
+  $('ke-tt').addEventListener('click', function () { ttTouched = true; });
+  $('ke-desc').addEventListener('input', function () { noteTouched = true; });
+  /* 送信時のタイムテーブル整列（正本 sortTimetables と同じ規則：
+     ステージの出現順を保ち、各ステージ内で開場・開演を先頭、時刻行を開始時刻昇順、時刻なしを末尾） */
+  function sortTtRows(rows) {
+    var order = [], groups = {};
+    rows.forEach(function (r) { var k = r.stage || ''; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(r); });
+    function startOf(r) { var m = String(r.time || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+    var out = [];
+    order.forEach(function (k) {
+      var g = groups[k];
+      var head = g.filter(function (r) { return r.label === '開場' || r.label === '開演'; });
+      var rest = g.filter(function (r) { return !(r.label === '開場' || r.label === '開演'); });
+      var timed = rest.filter(function (r) { return startOf(r) != null; }).sort(function (a, b) { return startOf(a) - startOf(b); });
+      var untimed = rest.filter(function (r) { return startOf(r) == null; });
+      out = out.concat(head, timed, untimed);
+    });
+    return out;
+  }
   /* ---------- テキスト貼り付け取り込み ---------- */
   $('ke-paste-btn').onclick = function () {
     var text = $('ke-paste').value;
@@ -198,6 +294,16 @@
     if (!$('ke-desc').value) $('ke-desc').value = text.trim();
     status('取り込みました。各欄を確認してから送信してください。');
   };
+  /* ---------- 表示データに無い項目の保持（修正で未変更なら payload から除く） ---------- */
+  var unloadedSnapshot = null;
+  function unloadedState() {
+    return {
+      venues: lines('ke-venues').join('\n'), subCategories: lines('ke-subcategories').join('\n'),
+      organizerWeb: $('ke-orgweb').value.trim(), organizerX: $('ke-orgx').value.trim(), organizerInstagram: $('ke-orgig').value.trim(),
+      collabCafe: $('ke-collab').checked, detailsClosed: $('ke-closed').checked,
+      sourceType: $('ke-source').value, photoNote: $('ke-photonote').value.trim(), notes: $('ke-notes').value.trim()
+    };
+  }
   /* ---------- 修正：現在の内容を読み込む ---------- */
   function minToTime(m) {
     if (m == null || m === '') return '';
@@ -237,7 +343,9 @@
     $('ke-category').value = ev.category || '';
     setLines('ke-categories', ev.categories || []);
     $('ke-price').value = ev.price || '';
-    $('ke-priceclass').value = ev.priceClass || '';
+    $('ke-isfree').checked = !!ev.isFree;
+    updatePcAuto();
+    loadedEventId = String(ev.id); ttTouched = false; noteTouched = false;
     var perfs = ev.performers;
     if (typeof perfs === 'string') perfs = perfs ? perfs.split(/[、,]/).map(function (s) { return s.trim(); }).filter(Boolean) : [];
     setLines('ke-performers', perfs || []);
@@ -260,7 +368,8 @@
     $('ke-linkx').value = ev.linkX || '';
     $('ke-linkig').value = ev.linkInstagram || '';
     setLines('ke-images', ev.imageUrl ? [ev.imageUrl] : []);
-    status('読み込みました。直す箇所だけ変更して送信してください（空にした項目は「空にする」という内容で届きます）。');
+    unloadedSnapshot = unloadedState();
+    status('読み込みました。直す箇所だけ変更して送信してください。このサイトの表示データに無い項目は、変更していなければガイド側の既存値が保持されます。');
   };
   $('ke-cancel').onclick = function () { dlg.close(); };
   /* ---------- 送信 ---------- */
@@ -276,7 +385,7 @@
     try { if (localStorage.getItem('kg_admin_mode_v1') === '1') submitter = 'admin'; } catch (_) {}
     if (submitter === '未ログイン') { try { if (localStorage.getItem('kg_guest_mode_v1') === '1') submitter = 'guest'; } catch (_) {} }
     if (submitter === '未ログイン') { try { var s = JSON.parse(localStorage.getItem('kg_member_session_v2') || 'null'); if (s && s.acct) submitter = 'member:' + s.acct.slice(0, 12); } catch (_) {} }
-    var priceClass = $('ke-priceclass').value;
+    var priceClass = judgePriceClass($('ke-price').value, $('ke-isfree').checked);
     var payload = {
       kind: $('ke-kind').value, targetId: $('ke-target').value.trim(),
       title: title, date: date, dateEnd: $('ke-dateend').value,
@@ -285,8 +394,9 @@
       venue: $('ke-venue').value.trim(), venues: lines('ke-venues'), venueSpaceNote: $('ke-venuespace').value.trim(),
       prefecture: $('ke-pref').value, area: $('ke-area').value.trim(),
       category: $('ke-category').value.trim(), categories: lines('ke-categories'), subCategories: lines('ke-subcategories'),
-      price: $('ke-price').value.trim(), priceClass: priceClass, isFree: priceClass === 'free',
-      performers: perfList(), timetableRows: ttRows(), description: $('ke-desc').value.trim(),
+      price: $('ke-price').value.trim(), priceClass: priceClass, isFree: $('ke-isfree').checked,
+      performers: perfList(), timetableRows: sortTtRows(ttRows()), description: $('ke-desc').value.trim(),
+      descriptionUnchanged: ($('ke-kind').value === 'edit' && loadedEventId !== '' && !ttTouched && !noteTouched),
       organizerName: $('ke-organizer').value.trim(), organizerWeb: $('ke-orgweb').value.trim(), organizerX: $('ke-orgx').value.trim(), organizerInstagram: $('ke-orgig').value.trim(),
       linkWeb: $('ke-linkweb').value.trim(), linkTicket: $('ke-ticket').value.trim(), linkX: $('ke-linkx').value.trim(), linkInstagram: $('ke-linkig').value.trim(),
       importImageUrls: lines('ke-images').slice(0, 8),
@@ -295,6 +405,13 @@
       submitter: submitter,
       _subject: '【編集入力】' + ($('ke-kind').value === 'new' ? '新規登録' : '修正') + '：' + title, _template: 'table', _captcha: 'false'
     };
+    if (payload.kind === 'edit' && loadedEventId !== '' && unloadedSnapshot) {
+      var nowState = unloadedState(), dropped = [];
+      Object.keys(unloadedSnapshot).forEach(function (k) {
+        if (nowState[k] === unloadedSnapshot[k]) { delete payload[k]; dropped.push(k); }
+      });
+      if (dropped.length) payload.preservedUnloadedFields = dropped;
+    }
     if (!cfg.endpoint) { status('送信先が未設定です（受付の準備中）。入力内容はまだ送信されていません。'); return; }
     status('送信しています…');
     try {
@@ -307,7 +424,7 @@
   /* 入口：ヘッダー（ログイン/同期の隣、スペース版と同じメイン画面の位置）に
      「＋ 新規登録・修正」ボタンを常時出す。送信は受付への申請形式なので、
      誰が見えても掲載に直接は影響しない。「ログイン・同期」ダイアログの中からも開ける。 */
-  function openEditor() { if (!dlg.open) dlg.showModal(); }
+  function openEditor() { loadDictNames(); updatePcAuto(); if (!dlg.open) dlg.showModal(); }
   var headerBtn = document.getElementById('kg-editor-open');
   function refreshEditorEntry() { if (headerBtn) headerBtn.hidden = false; }
   if (headerBtn) { headerBtn.onclick = openEditor; refreshEditorEntry(); }

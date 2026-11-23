@@ -5122,7 +5122,7 @@ window.KGEditorBridge = {
           timeLabel: ev.timeLabel || '', startMin: ev.startMin, endMin: ev.endMin,
           venue: ev.venue || '', venueSpaceNote: ev.sheetVs || ev.venueSpaceNote || '',
           area: ev.area || '', prefecture: ev.prefecture || '', category: ev.category || '',
-          categories: cats || [], price: ev.price || '', priceClass: ev.priceClass || '',
+          categories: cats || [], price: ev.price || '', priceClass: ev.priceClass || '', isFree: ev._freeSheet === true,
           performers: (ev._perfList && ev._perfList.length) ? ev._perfList.slice() : (ev.performers || ''),
           description: ev.description || '', organizerName: ev.organizerName || '',
           linkWeb: ev.linkWeb || '', linkTicket: ev.linkTicket || '', linkX: ev.linkX || '', linkInstagram: ev.linkInstagram || '',
