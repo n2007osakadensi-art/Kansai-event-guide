@@ -44,6 +44,7 @@
     if (!title || !date) { status('タイトルと日付は必須です。'); return; }
     var submitter = '未ログイン';
     try { if (localStorage.getItem('kg_admin_mode_v1') === '1') submitter = 'admin'; } catch (_) {}
+    if (submitter === '未ログイン') { try { if (localStorage.getItem('kg_guest_mode_v1') === '1') submitter = 'guest'; } catch (_) {} }
     if (submitter === '未ログイン') { try { var s = JSON.parse(localStorage.getItem('kg_member_session_v2') || 'null'); if (s && s.acct) submitter = 'member:' + s.acct.slice(0, 12); } catch (_) {} }
     var payload = { kind: $('ke-kind').value, targetId: $('ke-target').value.trim(), title: title, date: date, dateEnd: $('ke-dateend').value, timeLabel: $('ke-time').value.trim(), venue: $('ke-venue').value.trim(), prefecture: $('ke-pref').value, area: $('ke-area').value.trim(), category: $('ke-category').value.trim(), performers: lines('ke-performers'), timetable: lines('ke-timetable'), price: $('ke-price').value.trim(), priceClass: $('ke-priceclass').value, organizer: $('ke-organizer').value.trim(), linkOfficial: $('ke-official').value.trim(), linkTicket: $('ke-ticket').value.trim(), imageUrls: lines('ke-images'), description: $('ke-desc').value.trim(), notes: $('ke-notes').value.trim(), submitter: submitter };
     if (!cfg.endpoint) { status('送信先が未設定です（受付の準備中）。入力内容はまだ送信されていません。'); return; }

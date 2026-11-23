@@ -18,6 +18,9 @@
     '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
     '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。端末やブラウザを変えても、コードを入れれば推し・お気に入りが維持できます。メールアドレスなどの個人情報は登録しません。</p><button id="kg-code-issue" type="button">会員コードを発行する</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、設定しておいた質問と回答でログインできます（ログイン後、コードを再発行できます）。</p><p><input id="kg-rec-q" type="text" placeholder="あなたの質問" autocomplete="off" style="min-width:200px;padding:6px"><br><input id="kg-rec-a" type="text" placeholder="その回答" autocomplete="off" style="min-width:200px;padding:6px"> <button id="kg-recovery-login" type="button">質問と回答でログイン</button></p></div>' +
     '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><p style="font-size:13px">コードを失くしたとき用に、質問と回答を設定できます（自分で決めた質問と、その回答）。</p><p><input id="kg-qa-q" type="text" placeholder="質問（例：初めて行ったライブは？）" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-qa-a" type="text" placeholder="回答" autocomplete="off" style="min-width:220px;padding:6px"> <button id="kg-qa-save" type="button">質問と回答を保存</button></p><button id="kg-code-logout" type="button">この端末からログアウト</button></div></div>' +
+    '<div id="kg-guest"><hr><p><strong>ゲスト利用</strong>（一時的な端末向け）</p>' +
+    '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
+    '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button></div></div>' +
     '<div id="kg-admin"><hr><p><strong>管理者モード</strong>（この端末だけ）</p>' +
     '<div id="kg-admin-off"><p style="font-size:13px">管理者の端末では、ログイン操作なしで管理者として扱います。有効化には管理者パスフレーズの設定が必要です（この端末内にだけ保存されます）。</p><button id="kg-admin-enable" type="button">管理者モードを有効にする</button></div>' +
     '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。ログイン操作は不要です。</p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></div></div>' +
@@ -73,7 +76,7 @@
     user=session && session.user ? session.user : null; initialized=false;
     if(!user){ parts(false,true,false,false); text('ログインしていません。推し・お気に入りは端末内に保存されます。'); renderAdmin(); return; }
     var uid=user.id; $('kg-email-display').textContent='ログイン中：'+(user.email||'アカウント');
-    parts(false,false,true,false);
+    parts(false,false,true,false); renderState();
     if (localStorage.getItem(currentMarker)===uid) {
       text('アカウントのデータを確認しています…');
       if(!await flush(uid,g)) return;
@@ -136,7 +139,7 @@
     if(!d) return false;
     member = {acct:acct, code:code||null};
     saveMemberSession();
-    renderMember();
+    renderMember(); renderState();
     if(localStorage.getItem('kg_member_selected_v2')===acct){ bridge.replace(cloudOf(d)); memberReady=true; text('同期済み（会員コード）。'); }
     else { pendingMemberCloud=cloudOf(d); choiceMode='member'; parts(false, !user, !!user, true); text('同期方法を選んでください。'); if(!fromRestore) showModal(); }
     return true;
@@ -226,16 +229,43 @@
     if(!member)return;
     if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。よろしいですか？'))return;
     localStorage.removeItem('kg_member_session_v2'); localStorage.removeItem('kg_member_selected_v2'); localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1');
-    member=null; memberReady=false; pendingMemberCloud=null; renderMember();
+    member=null; memberReady=false; pendingMemberCloud=null; renderMember(); renderState();
     bridge.replace({event:[],artist:[]});
     text('ログアウトしました。');
+  };
+  /* 状態表記（Kota、2026-11-23）：ログイン中かどうかをヘッダーのボタン自体に表示する。
+     ゲスト利用は一時的な端末向け（端末内だけに保存し、終了時に消せる）。 */
+  var GUEST_FLAG='kg_guest_mode_v1';
+  function guestOn(){ try{ return localStorage.getItem(GUEST_FLAG)==='1'; }catch(_){ return false; } }
+  function stateLabel(){
+    if(adminOn()) return '管理者モード';
+    if(user) return 'ログイン中（同期ON）';
+    if(member) return 'ログイン中（会員コード）';
+    if(guestOn()) return 'ゲスト利用中';
+    return '未ログイン / 同期';
+  }
+  function renderState(){
+    var b=$('kg-account-open'); if(b) b.textContent=stateLabel();
+    var go=$('kg-guest-off'), gn=$('kg-guest-on'); var g=guestOn(); if(go) go.hidden=g; if(gn) gn.hidden=!g;
+  }
+  $('kg-guest-start').onclick=function(){
+    try{ localStorage.setItem(GUEST_FLAG,'1'); }catch(_){}
+    renderState();
+    text('ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。');
+  };
+  $('kg-guest-end').onclick=function(){
+    if(!confirm('ゲスト利用を終了します。この端末内の推し・お気に入りと好みの設定を消去します。よろしいですか？')) return;
+    try{ localStorage.removeItem(GUEST_FLAG); localStorage.removeItem('kg_trial_prefs_v1'); localStorage.removeItem('kg_trial_learn_v1'); }catch(_){}
+    bridge.replace({event:[],artist:[]});
+    renderState();
+    text('ゲスト利用を終了し、この端末のデータを消去しました。');
   };
   /* 管理者モード（Kota、2026-11-23）：管理者の端末ではログイン操作を不要にする。
      端末内にだけ保存される印で、サーバ側の権限ではない（公開側に守る管理データはない）。
      有効化・解除には本人が決めたパスフレーズが要る（ハッシュだけを端末に保存）。 */
   var ADMIN_FLAG='kg_admin_mode_v1', ADMIN_HASH='kg_admin_hash_v1';
   function adminOn(){ try{ return localStorage.getItem(ADMIN_FLAG)==='1'; }catch(_){ return false; } }
-  function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）。ログインは不要です。'); }
+  function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）。ログインは不要です。'); renderState(); }
   $('kg-admin-enable').onclick=async function(){
     var existing=null; try{ existing=localStorage.getItem(ADMIN_HASH); }catch(_){}
     var p1=prompt(existing ? '管理者パスフレーズを入力してください。' : '管理者パスフレーズを決めて入力してください（この端末の管理者モード用）。');
