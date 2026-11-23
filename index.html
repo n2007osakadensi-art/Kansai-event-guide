@@ -1709,8 +1709,14 @@ function episodeQueryOf(raw){
 }
 function officialEpisodeNum(title){
   var s=String(title||"");
-  var m=s.match(/vol\.?\s*(\d+)/i) || s.match(/第\s*(\d+)\s*[回話]/);
+  var m=s.match(/vol\.?\s*(\d+)/i) || s.match(/第\s*(\d+)\s*[回話]/) || s.match(/[#＃]\s*(\d+)/);
   return m?parseInt(m[1],10):null;
+}
+function officialEpisodeLabel(title){
+  var s=String(title||"");
+  if(/[#＃]\s*\d+/.test(s)){ var mh=s.match(/[#＃]\s*(\d+)/); return "#"+parseInt(mh[1],10); }
+  var n=officialEpisodeNum(s);
+  return n!=null?("vol."+n):null;
 }
 var guideEpCache={};
 function guideEpisodeNum(ev, baseKey){
@@ -1874,6 +1880,10 @@ function contentPass(ev, opts){
      変えたりはしない */
   var epQ=episodeQueryOf(query);
   if(epQ && !epQ.bare){
+    /* 入力文字列そのままの照合を先に見る：公式名そのまま（番号付きタイトル等）の
+       検索を話数解釈で潰さない。当たらなければ話数照合で判定する */
+    var q0=normSearch(String(query||"").trim().replace(/\s+/g," "));
+    if(q0 && searchHay(ev).indexOf(q0)>=0) return true;
     /* 話数・回数検索はタイトル系列＋番号で照合する（公式番号優先、無ければガイド集計） */
     return episodeMatch(ev, epQ);
   }
@@ -3753,7 +3763,7 @@ function zeroHitGuideHTML(){
         return a.date<b.date?-1:1;
       });
       return '<div style="text-align:left;max-width:680px;margin:14px auto 0"><p style="font-size:14px;margin:0 0 8px">その番号の開催は見つかりませんでした。シリーズの開催はこちらです：</p>'
-        + series.slice(0,8).map(function(ev){ var off=officialEpisodeNum(ev.title); var sub=off!=null?("vol."+off):("ガイド集計 第"+guideEpisodeNum(ev, epQ.baseKey)+"回"); return zeroHitRowHTML(ev, sub); }).join("") + '</div>';
+        + series.slice(0,8).map(function(ev){ var lab=officialEpisodeLabel(ev.title); var sub=lab!=null?lab:("ガイド集計 第"+guideEpisodeNum(ev, epQ.baseKey)+"回"); return zeroHitRowHTML(ev, sub); }).join("") + '</div>';
     }
   }
   var dp=queryDateParts(qraw);
