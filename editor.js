@@ -43,7 +43,8 @@
     var title = $('ke-title').value.trim(), date = $('ke-date').value;
     if (!title || !date) { status('タイトルと日付は必須です。'); return; }
     var submitter = '未ログイン';
-    try { var s = JSON.parse(localStorage.getItem('kg_member_session_v2') || 'null'); if (s && s.acct) submitter = 'member:' + s.acct.slice(0, 12); } catch (_) {}
+    try { if (localStorage.getItem('kg_admin_mode_v1') === '1') submitter = 'admin'; } catch (_) {}
+    if (submitter === '未ログイン') { try { var s = JSON.parse(localStorage.getItem('kg_member_session_v2') || 'null'); if (s && s.acct) submitter = 'member:' + s.acct.slice(0, 12); } catch (_) {} }
     var payload = { kind: $('ke-kind').value, targetId: $('ke-target').value.trim(), title: title, date: date, dateEnd: $('ke-dateend').value, timeLabel: $('ke-time').value.trim(), venue: $('ke-venue').value.trim(), prefecture: $('ke-pref').value, area: $('ke-area').value.trim(), category: $('ke-category').value.trim(), performers: lines('ke-performers'), timetable: lines('ke-timetable'), price: $('ke-price').value.trim(), priceClass: $('ke-priceclass').value, organizer: $('ke-organizer').value.trim(), linkOfficial: $('ke-official').value.trim(), linkTicket: $('ke-ticket').value.trim(), imageUrls: lines('ke-images'), description: $('ke-desc').value.trim(), notes: $('ke-notes').value.trim(), submitter: submitter };
     if (!cfg.endpoint) { status('送信先が未設定です（受付の準備中）。入力内容はまだ送信されていません。'); return; }
     status('送信しています…');
@@ -54,15 +55,25 @@
       else { status('送信できませんでした。時間をおいてお試しください。'); }
     } catch (e) { status('送信できたか確認できませんでした。通信状態をご確認ください。'); }
   };
-  /* 開くボタンは「ログイン・同期」ダイアログの中に置く（常設ナビは増やさない） */
-  var accountDlg = document.getElementById('kg-account');
+  /* 入口：管理者モードの端末ではヘッダー（ログイン/同期の隣、スペース版と同じメイン画面の位置）に
+     「＋ 新規登録・修正」ボタンを出す。それ以外の端末では「ログイン・同期」ダイアログの中から開ける。 */
+  function openEditor() { if (!dlg.open) dlg.showModal(); }
+  var headerBtn = document.getElementById('kg-editor-open');
+  function refreshEditorEntry() {
+    var admin = false;
+    try { admin = localStorage.getItem('kg_admin_mode_v1') === '1'; } catch (_) {}
+    if (headerBtn) headerBtn.hidden = !admin;
+  }
+  if (headerBtn) { headerBtn.onclick = openEditor; refreshEditorEntry(); }
+  var accountDlg = document.getElementById('kg-account-dialog') || document.getElementById('kg-account');
   if (accountDlg) {
     var p = document.createElement('p');
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = 'イベントの新規登録・修正';
-    btn.onclick = function () { if (!dlg.open) dlg.showModal(); };
+    btn.onclick = openEditor;
     p.appendChild(btn);
     accountDlg.appendChild(p);
+    accountDlg.addEventListener('close', refreshEditorEntry);
   }
 })();

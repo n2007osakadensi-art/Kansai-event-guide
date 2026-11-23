@@ -18,6 +18,9 @@
     '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
     '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。端末やブラウザを変えても、コードを入れれば推し・お気に入りが維持できます。メールアドレスなどの個人情報は登録しません。</p><button id="kg-code-issue" type="button">会員コードを発行する</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、設定しておいた質問と回答でログインできます（ログイン後、コードを再発行できます）。</p><p><input id="kg-rec-q" type="text" placeholder="あなたの質問" autocomplete="off" style="min-width:200px;padding:6px"><br><input id="kg-rec-a" type="text" placeholder="その回答" autocomplete="off" style="min-width:200px;padding:6px"> <button id="kg-recovery-login" type="button">質問と回答でログイン</button></p></div>' +
     '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><p style="font-size:13px">コードを失くしたとき用に、質問と回答を設定できます（自分で決めた質問と、その回答）。</p><p><input id="kg-qa-q" type="text" placeholder="質問（例：初めて行ったライブは？）" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-qa-a" type="text" placeholder="回答" autocomplete="off" style="min-width:220px;padding:6px"> <button id="kg-qa-save" type="button">質問と回答を保存</button></p><button id="kg-code-logout" type="button">この端末からログアウト</button></div></div>' +
+    '<div id="kg-admin"><hr><p><strong>管理者モード</strong>（この端末だけ）</p>' +
+    '<div id="kg-admin-off"><p style="font-size:13px">管理者の端末では、ログイン操作なしで管理者として扱います。有効化には管理者パスフレーズの設定が必要です（この端末内にだけ保存されます）。</p><button id="kg-admin-enable" type="button">管理者モードを有効にする</button></div>' +
+    '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。ログイン操作は不要です。</p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></div></div>' +
     '<p style="font-size:13px">メールアドレス・推し・お気に入りを認証・保存サービスで扱います。サービス提供者のプライバシーポリシーをご確認ください。</p></dialog>';
   document.body.appendChild(overlay);
   var dialog = $('kg-account-dialog');
@@ -68,7 +71,7 @@
   async function setupSession(session) {
     generation++; var g=generation;
     user=session && session.user ? session.user : null; initialized=false;
-    if(!user){ parts(false,true,false,false); text('ログインしていません。推し・お気に入りは端末内に保存されます。'); return; }
+    if(!user){ parts(false,true,false,false); text('ログインしていません。推し・お気に入りは端末内に保存されます。'); renderAdmin(); return; }
     var uid=user.id; $('kg-email-display').textContent='ログイン中：'+(user.email||'アカウント');
     parts(false,false,true,false);
     if (localStorage.getItem(currentMarker)===uid) {
@@ -227,6 +230,37 @@
     bridge.replace({event:[],artist:[]});
     text('ログアウトしました。');
   };
+  /* 管理者モード（Kota、2026-11-23）：管理者の端末ではログイン操作を不要にする。
+     端末内にだけ保存される印で、サーバ側の権限ではない（公開側に守る管理データはない）。
+     有効化・解除には本人が決めたパスフレーズが要る（ハッシュだけを端末に保存）。 */
+  var ADMIN_FLAG='kg_admin_mode_v1', ADMIN_HASH='kg_admin_hash_v1';
+  function adminOn(){ try{ return localStorage.getItem(ADMIN_FLAG)==='1'; }catch(_){ return false; } }
+  function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）。ログインは不要です。'); }
+  $('kg-admin-enable').onclick=async function(){
+    var existing=null; try{ existing=localStorage.getItem(ADMIN_HASH); }catch(_){}
+    var p1=prompt(existing ? '管理者パスフレーズを入力してください。' : '管理者パスフレーズを決めて入力してください（この端末の管理者モード用）。');
+    if(!p1) return;
+    var h=await sha256hex('kg-admin:'+p1);
+    if(existing){ if(h!==existing){ text('パスフレーズが違います。'); return; } }
+    else {
+      var p2=prompt('確認のため、もう一度入力してください。');
+      if(p2!==p1){ text('パスフレーズが一致しませんでした。'); return; }
+      try{ localStorage.setItem(ADMIN_HASH, h); }catch(_){}
+    }
+    try{ localStorage.setItem(ADMIN_FLAG, '1'); }catch(_){}
+    renderAdmin();
+    text('管理者モードを有効にしました。この端末ではログイン不要です。');
+  };
+  $('kg-admin-disable').onclick=async function(){
+    var p=prompt('管理者パスフレーズを入力してください。');
+    if(p===null) return;
+    var h=await sha256hex('kg-admin:'+p);
+    var existing=null; try{ existing=localStorage.getItem(ADMIN_HASH); }catch(_){}
+    if(h!==existing){ text('パスフレーズが違います。'); return; }
+    try{ localStorage.removeItem(ADMIN_FLAG); }catch(_){}
+    renderAdmin();
+    text('管理者モードを解除しました。');
+  };
   $('kg-google-login').onclick=async function(){
     if(!client)return;
     var button=$('kg-google-login');button.disabled=true;
@@ -259,6 +293,7 @@
       try{ localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1'); }catch(_){}
       var savedSession=null; try{ savedSession=JSON.parse(localStorage.getItem('kg_member_session_v2')||'null'); }catch(_){}
       if(savedSession && savedSession.acct){ activateMember(savedSession.acct, savedSession.code||null, true).catch(function(){ /* 復元できない場合は未ログインのまま */ }); }
+      renderAdmin();
     } catch(e){parts(true,false,false,false);text('ログイン機能を読み込めません。通信と設定をご確認ください。');}
   })();
 })();
