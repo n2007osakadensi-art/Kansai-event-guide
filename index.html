@@ -4018,6 +4018,7 @@ function rfSlotNote(ev, baseMin, travel){
   desc.rows.forEach(function(row){
     var ts=rfTimesOf(row[0]); if(!ts.length) return;
     var act=String(row[1]||"").trim(); if(!act) return;
+    if(/^(開場|開演|終演)$/.test(act)) return; /* 式次第の行は出番として扱わない */
     if(ts.length>1){ if(ts[1]>baseMin && arrival<=ts[1] && (!bestEnd || ts[1]>bestEnd.e)) bestEnd={act:act, time:String(row[0]), e:ts[1]}; }
     else if(arrival<=ts[0] && ts[0]>=baseMin && (!bestStart || ts[0]<bestStart.s)) bestStart={act:act, time:String(row[0]), s:ts[0]};
   });
