@@ -203,3 +203,5 @@
   フィルター：移動時間上限・カテゴリ・無料のみ。候補タップで既存の詳細モーダル。
   追記：出番注記は「開場／開演／終演」の行を出番として扱わないよう調整
   （画面確認で「今からでも開演には間に合う」という表示が出たため）。
+
+- 2026-11-23 14:01 Firebase設定値を反映（KotaがAndroidでプロジェクト kansai-event-guide を作成し、ウェブアプリ guide-web を登録、firebaseConfig を提供）。account-config.js に apiKey/authDomain/projectId/appId を記入して公開。残：承認済みドメイン n2007osakadensi-art.github.io の追加確認と Firestore 作成＋ルール公開（コンソール側）。
