@@ -26,7 +26,9 @@
     + '.kp-mhead span{font-size:13px;font-weight:700}'
     + '.kp-mdel{min-height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-size:13px;cursor:pointer}'
     + '.kp-mrow label{margin-top:10px}'
-    + '.kp-madd{width:100%;min-height:44px;margin-top:10px;border-radius:10px;border:1px dashed var(--border,#bbb);background:transparent;color:inherit;font-size:14px;cursor:pointer}';
+    + '.kp-madd{width:100%;min-height:44px;margin-top:10px;border-radius:10px;border:1px dashed var(--border,#bbb);background:transparent;color:inherit;font-size:14px;cursor:pointer}'
+    + '.kp-mbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}'
+    + '.kp-mbtns button{flex:1;min-height:40px;border-radius:10px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-size:13.5px;cursor:pointer;min-width:150px}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   var ov = document.createElement('div');
   ov.className = 'kp-overlay';
@@ -56,6 +58,28 @@
       + '<label>所属グループ（任意）<input type="text" class="kp-m-g" value="' + esc(mb.g || '') + '"></label>'
       + '</div>';
   }
+  var mTextManual = false;
+  function parseMemberLines(text) {
+    return String(text || '').split('\n').map(function (line) {
+      var parts = line.split(/[|｜]/).map(function (x) { return x.trim(); });
+      return { n: parts[0] || '', r: parts[1] || '', x: parts[2] || '', i: parts[3] || '', g: parts[4] || '' };
+    }).filter(function (mb) { return mb.n; });
+  }
+  function memberLine(mb) { return [mb.n || '', mb.r || '', mb.x || '', mb.i || '', mb.g || ''].join(' | '); }
+  function rowsToMembers() {
+    var out = [];
+    ov.querySelectorAll('.kp-mrow').forEach(function (row) {
+      function rv(cls) { var el = row.querySelector(cls); return el ? el.value.trim() : ''; }
+      var mb = { n: rv('.kp-m-n'), r: rv('.kp-m-r'), x: rv('.kp-m-x'), i: rv('.kp-m-i'), g: rv('.kp-m-g') };
+      if (mb.n) out.push(mb);
+    });
+    return out;
+  }
+  function rebuildMembers(mbs) {
+    var box = $('kp-members'); if (!box) return;
+    box.innerHTML = (mbs || []).map(function (mb, i) { return memberRow(mb, i); }).join('');
+    renumberMembers();
+  }
   function renumberMembers() {
     var rows = ov.querySelectorAll('.kp-mrow');
     for (var i = 0; i < rows.length; i++) {
@@ -82,7 +106,11 @@
       h += '<label>メンバー</label><div id="kp-members">'
         + (p.m || []).map(function (mb, i) { return memberRow(mb, i); }).join('')
         + '</div><button type="button" class="kp-madd" id="kp-madd">＋ メンバーを追加</button>'
-        + '<p class="kp-note">スペース版と同じく、1人に1ブロックで名前・役割・X・Instagramを別々の欄に入力します。不要なメンバーは「削除」で外してください。</p>';
+        + '<p class="kp-note">スペース版と同じく、1人に1ブロックで名前・役割・X・Instagramを別々の欄に入力します。不要なメンバーは「削除」で外してください。</p>'
+        + '<label for="kp-f-mtext">メンバー一括入力（テンプレート・貼り付け用）</label>'
+        + '<textarea id="kp-f-mtext">' + esc((p.m || []).map(memberLine).join('\n')) + '</textarea>'
+        + '<div class="kp-mbtns"><button type="button" id="kp-m2rows">テキストを行形式に反映</button><button type="button" id="kp-m2text">行形式をテキストに書き出す</button></div>'
+        + '<p class="kp-note">1行に1人「名前 | 役割 | X | Instagram | 所属グループ」の形式です。テンプレートを作って貼り付けるのに使えます。テキストを書き換えた場合は、そのまま送信するとテキスト側の内容が優先されます。</p>';
     } else {
       h += field('住所', 'kp-f-ad', p.ad || '');
       h += field('ジャンル', 'kp-f-gn', p.gn || '');
@@ -98,6 +126,9 @@
     h += field('根拠・出典（公式ページや公式SNSのURLなど）', 'kp-f-src', '', true);
     h += field('備考', 'kp-f-note', '', true);
     $('kp-fields').innerHTML = h;
+    mTextManual = false;
+    var mt = $('kp-f-mtext');
+    if (mt) mt.addEventListener('input', function () { mTextManual = true; });
     $('kp-status').textContent = '';
     ov.classList.add('open');
   }
@@ -106,6 +137,18 @@
       var box = $('kp-members'); if (!box) return;
       box.insertAdjacentHTML('beforeend', memberRow({}, box.querySelectorAll('.kp-mrow').length));
       renumberMembers();
+      return;
+    }
+    if (e.target && e.target.id === 'kp-m2rows') {
+      var ta1 = $('kp-f-mtext'); if (!ta1) return;
+      rebuildMembers(parseMemberLines(ta1.value));
+      mTextManual = false;
+      return;
+    }
+    if (e.target && e.target.id === 'kp-m2text') {
+      var ta2 = $('kp-f-mtext'); if (!ta2) return;
+      ta2.value = rowsToMembers().map(memberLine).join('\n');
+      mTextManual = false;
       return;
     }
     var del = e.target && e.target.closest ? e.target.closest('.kp-mdel') : null;
@@ -123,12 +166,8 @@
     var status = function (t) { $('kp-status').textContent = t; };
     var payload;
     if (cur.kind === 'artist') {
-      var members = [];
-      ov.querySelectorAll('.kp-mrow').forEach(function (row) {
-        function rv(cls) { var el = row.querySelector(cls); return el ? el.value.trim() : ''; }
-        var mb = { name: rv('.kp-m-n'), role: rv('.kp-m-r'), x: rv('.kp-m-x'), instagram: rv('.kp-m-i'), group: rv('.kp-m-g') };
-        if (mb.name) members.push(mb);
-      });
+      var srcMembers = (mTextManual && $('kp-f-mtext')) ? parseMemberLines($('kp-f-mtext').value) : rowsToMembers();
+      var members = srcMembers.map(function (mb) { return { name: mb.n, role: mb.r, x: mb.x, instagram: mb.i, group: mb.g }; });
       var membersText = members.map(function (mb) { return [mb.name, mb.role, mb.x, mb.instagram, mb.group].join('｜'); }).join('\n');
       payload = {
         kind: 'artistProfile', targetName: cur.name,
