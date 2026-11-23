@@ -3431,7 +3431,9 @@ function recoReasonsFor(ev, pv){
 
 /* ---------- ホームのおすすめ表示（未回答バー／ジャンル提案バー／おすすめ棚） ---------- */
 function renderHomeExtras(){
-  var isHome = view==="all";
+  /* 検索中は検索結果だけを表示する（Kota指示 2026-11-23）：
+     キーワードが入っている間は おすすめ棚・ジャンル提案・アンケートCTA を出さない */
+  var isHome = view==="all" && !(query||"").trim();
   /* CTAは「未回答」だけでなく「スキップ済みでも未選択」の間も出し続け、
      アンケートへの入口が消えないようにする。選択が1つでもあれば消える */
   if(els.prefsCta){
