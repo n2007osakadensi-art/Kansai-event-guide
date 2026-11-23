@@ -5,10 +5,26 @@
   var swStatus='このブラウザではオフライン用キャッシュを利用できません。';
   var secureContext=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
   if('serviceWorker' in navigator&&secureContext){
+    /* 更新を「開いている画面」にも届ける（2026-11-24）:
+       新しい版が有効になったら一度だけ自動で読み直す。これが無いと、
+       タブを開いたままの利用者には修正がいつまでも届かない。
+       初回登録（まだ管理者がいない）では読み直さない。 */
+    var hadController=!!navigator.serviceWorker.controller;
+    var swReloadAt=0;
+    try{ swReloadAt=parseInt(localStorage.getItem('kg_sw_reload_at')||'0',10)||0; }catch(e){}
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(!hadController) return;
+      if(Date.now()-swReloadAt<60000) return;
+      try{ localStorage.setItem('kg_sw_reload_at',String(Date.now())); }catch(e){}
+      location.reload();
+    });
     navigator.serviceWorker.register('./pwa-worker.js',{scope:'./',updateViaCache:'none'})
       .then(function(reg){
         swStatus='オフライン用の画面キャッシュを準備しました。';
         if(reg&&reg.update) reg.update().catch(function(){});
+        /* 開きっぱなしのタブでも新版を取りに行く: 30分ごと＋画面に戻ったとき */
+        setInterval(function(){ if(reg&&reg.update) reg.update().catch(function(){}); }, 30*60*1000);
+        document.addEventListener('visibilitychange',function(){ if(!document.hidden&&reg&&reg.update) reg.update().catch(function(){}); });
         setStatus();
       })
       .catch(function(err){

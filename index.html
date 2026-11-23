@@ -568,6 +568,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
+  window.__kgShell='v43';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -587,7 +588,7 @@
     var el=document.getElementById('kg-diag-line'); if(!el) return;
     var g=read()||{}; var last=window.__kgDiagLast();
     var bootTxt = window.__kgBooted ? 'この画面は起動完了' : (g.ok ? ('前回の起動は完了（'+fmtT(g.ok)+'）') : '起動完了の記録なし');
-    el.textContent='動作記録: '+bootTxt+(last ? (' / 直近のエラー: '+last.m+'（'+fmtT(last.t)+'）') : ' / エラー記録: なし');
+    el.textContent='動作記録: 版 '+(window.__kgShell||'?')+' / '+bootTxt+(last ? (' / 直近のエラー: '+last.m+'（'+fmtT(last.t)+'）') : ' / エラー記録: なし');
   };
   document.addEventListener('DOMContentLoaded', function(){ window.__kgDiagLine(); });
   function wipeDerived(){
