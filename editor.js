@@ -194,11 +194,17 @@
   $('ke-load').onclick = function () {
     var id = $('ke-target').value.trim();
     if (!id) { status('対象イベントIDを入れてください。'); return; }
-    var evs = (typeof window !== 'undefined' && window.allEvents) || [];
     var normId = function (v) { return String(v == null ? '' : v).replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/\s+/g, ''); };
     var want = normId(id), ev = null;
-    for (var i = 0; i < evs.length; i++) { if (normId(evs[i].id) === want) { ev = evs[i]; break; } }
-    if (!ev) { status('このサイトが表示中のデータに、そのIDのイベントが見つかりませんでした。'); return; }
+    if (window.KGEditorBridge) { ev = window.KGEditorBridge.getById(want); }
+    if (!ev && window.allEvents) {
+      for (var i = 0; i < window.allEvents.length; i++) { if (normId(window.allEvents[i].id) === want) { ev = window.allEvents[i]; break; } }
+    }
+    if (!ev) {
+      var loaded = window.KGEditorBridge ? window.KGEditorBridge.count() : 0;
+      status(loaded ? 'このサイトが表示中のデータに、そのIDのイベントが見つかりませんでした。' : 'イベントデータの読み込みが終わっていません。件数が表示されてからお試しください。');
+      return;
+    }
     $('ke-kind').value = 'edit';
     $('ke-title').value = ev.title || '';
     $('ke-date').value = ev.date || '';
