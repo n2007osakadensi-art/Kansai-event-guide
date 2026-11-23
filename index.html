@@ -4052,7 +4052,7 @@ function evCachePut(events){
     return evCacheStore({savedAt:Date.now(), events:upcoming, slim:true});
   });
 }
-function load(){
+function load(force){
   els.loadingState.hidden=false; els.errorState.hidden=true; els.controls.hidden=true;
   els.listMain.classList.add("hidden"); els.planView.classList.remove("show");
   if(els.loadHint) els.loadHint.textContent="Googleスプレッドシートから最新のイベント情報を取得中です。少しお待ちください。";
@@ -4069,8 +4069,11 @@ function load(){
       /* 速度制限・低速回線への対策：更新は頻繁でないため、再取得は半日（12時間）
          に1回で足りる（Kota指示 2026-11-23）。それまでは再ダウンロードせず
          保存データを表示する。データセーバー有効時・2G相当の低速回線では
-         裏での再取得も行わず、回線が安定した環境に戻ってから更新する */
-      if(ageMin>=720 && !dataSaver) startNetworkLoad(true);
+         裏での再取得も行わず、回線が安定した環境に戻ってから更新する。
+         ただし「再読み込み」ボタンの手動操作（force）では常に最新を取得する
+         （2026-11-23修正：ボタンでも12時間ルールに止められ、登録・修正が
+         反映されない問題への対処。自動取得の12時間ルールは従来どおり） */
+      if(force || (ageMin>=720 && !dataSaver)) startNetworkLoad(true);
     }else{
       startNetworkLoad(false);
     }
@@ -4468,7 +4471,7 @@ document.getElementById("detailBack").addEventListener("click", function(){
 });
 
 document.getElementById("retryBtn").addEventListener("click", load);
-document.getElementById("reloadBtn").addEventListener("click", load);
+document.getElementById("reloadBtn").addEventListener("click", function(){ load(true); });
 /* もっと見る：次の48件を末尾に追加する */
 els.moreBtn.addEventListener("click", function(){
   var start=gridShown;
