@@ -3923,16 +3923,7 @@ function startNetworkLoad(background){
   var hint1=setTimeout(function(){ if(!settled && els.loadHint) els.loadHint.textContent="読み込みに時間がかかっています。そのままお待ちください。"; }, 7000);
   var hint2=setTimeout(function(){ if(!settled && els.loadHint) els.loadHint.textContent="通信が混み合っているようです。別の方法でも取得を試しています。"; }, 16000);
   function clearTimers(){ clearTimeout(hint1); clearTimeout(hint2); if(hedgeTimer) clearTimeout(hedgeTimer); }
-  function ok(events){ if(settled) return; settled=true; clearTimers();
-    var newCount=0;
-    if(background){
-      var oldIds={}; allEvents.forEach(function(ev){ oldIds[ev.id]=1; });
-      events.forEach(function(ev){ if(!oldIds[ev.id]) newCount++; });
-    }
-    applyData(events); evCachePut(events);
-    /* 裏で更新できたら、新しく増えた予定だけ軽く知らせる（Kota指示 2026-11-23） */
-    if(background && newCount>0) toast("最新の情報に更新しました（新しい予定が"+newCount+"件増えました）");
-  }
+  function ok(events){ if(settled) return; settled=true; clearTimers(); applyData(events); evCachePut(events); }
   function failAll(err){ if(settled) return; settled=true; clearTimers(); if(background){ els.updatedAt.textContent += "（最新を取得できませんでした）"; } else { showError(err); } }
   function maybeFail(err){
     if(settled) return;
