@@ -107,18 +107,17 @@
     if(!client)return;
     var button=$('kg-google-login');button.disabled=true;
     var provider=new client.GoogleAuthProvider();
-    var standalone=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;
-    var mobile=/iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent||'');
-    /* スマホとインストール済みPWAではポップアップ方式が弾かれやすいため、
-       Googleのログイン画面へ遷移して戻るリダイレクト方式を使う（Kota実機で両OSとも弾かれたため、2026-11-23）。 */
-    if(standalone||mobile){
-      text('Googleのログイン画面へ移動します…');
-      try { await client.signInWithRedirect(client.auth,provider); return; }
-      catch(err){ text('ログイン画面へ移動できませんでした（'+((err&&err.code)||'不明なエラー')+'）。'); button.disabled=false; return; }
-    }
+    /* 方式の経緯（2026-11-23）：当初ポップアップのみ→スマホではリダイレクトを先にしたが、
+       Kota実機でリダイレクトは「最後まで進んでもログインにならない」（復帰時の結果が端末側で受け取れない）。
+       一度成功したのはポップアップ側のため、全端末ポップアップ優先に戻し、
+       ポップアップがエラーになった場合だけリダイレクトへ自動で切り替える。 */
     text('Googleログインを開いています…');
     try { await client.signInWithPopup(client.auth,provider); }
-    catch(err){ text('ログインできませんでした（'+((err&&err.code)||'不明なエラー')+'）。ポップアップの設定と公開ドメインの認証設定をご確認ください。'); }
+    catch(err){
+      text('別の方式でログイン画面へ移動します…');
+      try { await client.signInWithRedirect(client.auth,provider); return; }
+      catch(err2){ text('ログインできませんでした（'+((err2&&err2.code)||(err&&err.code)||'不明なエラー')+'）。'); }
+    }
     finally{button.disabled=false;}
   };
   if(!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) { parts(true,false,false,false); text('ログイン機能は準備中です。'); return; }
