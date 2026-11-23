@@ -3,6 +3,8 @@
 このリポジトリは、関西イベントガイドの公開サイト本体（静的HTML一式）の正本です。
 チャットやAI（Muse／Arenaなど）が変わっても、ここを起点に更新を引き継げます。
 
+**引き継ぎの入口は `HANDOVER.md`**（全体像・イベント調査のルール・サイト更新の作法・現在の状態と残作業）。設計スペックは `docs/` に集約しています。担当するAI・人は、まず HANDOVER.md と OPERATIONS.md を読んでください。
+
 - 所有者: n2007osakadensi-art（Kota本人）
 - 公開URL（GitHub Pages）: https://n2007osakadensi-art.github.io/Kansai-event-guide/
   ※ リポジトリ名の大文字 K を含むこの表記が有効なURLです（小文字版は404）。
