@@ -51,7 +51,7 @@
     if (!cfg.endpoint) { status('送信先が未設定です（受付の準備中）。入力内容はまだ送信されていません。'); return; }
     status('送信しています…');
     try {
-      var res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+      var res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload) });
       var data = await res.json();
       if (data && (data.ok || data.success === 'true' || data.success === true)) { status('送信しました。確認のうえガイドへ反映されます。'); }
       else { status('送信できませんでした。時間をおいてお試しください。'); }
