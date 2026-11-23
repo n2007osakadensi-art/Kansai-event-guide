@@ -57,7 +57,12 @@
   .chip[aria-pressed="true"] .dot{outline:2px solid rgba(255,255,255,.5)}
 
   .result-line{font-size:13px;color:var(--muted);margin:10px 2px 12px}
-  .result-line strong{color:var(--ink)}
+  .result-line strong{color:var(--ink);display:inline-block}
+  /* 検索実行が見えるようにする軽い動き（Kota指示 2026-11-23） */
+  .result-line.fx strong{animation:kgCountPulse .45s ease-out}
+  @keyframes kgCountPulse{0%{transform:scale(1.35);color:#b92b37}100%{transform:scale(1)}}
+  #grid.fx{animation:kgGridFade .35s ease-out}
+  @keyframes kgGridFade{from{opacity:.15;transform:translateY(5px)}to{opacity:1;transform:none}}
 
   .oshi-bar{background:var(--oshi-bg);border-radius:12px;padding:12px 14px;margin:0 0 14px;display:none}
   .oshi-bar.show{display:block}
@@ -2645,6 +2650,7 @@ function renderActiveFilters(){
     + (chips.length>1 ? '<button type="button" class="af-clear" data-afclear="__all">すべて外す</button>' : "");
 }
 
+var lastSearchFxQuery="";
 function render(){
   renderChips(); renderOshiBar(); renderXmasChrome(); renderSignageChrome();
   if(!els.filterPanel.classList.contains("hidden")) renderFilterOpts(); else updateFilterBadge();
@@ -2684,6 +2690,12 @@ function render(){
     + (activeFilterCount()>0 ? " ・ 絞り込み "+activeFilterCount()+"条件" : "")
     + (!showEnded && endedHidden>0 && !exactTarget ? " ・ 終了した"+endedHidden.toLocaleString()+"件は非表示中" : "");
   if(episodeQueryOf(query) && Object.keys(currentGuideBadges).length) els.resultLine.innerHTML += " ・ 話数・回数はガイド集計（公式番号がない公演は開催順）";
+  /* 検索が実行されたことが分かるよう、検索語が変わったときだけ件数と
+     一覧に軽い動きを付ける（Kota指示 2026-11-23）。即時検索の速さはそのまま */
+  if(query!==lastSearchFxQuery){
+    lastSearchFxQuery=query;
+    [els.resultLine, els.grid].forEach(function(el){ if(!el) return; el.classList.remove("fx"); void el.offsetWidth; el.classList.add("fx"); });
+  }
   var empty = list.length===0;
   els.emptyState.hidden = !empty;
   if(empty){
