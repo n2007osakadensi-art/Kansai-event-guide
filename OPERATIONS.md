@@ -213,3 +213,5 @@
 - 2026-11-23 15:3x 会員コード方式を実装（Kotaの提案）：account.js のダイアログに会員コード欄を追加。発行（20文字コード→SHA-256をキーに memberdata へ1人1文書で保存）・コードでログイン・コピー・ログアウト。Googleログインは管理者用に併存。SW v6→v7。ルールv2（memberdata追加）を LOGIN_SETUP.md に反映。Firestore作成とルール差し替えはKota側の残作業。
 
 - 2026-11-23 15:4x 会員コード方式を本格化（Kota着工指示）：アカウント本体 memberdata/{acct}、コード索引 codes/{hash}、質問と回答の復旧索引 recovery/{hash} の3コレクション方式に改変。コード再発行（旧コード無効化）とQ&A復旧ログインを実装。ルールv3を LOGIN_SETUP.md に反映。SW v7→v8。Firestore作成とルール公開はKota側の残作業で、未完了の間は発行等の書き込みは完了しない。
+
+- 2026-11-23 15:4x ルールv3を微修正：memberdata/codes/recovery は allow get, write とし、一覧取得（list）を禁止（ハッシュ一覧の外部取得を防止）。サイト側コード変更なし。

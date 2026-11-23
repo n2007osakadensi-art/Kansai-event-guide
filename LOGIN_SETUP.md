@@ -35,19 +35,19 @@
          allow read, write: if request.auth != null && request.auth.uid == uid;
        }
        match /memberdata/{key} {
-         allow read, write: if key.matches('^[a-f0-9]{64}$');
+         allow get, write: if key.matches('^[a-f0-9]{64}$');
        }
        match /codes/{key} {
-         allow read, write: if key.matches('^[a-f0-9]{64}$');
+         allow get, write: if key.matches('^[a-f0-9]{64}$');
        }
        match /recovery/{key} {
-         allow read, write: if key.matches('^[a-f0-9]{64}$');
+         allow get, write: if key.matches('^[a-f0-9]{64}$');
        }
      }
    }
    ```
 
-   （意味: users はログインした本人が自分の分だけ読み書きできる。memberdata は会員データ本体、codes は会員コードの索引、recovery は「質問と回答」による復旧の索引で、いずれも64桁のハッシュを知る者だけが読み書きできる）
+   （意味: users はログインした本人が自分の分だけ読み書きできる。memberdata は会員データ本体、codes は会員コードの索引、recovery は「質問と回答」による復旧の索引で、いずれも64桁のハッシュを知る者だけが読み書きできる。get のみにして一覧取得（list）を禁じているのは、ハッシュの一覧を外部から抜かせないため）
 
 5. **ウェブアプリを登録して設定値をコピー**
    - プロジェクトの概要ページで「</>（ウェブ）」アイコン → アプリのニックネームは任意
