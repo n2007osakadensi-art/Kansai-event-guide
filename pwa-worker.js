@@ -6,7 +6,7 @@
 'use strict';
 
 var CACHE_PREFIX='kg-event-guide-shell-';
-var CACHE_NAME=CACHE_PREFIX+'v2';
+var CACHE_NAME=CACHE_PREFIX+'v3';
 var SHELL_FILES=[
   './index.html',
   './app.webmanifest',
@@ -19,6 +19,7 @@ var SHELL_FILES=[
   './icons/icon-512.png',
   './icons/icon.svg',
   './assets/artists.json',
+  './assets/dict.json',
   './assets/readings.json',
   './assets/venue-supp.json',
   './assets/venues.json'

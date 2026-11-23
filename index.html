@@ -1462,6 +1462,14 @@ function normSearch(s){
     .replace(/[ァ-ヶ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0x60); })
     .replace(/[・･]/g, "");
 }
+/* スペース版ガイドの検索辞書（正式名→別表記・略称・読みの集合）。
+   プロフィールの別名に無い語でも、辞書にあれば照合対象に含める */
+function dictWords(name){ return (name && dictByName[name]) || []; }
+function dictHit(name, textNorm){
+  var ws=dictWords(name);
+  for(var i=0;i<ws.length;i++){ if(normSearch(ws[i]).indexOf(textNorm)>=0) return true; }
+  return false;
+}
 /* ===== 検索の追加照合（スペース版ガイドの確定ルールに合わせたもの） =====
    簡易検索キー：タイトル中の年号・副題（括弧内、〜以降）を落とした照合用キー。
    登録タイトル自体は公式名のまま変えず、検索側の照合だけを寛容にする。 */
@@ -1553,12 +1561,15 @@ function searchHay(ev){
     if(readingByName[p]) parts.push(readingByName[p]);
     var ap=artistProfileFor(p);
     if(ap && ap.al && ap.al.length) parts.push(ap.al.join(" "));
+    var dw=dictWords(p); if(dw.length) parts.push(dw.join(" "));
   });
+  var vdw=dictWords(ev.venue); if(vdw.length) parts.push(vdw.join(" "));
   var vp=venueProfileFor(ev.venue);
   if(vp){
     if(vp.n) parts.push(vp.n);
     if(vp.al && vp.al.length) parts.push(vp.al.join(" "));
     if(vp.ad) parts.push(vp.ad);
+    if(vp.n){ var ndw=dictWords(vp.n); if(ndw.length) parts.push(ndw.join(" ")); }
   }
   ev._hay=normSearch(parts.filter(Boolean).join(" "));
   return ev._hay;
@@ -1770,7 +1781,7 @@ function renderFilterOpts(){
   allEvents.forEach(function(ev){ ev._perfList.forEach(function(p){ if(!pcount[p]){ pcount[p]=0; pnames.push(p); } pcount[p]++; }); });
   pnames.sort(function(a,b){ if(pcount[b]!==pcount[a]) return pcount[b]-pcount[a]; return a.localeCompare(b,"ja"); });
   var pqRaw=(els.perfSearch.value||"").trim(); var pq=pqRaw.toLowerCase();
-  var pshown=pnames.filter(function(p){ return selPerfs.has(p) || !pq || p.toLowerCase().indexOf(pq)>=0 || normSearch(p).indexOf(normSearch(pqRaw))>=0 || (readingByName[p]||"").indexOf(pqRaw)>=0; });
+  var pshown=pnames.filter(function(p){ return selPerfs.has(p) || !pq || p.toLowerCase().indexOf(pq)>=0 || normSearch(p).indexOf(normSearch(pqRaw))>=0 || (readingByName[p]||"").indexOf(pqRaw)>=0 || dictHit(p, normSearch(pqRaw)); });
   var pcap=pshown.slice(0,40);
   els.perfOpts.innerHTML = pcap.map(function(p){
     return '<button type="button" class="fopt" data-fperf="'+esc(p)+'" aria-pressed="'+selPerfs.has(p)+'">'+esc(p)+'（'+pcount[p]+'）</button>';
@@ -1989,7 +2000,7 @@ function artistEvents(name){
   });
 }
 /* ---------- bundled profile DB (ガイド側の会場DB・アーティストプロフィール) ---------- */
-var venueProfiles={}, artistProfiles={}, readingByName={}, profilesLoaded=false, profilesLoading=null;
+var venueProfiles={}, artistProfiles={}, readingByName={}, dictByName={}, profilesLoaded=false, profilesLoading=null;
 var venueProfByName={};
 function stripVenueSuffix(s){ return String(s||"").replace(/（[^）]*）\s*$/,"").replace(/\([^)]*\)\s*$/,"").trim(); }
 function indexVenueProfiles(){
@@ -2028,11 +2039,12 @@ function loadProfiles(){
      取れなければ取れた分だけで続行する */
   try{
   function get(u){ return fetch(u).then(function(r){ if(!r.ok) throw new Error(u); return r.json(); }).catch(function(){ return null; }); }
-  profilesLoading=Promise.all([get("assets/venues.json"),get("assets/artists.json"),get("assets/readings.json"),get("assets/venue-supp.json")]).then(function(res){
+  profilesLoading=Promise.all([get("assets/venues.json"),get("assets/artists.json"),get("assets/readings.json"),get("assets/venue-supp.json"),get("assets/dict.json")]).then(function(res){
     if(res[0]){ venueProfiles=res[0]; indexVenueProfiles(); }
     if(res[1]){ artistProfiles=res[1]; }
     if(res[2]){ Object.keys(res[2]).forEach(function(rd){ var nm=res[2][rd]; if(nm && !readingByName[nm]) readingByName[nm]=rd; }); }
     if(res[3]){ venueSuppById=res[3]; attachVenueSupp(); }
+    if(res[4]){ dictByName=res[4]; }
     profilesLoaded=true; profilesLoading=null;
     artistProfCache={};
     allEvents.forEach(function(ev){ ev._hay=null; });
@@ -2136,7 +2148,7 @@ function renderDir(){
       if(!q) return true;
       var prof=it.profile||{};
       var hay=(it.name+" "+(it.area||"")+" "+(it.prefecture||"")+" "+(readingByName[it.name]||"")
-        +" "+((prof.al||[]).join(" "))+" "+(prof.ad||"")+" "+(prof.gn||"")+" "+(prof.gs||"")+" "+(prof.c||"")).toLowerCase();
+        +" "+((prof.al||[]).join(" "))+" "+(dictWords(it.name).join(" "))+" "+(prof.ad||"")+" "+(prof.gn||"")+" "+(prof.gs||"")+" "+(prof.c||"")).toLowerCase();
       return hay.indexOf(q.replace(/\s+/g," "))>=0;
     });
     var dbNoteA = profilesLoaded ? "（うちプロフィール登録 "+Object.keys(artistProfiles).length+"組）" : "（プロフィールを読み込み中…）";
@@ -2227,7 +2239,7 @@ function renderDir(){
     var prof=it.profile||{};
     var parts=venueGenreParts(it.profile);
     var hay=(it.name+" "+(it.area||"")+" "+(it.prefecture||"")+" "+(readingByName[it.name]||"")
-      +" "+((prof.al||[]).join(" "))+" "+(prof.ad||"")+" "+parts.form+" "+parts.sub+" "+genrePath(parts.form,parts.sub)+" "+(prof.tp||"")).toLowerCase();
+      +" "+((prof.al||[]).join(" "))+" "+(dictWords(it.name).join(" "))+" "+(prof.ad||"")+" "+parts.form+" "+parts.sub+" "+genrePath(parts.form,parts.sub)+" "+(prof.tp||"")).toLowerCase();
     return hay.indexOf(q.replace(/\s+/g," "))>=0;
   });
   if(filtersOn){
@@ -2994,7 +3006,7 @@ function genreTilesHTML(selCats, data, attr){
 }
 function artistChipsHTML(selArtists, data, queryStr, attr){
   var q=normSearch((queryStr||"").trim());
-  var list=data.artists.filter(function(p){ return !q || normSearch(p).indexOf(q)>=0 || normSearch(readingByName[p]||"").indexOf(q)>=0; });
+  var list=data.artists.filter(function(p){ return !q || normSearch(p).indexOf(q)>=0 || normSearch(readingByName[p]||"").indexOf(q)>=0 || dictHit(p, q); });
   list.sort(function(a,b){
     var sa=selArtists.indexOf(a)>=0?0:1, sb=selArtists.indexOf(b)>=0?0:1;
     if(sa!==sb) return sa-sb;
@@ -3305,13 +3317,15 @@ function renderSuggest(){
       if(seenA[p]) return;
       var hit = normSearch(p).indexOf(text)>=0
         || (readingByName[p] && normSearch(readingByName[p]).indexOf(text)>=0)
+        || dictHit(p, text)
         || (function(){ var ap=artistProfileFor(p); return !!(ap && ap.al && ap.al.some(function(a){ return normSearch(a).indexOf(text)>=0; })); })();
       if(hit){ seenA[p]=1; artists.push({kind:"artist", klabel:"アーティスト", color:"var(--oshi)", label:p, value:p, score:score(p)}); }
     });
     var v=(ev.venue||"").trim();
     if(v && !seenV[v]){
       var vhit = normSearch(v).indexOf(text)>=0;
-      if(!vhit){ var vp=venueProfileFor(v); if(vp && vp.al && vp.al.some(function(a){ return normSearch(a).indexOf(text)>=0; })) vhit=true; }
+      if(!vhit && dictHit(v, text)) vhit=true;
+      if(!vhit){ var vp=venueProfileFor(v); if(vp && vp.al && vp.al.some(function(a){ return normSearch(a).indexOf(text)>=0; })) vhit=true; if(!vhit && vp && vp.n && dictHit(vp.n, text)) vhit=true; }
       if(vhit){ seenV[v]=1; venues.push({kind:"venue", klabel:"会場", color:"var(--gold)", label:v, value:v, score:score(v)}); }
     }
     if(!seenE[ev.title] && normSearch(ev.title).indexOf(text)>=0){
