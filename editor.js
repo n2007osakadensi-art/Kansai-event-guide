@@ -249,7 +249,7 @@
   $('ke-price').addEventListener('input', updatePcAuto);
   $('ke-isfree').addEventListener('change', updatePcAuto);
   /* ---------- タイムテーブルの変更検知（未編集なら元の説明文を保持） ---------- */
-  var ttTouched = false, noteTouched = false, loadedEventId = '';
+  var ttTouched = false, noteTouched = false, loadedEventId = '', dupArmKey = '';
   $('ke-tt').addEventListener('input', function () { ttTouched = true; });
   $('ke-tt').addEventListener('click', function () { ttTouched = true; });
   $('ke-desc').addEventListener('input', function () { noteTouched = true; });
@@ -381,6 +381,23 @@
   $('ke-send').onclick = async function () {
     var title = $('ke-title').value.trim(), date = $('ke-date').value;
     if (!title || !date) { status('タイトルと日付は必須です。'); return; }
+    /* 重複チェック（指示文§3）: 新規登録の前に、日付が一致しタイトルまたは会場が
+       一致する既存イベントがあれば候補を示す。1部・2部や別公演は別件なので
+       ブロックはせず、確認のうえもう一度押すと送信できる。 */
+    if ($('ke-kind').value === 'new') {
+      var dupKey = title + '|' + date + '|' + $('ke-venue').value.trim();
+      if (dupArmKey !== dupKey) {
+        var cands = (window.KGEditorBridge && window.KGEditorBridge.findOnDate) ? window.KGEditorBridge.findOnDate(date) : [];
+        var venueVal = $('ke-venue').value.trim();
+        var hits = cands.filter(function (c) { return c.title === title || (venueVal && c.venue === venueVal); });
+        if (hits.length) {
+          dupArmKey = dupKey;
+          status('同じ日付で、タイトルまたは会場が一致する既存イベントがあります: ' + hits.slice(0, 5).map(function (c) { return '「' + c.title + '」(' + (c.venue || '会場未定') + '/ID ' + c.id + ')'; }).join('、') + '。1部・2部や別公演であれば別件として登録できます。内容を確認したら、もう一度「送信する」を押してください。');
+          return;
+        }
+        dupArmKey = dupKey;
+      }
+    }
     var submitter = '未ログイン';
     try { if (localStorage.getItem('kg_admin_mode_v1') === '1') submitter = 'admin'; } catch (_) {}
     if (submitter === '未ログイン') { try { if (localStorage.getItem('kg_guest_mode_v1') === '1') submitter = 'guest'; } catch (_) {} }

@@ -5108,6 +5108,18 @@ window.addEventListener("storage",function(e){
 
 window.KGEditorBridge = {
   count: function(){ return allEvents.length; },
+  findOnDate: function(dateStr){
+    var out = [];
+    if (!dateStr) return out;
+    for (var i = 0; i < allEvents.length; i++) {
+      var ev = allEvents[i];
+      var d1 = ev.date || '', d2 = ev.dateEnd || ev.date || '';
+      if (d1 && dateStr >= d1 && dateStr <= d2) {
+        out.push({ id: ev.id, title: ev.title || '', date: ev.date || '', dateEnd: ev.dateEnd || '', venue: ev.venue || '', performers: (ev._perfList || []).slice(0, 6) });
+      }
+    }
+    return out;
+  },
   detailsReady: function(){ return detailsState==="merged"; },
   detailsFailed: function(){ return detailsState==="failed"; },
   getById: function(id){
