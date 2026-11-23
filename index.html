@@ -2284,7 +2284,8 @@ function artistEvents(name){
   return (idx[name]||[]).slice();
 }
 /* ---------- bundled profile DB (ガイド側の会場DB・アーティストプロフィール) ---------- */
-var venueProfiles={}, artistProfiles={}, readingByName={}, dictByName={}, profilesLoaded=false, profilesLoading=null;
+var venueProfiles={}, artistProfiles={}, readingByName={}, dictByName={}, artistCats={}, profilesLoaded=false, profilesLoading=null;
+var dirPrefFilter="すべて", dirAreaFilter="すべて", dirTypeFilter="すべて";
 var venueProfByName={};
 function stripVenueSuffix(s){ return String(s||"").replace(/（[^）]*）\s*$/,"").replace(/\([^)]*\)\s*$/,"").trim(); }
 function indexVenueProfiles(){
@@ -2323,12 +2324,13 @@ function loadProfiles(){
      取れなければ取れた分だけで続行する */
   try{
   function get(u){ return fetch(u).then(function(r){ if(!r.ok) throw new Error(u); return r.json(); }).catch(function(){ return null; }); }
-  profilesLoading=Promise.all([get("assets/venues.json"),get("assets/artists.json"),get("assets/readings.json"),get("assets/venue-supp.json"),get("assets/dict.json")]).then(function(res){
+  profilesLoading=Promise.all([get("assets/venues.json"),get("assets/artists.json"),get("assets/readings.json"),get("assets/venue-supp.json"),get("assets/dict.json"),get("assets/artist-cats.json")]).then(function(res){
     if(res[0]){ venueProfiles=res[0]; indexVenueProfiles(); }
     if(res[1]){ artistProfiles=res[1]; }
     if(res[2]){ Object.keys(res[2]).forEach(function(rd){ var nm=res[2][rd]; if(nm && !readingByName[nm]) readingByName[nm]=rd; }); }
     if(res[3]){ venueSuppById=res[3]; attachVenueSupp(); }
     if(res[4]){ dictByName=res[4]; dictWords.memo={}; }
+    if(res[5]){ artistCats=res[5]; }
     profilesLoaded=true; profilesLoading=null;
     artistProfCache={};
     allEvents.forEach(function(ev){ ev._hay=null; });
@@ -2340,24 +2342,53 @@ function loadProfiles(){
     return Promise.resolve();
   }
 }
+function artistCanonicalOf(name){
+  /* 検索辞書で正式名に解決する（辞書は正式名キー→表記ゆれ配列） */
+  if(dictByName[name]) return name;
+  var hit=null;
+  Object.keys(dictByName).some(function(k){ if((dictByName[k]||[]).indexOf(name)>=0){ hit=k; return true; } return false; });
+  return hit;
+}
+function artistCategoryOf(name){
+  /* アーティストのカテゴリ解決はこの関数だけを使う（スペース版の解決順に合わせる）:
+     プロフィールのカテゴリ（手動上書き）→ 分類マップ → 辞書で正式名に解決して再試行
+     → メンバーなら所属グループの結果。どれにも無ければ未分類（推測で入れない）。 */
+  if(!name) return "";
+  var prof=artistProfileFor(name);
+  if(prof && prof.c) return prof.c;
+  if(artistCats[name]) return artistCats[name];
+  var canon=artistCanonicalOf(name);
+  if(canon && canon!==name){
+    var cp=artistProfileFor(canon);
+    if(cp && cp.c) return cp.c;
+    if(artistCats[canon]) return artistCats[canon];
+  }
+  var groups=groupsOfMember(name);
+  for(var i=0;i<groups.length;i++){
+    var gp=artistProfileFor(groups[i]);
+    if(gp && gp.c) return gp.c;
+    if(artistCats[groups[i]]) return artistCats[groups[i]];
+  }
+  return "";
+}
 function buildArtists(){
   var idx=buildPerfIndex();
   var map={};
   allEvents.forEach(function(ev){
-    ev._perfList.forEach(function(p){ if(!map[p]) map[p]={name:p,total:0,upcoming:0,cats:{}}; });
+    ev._perfList.forEach(function(p){ if(!map[p]) map[p]={name:p,total:0,upcoming:0,cat:""}; });
   });
   Object.keys(map).forEach(function(name){
     var evs=idx[name]||[];
     map[name].total=evs.length;
     var up=0;
-    evs.forEach(function(ev){ if(!isEnded(ev)) up++; if(ev.category) map[name].cats[ev.category]=1; });
+    evs.forEach(function(ev){ if(!isEnded(ev)) up++; });
     map[name].upcoming=up;
   });
   Object.keys(artistProfiles).forEach(function(k){
-    if(!map[k]) map[k]={name:k,total:0,upcoming:0,cats:{}};
+    if(!map[k]) map[k]={name:k,total:0,upcoming:0,cat:""};
     map[k].profile=artistProfiles[k];
-    if(artistProfiles[k].c) map[k].cats[artistProfiles[k].c]=1;
   });
+  Object.keys(map).forEach(function(name){ map[name].cat=artistCategoryOf(name); });
   return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){
     if(b.upcoming!==a.upcoming) return b.upcoming-a.upcoming;
     if(b.total!==a.total) return b.total-a.total;
@@ -2415,9 +2446,9 @@ function renderDir(){
   if(isArtists){
     els.venueSuggest.classList.remove("show"); els.venueSuggest.innerHTML="";
     els.dirVenueNote.classList.add("hidden"); els.dirVenueNote.textContent="";
-    var catCount={};
-    items.forEach(function(it){ Object.keys(it.cats).forEach(function(c){ catCount[c]=(catCount[c]||0)+1; }); });
-    var catList=Object.keys(catCount).sort(function(a,b){ return catCount[b]-catCount[a]; }).slice(0,15);
+    var catCount={}, uncCount=0;
+    items.forEach(function(it){ if(it.cat) catCount[it.cat]=(catCount[it.cat]||0)+1; else uncCount++; });
+    var catList=Object.keys(catCount).sort(function(a,b){ return catCount[b]-catCount[a]; });
     /* ユニドルは該当アーティスト0組でもカテゴリとして常に出す（ガイド本体と同仕様）。
        位置は正規順に合わせ、メンズアイドル（無ければアイドル）の直後 */
     if(catList.indexOf("ユニドル")<0){
@@ -2425,12 +2456,14 @@ function renderDir(){
       var insAt=catList.indexOf("メンズアイドル"); if(insAt<0) insAt=catList.indexOf("アイドル");
       catList.splice(insAt<0?0:insAt+1, 0, "ユニドル");
     }
-    if(catList.indexOf(dirCatFilter)<0 && dirCatFilter!=="すべて") dirCatFilter="すべて";
-    els.dirFilters.innerHTML='<div class="fopts">'+["すべて"].concat(catList).map(function(c){
-      return '<button type="button" class="fopt" data-dircat="'+esc(c)+'" aria-pressed="'+(dirCatFilter===c)+'">'+catIcon(c,13)+esc(c)+(c!=="すべて"?'（'+catCount[c]+'）':'')+'</button>';
+    if(catList.indexOf(dirCatFilter)<0 && dirCatFilter!=="すべて" && dirCatFilter!=="未分類・要確認") dirCatFilter="すべて";
+    els.dirFilters.innerHTML='<div class="fopts">'+["すべて"].concat(catList).concat(["未分類・要確認"]).map(function(c){
+      var n = c==="すべて" ? null : (c==="未分類・要確認" ? uncCount : catCount[c]);
+      return '<button type="button" class="fopt" data-dircat="'+esc(c)+'" aria-pressed="'+(dirCatFilter===c)+'">'+(c==="未分類・要確認"?"":catIcon(c,13))+esc(c)+(n!=null?'（'+n+'）':'')+'</button>';
     }).join("")+'</div>';
     var shownA=items.filter(function(it){
-      if(dirCatFilter!=="すべて" && !it.cats[dirCatFilter]) return false;
+      if(dirCatFilter==="未分類・要確認"){ if(it.cat) return false; }
+      else if(dirCatFilter!=="すべて" && it.cat!==dirCatFilter) return false;
       if(!q) return true;
       var prof=it.profile||{};
       var hay=(it.name+" "+(it.area||"")+" "+(it.prefecture||"")+" "+(readingByName[it.name]||"")
@@ -2442,85 +2475,61 @@ function renderDir(){
     els.dirCount.innerHTML="<strong>"+shownA.length+"件</strong> のアーティスト（全"+items.length+"件）"+dbNoteA;
     els.dirEmpty.hidden = shownA.length>0;
     els.dirList.innerHTML=shownA.slice(0,300).map(function(it){
-      var cats=Object.keys(it.cats).slice(0,3).join("、");
-      var sub = cats || (readingByName[it.name]||"");
+      var sub = it.cat || (readingByName[it.name]||"");
       var oshiBtn = '<button class="oshi-mini'+(favPerfs.has(it.name)?" on":"")+'" type="button" data-oshi-toggle="'+esc(it.name)+'" aria-label="推し登録">'+(favPerfs.has(it.name)?"★":"☆")+'</button>';
       var counts = '<span class="dir-counts"><strong>'+it.upcoming+'件</strong>開催予定（全'+it.total+'件）</span>';
       return '<div class="dir-row"><button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">プロフィール</span>':"")+(favPerfs.has(it.name)?'<span style="color:var(--oshi);font-size:12.5px">★ 推し</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+oshiBtn+counts+'</div>';
     }).join("") + (shownA.length>300 ? '<p style="font-size:13px;color:var(--muted);text-align:center">上位300件まで表示しています。検索や絞り込みで探してください。</p>' : "");
     return;
   }
-  /* ----- 会場DB：スペース版と同方式 -----
-     1) イベント側の内容条件（検索語・カテゴリ・都道府県・エリア・会場・料金・
-        テーマ・長期除外）が有効なときは、条件に合う催しがある会場だけを残し、
-        件数は条件に合う催しの数にする（日付ブロックだけは免除＝過去の催しも
-        会場の履歴として数える）。条件が無ければDB登録のみの会場も含む。
-     2) ジャンル絞り込みは4グループの階層（グループ一括／ジャンル／チェーン）
-        で、内容条件とは「すべて満たす（AND）」で組み合わさる。 */
-  var filtersOn=contentFiltersActiveForVenue();
-  if(filtersOn){
-    var matchByKey={};
-    allEvents.forEach(function(ev){
-      if(!contentPass(ev,{ignoreEnded:true, ignorePeriod:true})) return;
-      var key=venueKeyOfProfile(venueProfileFor(ev.venue),(ev.venue||"").trim());
-      matchByKey[key]=(matchByKey[key]||0)+1;
-    });
-    items=items.filter(function(it){
-      it._match=(matchByKey[venueKeyOfProfile(it.profile, it.name)]||0);
-      return it._match>0;
-    });
-  } else {
-    items.forEach(function(it){ it._match=null; });
+  /* ----- 会場DB：都道府県とエリアを主軸にする（イベント絞り込みとは独立に動く） -----
+     イベント側の内容条件は会場DBには持ち込まない。主タブは都道府県、
+     選んだ府県の中ではエリアのチップ、副次に種別（プロフィールのジャンル、
+     無ければ施設種別）のチップを1行だけ置く。 */
+  function venuePrefTab(it){
+    var pf = it.prefecture || (it.profile ? prefFromAddress(it.profile.ad||"") : "");
+    return ["大阪府","京都府","兵庫県","滋賀県","奈良県","和歌山県"].indexOf(pf)>=0 ? pf : "その他・未設定";
   }
-  var gcounts={}, gsubcounts={}, subSeen={};
-  items.forEach(function(it){
-    var parts=venueGenreParts(it.profile);
-    gcounts[parts.form]=(gcounts[parts.form]||0)+1;
-    if(parts.sub){ var sk=genreSubKey(parts.form,parts.sub); gsubcounts[sk]=(gsubcounts[sk]||0)+1; if(!subSeen[parts.form]) subSeen[parts.form]={}; subSeen[parts.form][parts.sub]=1; }
-  });
-  var knownG={}; VENUE_GENRE_GROUPS.forEach(function(gr){ gr.genres.forEach(function(g){ knownG[g]=1; }); });
-  var extraG=Object.keys(gcounts).filter(function(g){ return !knownG[g]; });
-  var groupLists=VENUE_GENRE_GROUPS.map(function(gr,i){ var list=gr.genres.slice(); if(i===VENUE_GENRE_GROUPS.length-1&&extraG.length) list=list.concat(extraG); return {name:gr.name, genres:list}; });
-  function subsFor(form){
-    var pref=VENUE_GENRE_SUBS[form]||[];
-    var seen=subSeen[form]||{};
-    var out=pref.filter(function(s){ return seen[s]; });
-    Object.keys(seen).forEach(function(s){ if(out.indexOf(s)<0) out.push(s); });
-    return out;
+  function venueTypeOf(it){ var p=it.profile||{}; return p.gn || p.tp || ""; }
+  function venueAreaOf(it){
+    if(it.area) return it.area;
+    var m=(it.name||"").match(/（(.+?)）$/);
+    return m ? m[1] : "";
   }
-  function genreSelected(it){
-    var parts=venueGenreParts(it.profile);
-    if(venueGenres.has(parts.form)) return true;
-    if(parts.sub && venueGenreSubs.has(genreSubKey(parts.form,parts.sub))) return true;
-    var hit=false;
-    venueGenreGroups.forEach(function(gn2){ groupLists.forEach(function(gr){ if(gr.name===gn2&&gr.genres.indexOf(parts.form)>=0) hit=true; }); });
-    return hit;
-  }
-  var genreActive = !!(venueGenres.size||venueGenreSubs.size||venueGenreGroups.size);
-  var fHTML=groupLists.map(function(gr){
-    var selN=gr.genres.filter(function(g){ return venueGenres.has(g); }).length
-      + gr.genres.reduce(function(acc,g){ return acc+subsFor(g).filter(function(s){ return venueGenreSubs.has(genreSubKey(g,s)); }).length; },0);
-    var grpOn=venueGenreGroups.has(gr.name);
-    var open=!venueGenreClosed[gr.name];
-    var h='<div class="genregroup"><button type="button" class="ggroup-head" data-vggroup="'+esc(gr.name)+'" aria-expanded="'+(open?"true":"false")+'"><span>'+esc(gr.name)+'</span>'
-      +(grpOn?'<span class="gsel">グループ選択中</span>':"")+(selN?'<span class="gsel">'+selN+'件選択中</span>':"")
-      +'<span class="gchev" aria-hidden="true">'+(open?"−":"＋")+'</span></button>';
-    if(open){
-      h+='<div class="genrebar"><button type="button" class="fopt gall" data-vgparent="'+esc(gr.name)+'" aria-pressed="'+grpOn+'">'+esc(gr.name)+'すべて</button>'
-        + gr.genres.map(function(g){
-            var btn='<button type="button" class="fopt" data-vgenre="'+esc(g)+'" aria-pressed="'+venueGenres.has(g)+'">'+esc(g)+'（'+(gcounts[g]||0)+'）</button>';
-            var subs=subsFor(g);
-            if(subs.length){ btn+='<span class="subopts" role="group" aria-label="'+esc(g)+'のチェーン">'+subs.map(function(s){ var sk=genreSubKey(g,s); return '<button type="button" class="fopt subopt" data-vgsub="'+esc(sk)+'" aria-pressed="'+venueGenreSubs.has(sk)+'">'+esc(s)+'（'+(gsubcounts[sk]||0)+'）</button>'; }).join("")+'</span>'; }
-            return btn;
-          }).join("")+'</div>';
+  items.forEach(function(it){ it._prefTab=venuePrefTab(it); it._type=venueTypeOf(it); it._area=venueAreaOf(it); it._match=null; });
+  var PREF_TABS=["大阪府","京都府","兵庫県","滋賀県","奈良県","和歌山県","その他・未設定"];
+  var prefCount={}; items.forEach(function(it){ prefCount[it._prefTab]=(prefCount[it._prefTab]||0)+1; });
+  if(PREF_TABS.indexOf(dirPrefFilter)<0 && dirPrefFilter!=="すべて") dirPrefFilter="すべて";
+  var fHTML='<div class="fopts">'+["すべて"].concat(PREF_TABS).map(function(p){
+    return '<button type="button" class="fopt" data-dirpref="'+esc(p)+'" aria-pressed="'+(dirPrefFilter===p)+'">'+esc(p)+(p!=="すべて"?'（'+(prefCount[p]||0)+'）':'')+'</button>';
+  }).join("")+'</div>';
+  if(dirPrefFilter!=="すべて"){
+    var areaCount={};
+    items.forEach(function(it){ if(it._prefTab===dirPrefFilter && it._area) areaCount[it._area]=(areaCount[it._area]||0)+1; });
+    var areaList=Object.keys(areaCount).sort(function(a,b){ return areaCount[b]-areaCount[a]; });
+    if(areaList.indexOf(dirAreaFilter)<0) dirAreaFilter="すべて";
+    if(areaList.length){
+      fHTML+='<div class="fopts">'+["すべて"].concat(areaList).map(function(a){
+        return '<button type="button" class="fopt" data-dirarea="'+esc(a)+'" aria-pressed="'+(dirAreaFilter===a)+'">'+esc(a)+(a!=="すべて"?'（'+areaCount[a]+'）':'')+'</button>';
+      }).join("")+'</div>';
     }
-    return h+'</div>';
-  }).join("");
-  fHTML+='<div class="fopts"><button type="button" class="fopt" data-direvents aria-pressed="'+dirEventsOnly+'">イベント掲載のある会場のみ</button>'
-    + (genreActive? '<button type="button" class="fopt" data-vgclear>ジャンル絞り込みをクリア</button>' : "") + '</div>';
+  } else if(dirAreaFilter!=="すべて"){ dirAreaFilter="すべて"; }
+  var typeCount={};
+  items.forEach(function(it){ if(it._type) typeCount[it._type]=(typeCount[it._type]||0)+1; });
+  var typeList=Object.keys(typeCount).sort(function(a,b){ return typeCount[b]-typeCount[a]; }).slice(0,12);
+  if(typeList.indexOf(dirTypeFilter)<0 && dirTypeFilter!=="すべて") dirTypeFilter="すべて";
+  if(typeList.length){
+    fHTML+='<div class="fopts"><span style="font-size:12.5px;color:var(--muted);align-self:center">種別</span>'+["すべて"].concat(typeList).map(function(t){
+      return '<button type="button" class="fopt" data-dirtype="'+esc(t)+'" aria-pressed="'+(dirTypeFilter===t)+'">'+esc(t)+(t!=="すべて"?'（'+typeCount[t]+'）':'')+'</button>';
+    }).join("")+'</div>';
+  }
+  fHTML+='<div class="fopts"><button type="button" class="fopt" data-direvents aria-pressed="'+dirEventsOnly+'">イベント掲載のある会場のみ</button></div>';
   els.dirFilters.innerHTML=fHTML;
+  els.dirVenueNote.textContent=""; els.dirVenueNote.classList.add("hidden");
   var shown=items.filter(function(it){
-    if(genreActive && !genreSelected(it)) return false;
+    if(dirPrefFilter!=="すべて" && it._prefTab!==dirPrefFilter) return false;
+    if(dirAreaFilter!=="すべて" && it._area!==dirAreaFilter) return false;
+    if(dirTypeFilter!=="すべて" && it._type!==dirTypeFilter) return false;
     if(dirEventsOnly && it.total===0) return false;
     if(!q) return true;
     var prof=it.profile||{};
@@ -2529,29 +2538,19 @@ function renderDir(){
       +" "+((prof.al||[]).join(" "))+" "+(dictWords(it.name).join(" "))+" "+venueQualStrip(it.name)+" "+(prof.ad||"")+" "+(addressVariants(prof.ad||"").join(" "))+" "+parts.form+" "+parts.sub+" "+genrePath(parts.form,parts.sub)+" "+(prof.tp||"")).toLowerCase();
     return hay.indexOf(q.replace(/\s+/g," "))>=0 || normSearch(hay).indexOf(normSearch(dirQuery.trim()))>=0 || addrTextMatch(prof.ad||"", dirQuery);
   });
-  if(filtersOn){
-    els.dirVenueNote.textContent="イベントの絞り込み条件を適用中：条件に合うイベントがある "+items.length.toLocaleString()+" 会場を表示しています（ジャンル絞り込みとは「すべて満たす」で組み合わさります）。";
-    els.dirVenueNote.classList.remove("hidden");
-  } else {
-    els.dirVenueNote.textContent=""; els.dirVenueNote.classList.add("hidden");
-  }
-  var dbNote = profilesLoaded ? "（ガイドの会場データベース "+Object.keys(venueProfiles).length+"件を含む"+(filtersOn?"":"／催しのない建物も含みます")+"）" : "（プロフィールを読み込み中…）";
-  els.dirCount.innerHTML="<strong>"+shown.length+"件</strong> の会場（全"+items.length+"件）"+dbNote
-    + (genreActive ? " ・ ジャンルで絞り込み中："+shown.length.toLocaleString()+" 会場" : "");
+  var dbNote = profilesLoaded ? "（ガイドの会場データベース "+Object.keys(venueProfiles).length+"件を含む／催しのない建物も含みます）" : "（プロフィールを読み込み中…）";
+  els.dirCount.innerHTML="<strong>"+shown.length+"件</strong> の会場（全"+items.length+"件）"+dbNote;
   els.dirEmpty.hidden = shown.length>0;
   els.dirList.innerHTML=shown.slice(0,300).map(function(it){
     var prof=it.profile||{};
-    var parts=venueGenreParts(it.profile);
     var place=[it.area,it.prefecture].filter(Boolean).join(" ・ ");
     if(!place && prof.ad) place=prof.ad;
-    var genre = it.profile ? genrePath(parts.form,parts.sub) : Object.keys(it.cats).slice(0,3).join("、");
-    var sub = [place, genre].filter(Boolean).join(" ／ ");
+    var sub = [place, it._type].filter(Boolean).join(" ／ ");
     var counts;
-    if(it._match!=null) counts='<span class="dir-counts"><strong>'+it._match+'件</strong>条件に合う催し（開催予定'+it.upcoming+'件／全'+it.total+'件）</span>';
-    else if(it.dbOnly) counts='<span class="dir-counts"><strong>DB</strong>イベント掲載なし</span>';
+    if(it.dbOnly) counts='<span class="dir-counts"><strong>DB</strong>イベント掲載なし</span>';
     else counts='<span class="dir-counts"><strong>'+it.upcoming+'件</strong>開催予定（全'+it.total+'件）</span>';
     return '<div class="dir-row"><button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">会場DB</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+counts+'</div>';
-  }).join("") + (shown.length>300 ? '<p style="font-size:13px;color:var(--muted);text-align:center">上位300件まで表示しています。検索・ジャンルで絞り込んでください。</p>' : "");
+  }).join("") + (shown.length>300 ? '<p style="font-size:13px;color:var(--muted);text-align:center">上位300件まで表示しています。検索や都道府県・エリアで絞り込んでください。</p>' : "");
   renderVenueSuggest(shown);
 }
 function openDirDetail(kind, name){
@@ -2581,8 +2580,10 @@ function renderDetail(){
       +'<p>開催予定 '+upcoming.length+'件 ／ 全 '+evs.length+'件の出演イベントを掲載データから集計しています。</p>'
       +'<div style="margin-top:10px"><button class="modal-fav'+(isOshi?" on":"")+'" type="button" id="detailOshiBtn" style="border-color:var(--oshi);color:'+(isOshi?"#fff":"var(--oshi)")+';'+(isOshi?"background:var(--oshi)":"")+'">'+(isOshi?"★ 推し登録中":"☆ 推しに登録")+'</button></div>';
     var aprof=artistProfileFor(name);
+    var resolvedCat=artistCategoryOf(name);
+    if(resolvedCat || readingByName[name]) head+='<p style="margin-top:10px">'+(resolvedCat?'カテゴリ：'+esc(resolvedCat):"")+(readingByName[name]?' ／ 読み：'+esc(readingByName[name]):"")+'</p>';
+    head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailProfEditBtn">プロフィールの追加・修正を送る</button></div>';
     if(aprof){
-      if(aprof.c) head+='<p style="margin-top:10px">カテゴリ：'+esc(aprof.c)+(readingByName[name]?' ／ 読み：'+esc(readingByName[name]):"")+'</p>';
       if(aprof.p) head+='<p class="prof-text">'+esc(aprof.p)+'</p>';
       var alinks="";
       if(aprof.w) alinks+='<a class="link-btn lb-web" href="'+esc(aprof.w)+'" target="_blank" rel="noopener">公式サイト</a>';
@@ -2643,6 +2644,7 @@ function renderDetail(){
       vlinks+='<a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">地図を開く</a>';
       head+='<div class="link-row">'+vlinks+'</div>';
     }
+    head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailProfEditBtn">プロフィールの追加・修正を送る</button></div>';
     head+='</div>';
   }
   var shownUpcoming=upcoming, shownPast=past;
@@ -2658,6 +2660,8 @@ function renderDetail(){
   }
   els.detailBody.innerHTML=body;
   wireCardImages(els.detailBody);
+  var peb=document.getElementById("detailProfEditBtn");
+  if(peb) peb.addEventListener("click", function(){ if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name); });
   var ob=document.getElementById("detailOshiBtn");
   if(ob) ob.addEventListener("click", function(){
     if(favPerfs.has(name)){ favPerfs.delete(name); toast("推しから外しました："+name); } else { favPerfs.add(name); toast("推しに登録しました："+name); }
@@ -4628,6 +4632,9 @@ els.detailBody.addEventListener("click", function(e){
 els.dirSearch.addEventListener("input", function(){ dirQuery=els.dirSearch.value; renderDir(); });
 els.dirFilters.addEventListener("click", function(e){
   var c=e.target.closest("[data-dircat]"); if(c){ dirCatFilter=c.getAttribute("data-dircat"); renderDir(); return; }
+  var dp=e.target.closest("[data-dirpref]"); if(dp){ dirPrefFilter=dp.getAttribute("data-dirpref"); dirAreaFilter="すべて"; renderDir(); return; }
+  var da=e.target.closest("[data-dirarea]"); if(da){ dirAreaFilter=da.getAttribute("data-dirarea"); renderDir(); return; }
+  var dt=e.target.closest("[data-dirtype]"); if(dt){ dirTypeFilter=dt.getAttribute("data-dirtype"); renderDir(); return; }
   var gh=e.target.closest("[data-vggroup]"); if(gh){ var gn=gh.getAttribute("data-vggroup"); venueGenreClosed[gn]=!venueGenreClosed[gn]; renderDir(); return; }
   var gp=e.target.closest("[data-vgparent]"); if(gp){ var gn2=gp.getAttribute("data-vgparent"); if(venueGenreGroups.has(gn2)) venueGenreGroups.delete(gn2); else venueGenreGroups.add(gn2); renderDir(); return; }
   var vg=e.target.closest("[data-vgenre]"); if(vg){ var g=vg.getAttribute("data-vgenre"); if(venueGenres.has(g)) venueGenres.delete(g); else venueGenres.add(g); renderDir(); return; }
@@ -5108,6 +5115,19 @@ window.addEventListener("storage",function(e){
 
 window.KGEditorBridge = {
   count: function(){ return allEvents.length; },
+  getArtistProfile: function(name){
+    var p = artistProfileFor(name);
+    var out = { name: name, cat: artistCategoryOf(name), profile: null };
+    if (p) out.profile = { c: p.c || '', p: p.p || '', w: p.w || '', x: p.x || '', i: p.i || '', t: p.t || '', al: (p.al || []).slice(), m: (p.m || []).map(function(mb){ return { n: mb.n || '', r: mb.r || '', x: mb.x || '', i: mb.i || '' }; }) };
+    return out;
+  },
+  getVenueProfile: function(name){
+    var info = buildVenues().filter(function(v){ return v.name === name; })[0] || {};
+    var p = info.profile || venueProfileFor(name);
+    var out = { name: name, area: info.area || '', prefecture: info.prefecture || '', profile: null };
+    if (p) out.profile = { ad: p.ad || '', gn: p.gn || '', gs: p.gs || '', tp: p.tp || '', ws: p.ws || '', x: p.x || '', ig: p.ig || '', ac: p.ac || '', cp: p.cp || '', hr: p.hr || '', sm: p.sm || '', fm: p.fm || '' };
+    return out;
+  },
   findOnDate: function(dateStr){
     var out = [];
     if (!dateStr) return out;
@@ -5162,6 +5182,7 @@ load();
 <script src="account.js"></script>
 <script src="editor-config.js"></script>
 <script src="editor.js"></script>
+<script src="profile-editor.js"></script>
 
 
 <script src="./pwa-ui.js"></script>
