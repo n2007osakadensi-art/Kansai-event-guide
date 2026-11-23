@@ -210,6 +210,8 @@
     try {
       var d=await memberDoc(member.acct);
       var rh=await recoveryHashOf(q,a);
+      var existing=await client.getDoc(client.doc(client.db,'recovery',rh));
+      if(existing.exists() && existing.data().acct!==member.acct){ text('その質問と回答の組み合わせは、すでに使われています。質問か回答を少し変えてください。'); return; }
       if(d && d.recoveryHash && d.recoveryHash!==rh){ try{ await client.deleteDoc(client.doc(client.db,'recovery',d.recoveryHash)); }catch(_){} }
       await client.setDoc(client.doc(client.db,'recovery',rh), {acct:member.acct});
       await memberSetMeta(member.acct, {recoveryHash:rh});
