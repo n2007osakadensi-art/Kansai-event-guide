@@ -9,7 +9,11 @@
   var cfg = window.KG_EDITOR_CONFIG || {};
   function $(id) { return document.getElementById(id); }
   var style = document.createElement('style');
-  style.textContent = '#kg-editor{max-width:720px;width:calc(100vw - 20px);max-height:92vh;overflow:auto}'
+  style.textContent = '#kg-editor{position:fixed;inset:0;margin:auto;height:fit-content;max-width:720px;width:calc(100vw - 20px);max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box;padding:14px 16px calc(14px + env(safe-area-inset-bottom))}'
+    + '#kg-editor .kg-closebar{position:sticky;top:-14px;z-index:5;text-align:right;background:inherit;margin:-4px -6px 0 0}'
+    + '#kg-editor .kg-closebar button{width:44px;height:44px;font-size:18px}'
+    + '#kg-editor .kg-sendbar{position:sticky;bottom:calc(-14px - env(safe-area-inset-bottom));z-index:5;background:inherit;padding:10px 0 2px;display:flex;gap:10px;border-top:1px solid #ccc}'
+    + '#kg-editor .kg-sendbar button{flex:1;min-height:48px;font-size:15px}'
     + '#kg-editor label{display:block;font-size:13px;margin-top:10px}'
     + '#kg-editor input,#kg-editor select,#kg-editor textarea{width:100%;box-sizing:border-box;padding:6px;margin-top:2px}'
     + '#kg-editor textarea{min-height:52px}'
@@ -26,7 +30,7 @@
   dlg.id = 'kg-editor';
   function field(label, inner) { return '<label>' + label + inner + '</label>'; }
   function sec(t) { return '<h3>' + t + '</h3>'; }
-  dlg.innerHTML = '<form method="dialog"><button value="close" aria-label="閉じる">×</button></form>' +
+  dlg.innerHTML = '<form method="dialog" class="kg-closebar"><button value="close" aria-label="閉じる">×</button></form>' +
     '<h2 style="margin-top:0">イベントの新規登録・修正</h2>' +
     '<p style="font-size:13px">スペース版ガイドと同じ項目・並びのフォームです。送信内容は受付に届き、確認のうえスペース版ガイドへ登録・反映されます。</p>' +
     '<p id="kg-editor-status" role="status"></p>' +
@@ -92,7 +96,7 @@
     field('情報源', '<select id="ke-source"><option value="primary">一次情報</option><option value="summary">まとめ情報</option><option value="unconfirmed">未確認</option></select>') +
     field('写真メモ', '<input id="ke-photonote" type="text">') +
     field('備考', '<textarea id="ke-notes"></textarea>') +
-    '<p><button id="ke-send" type="button">送信する</button></p>';
+    '<div class="kg-sendbar"><button id="ke-send" type="button">送信する</button><button id="ke-cancel" type="button">閉じる</button></div>';
   document.body.appendChild(dlg);
   function status(t) { $('kg-editor-status').textContent = t; }
   function lines(id) { return $(id).value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); }
@@ -191,8 +195,9 @@
     var id = $('ke-target').value.trim();
     if (!id) { status('対象イベントIDを入れてください。'); return; }
     var evs = (typeof window !== 'undefined' && window.allEvents) || [];
-    var ev = null;
-    for (var i = 0; i < evs.length; i++) { if (String(evs[i].id) === id) { ev = evs[i]; break; } }
+    var normId = function (v) { return String(v == null ? '' : v).replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/\s+/g, ''); };
+    var want = normId(id), ev = null;
+    for (var i = 0; i < evs.length; i++) { if (normId(evs[i].id) === want) { ev = evs[i]; break; } }
     if (!ev) { status('このサイトが表示中のデータに、そのIDのイベントが見つかりませんでした。'); return; }
     $('ke-kind').value = 'edit';
     $('ke-title').value = ev.title || '';
@@ -233,6 +238,7 @@
     setLines('ke-images', ev.imageUrl ? [ev.imageUrl] : []);
     status('読み込みました。直す箇所だけ変更して送信してください（空にした項目は「空にする」という内容で届きます）。');
   };
+  $('ke-cancel').onclick = function () { dlg.close(); };
   /* ---------- 送信 ---------- */
   function timeToMin(v) {
     if (!v) return null;
