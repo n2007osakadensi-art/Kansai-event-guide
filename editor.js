@@ -205,6 +205,12 @@
       status(loaded ? 'このサイトが表示中のデータに、そのIDのイベントが見つかりませんでした。' : 'イベントデータの読み込みが終わっていません。件数が表示されてからお試しください。');
       return;
     }
+    if (window.KGEditorBridge && window.KGEditorBridge.detailsReady && !window.KGEditorBridge.detailsReady()) {
+      status(window.KGEditorBridge.detailsFailed && window.KGEditorBridge.detailsFailed()
+        ? '詳細データ（出演者・説明・リンク）の読み込みに失敗しました。再読み込みしてからお試しください。'
+        : '詳細データ（出演者・説明・リンク）を読み込み中です。少し待ってから、再度「現在の内容を読み込む」を押してください。');
+      return;
+    }
     $('ke-kind').value = 'edit';
     $('ke-title').value = ev.title || '';
     $('ke-date').value = ev.date || '';

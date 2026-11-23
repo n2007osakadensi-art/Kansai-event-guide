@@ -950,6 +950,11 @@
 "use strict";
 var SHEET_URL = "https://docs.google.com/spreadsheets/d/1oUuy1PvoQgNa5f1HoXqMHgLUfdPW_ctVNxyHih0cNbw/gviz/tq?tqx=out:json&sheet=events";
 var SHEET_JSONP_BASE = "https://docs.google.com/spreadsheets/d/1oUuy1PvoQgNa5f1HoXqMHgLUfdPW_ctVNxyHih0cNbw/gviz/tq?sheet=events&tqx=out%3Ajson%3BresponseHandler%3A";
+/* タブ別の取得URL（初回読み込み軽量化：events_lite 先行＋events_details 結合。
+   仕様は docs ではなく hidden_files/lite-first-loading-spec-20261123.md） */
+var SHEET_BASE = "https://docs.google.com/spreadsheets/d/1oUuy1PvoQgNa5f1HoXqMHgLUfdPW_ctVNxyHih0cNbw/gviz/tq";
+function sheetFetchUrl(name){ return SHEET_BASE + "?tqx=out:json&sheet=" + name; }
+function sheetJsonpBase(name){ return SHEET_BASE + "?sheet=" + name + "&tqx=out%3Ajson%3BresponseHandler%3A"; }
 var FIELDS = ["id","title","date","dateEnd","timeLabel","startMin","endMin","venue","area","prefecture","category","categories","price","performers","description","linkWeb","linkTicket","linkX","linkInstagram","organizerName","imageUrl","isFree","priceClass"];
 
 /* カテゴリの正規順序（ガイド本体 EVENT_CATEGORIES と同一・全28種）。
@@ -3044,7 +3049,9 @@ function openModal(ev){
       + (desc.note?'<div class="tt-note">'+esc(desc.note)+'</div>':"");
   } else if(ev.description){
     descHTML='<div class="desc">'+esc(ev.description)+'</div>';
-  } else { descHTML='<div class="desc" style="color:var(--muted)">詳細情報はありません。</div>'; }
+  } else if(detailsState==="pending"){ descHTML='<div class="desc" style="color:var(--muted)">出演者・詳細情報を読み込み中です…</div>'; }
+  else if(detailsState==="failed"){ descHTML='<div class="desc" style="color:var(--muted)">出演者・詳細情報を読み込めませんでした。「再読み込み」で再試行できます。</div>'; }
+  else { descHTML='<div class="desc" style="color:var(--muted)">詳細情報はありません。</div>'; }
   var place=[ev.area, ev.prefecture].filter(Boolean).join(" ・ ");
   var pc=priceClassOf(ev);
   var links="";
@@ -3973,12 +3980,12 @@ document.getElementById("icsBtn").addEventListener("click", function(){
 });
 
 /* ---------- data loading (JSONP primary, fetch fallback) ---------- */
-function applyData(events, cachedSavedAt, cachedSlim){
+function applyData(events, cachedSavedAt, cachedSlim, cachedLite){
   allEvents=events;
   attachVenueSupp();
   var shownAt = cachedSavedAt ? new Date(cachedSavedAt) : new Date();
   var stamp = shownAt.getFullYear()+"年"+(shownAt.getMonth()+1)+"月"+shownAt.getDate()+"日 "+String(shownAt.getHours()).padStart(2,"0")+":"+String(shownAt.getMinutes()).padStart(2,"0");
-  els.updatedAt.textContent = cachedSavedAt ? ("保存データ（"+(cachedSlim?"開催予定のみ・":"")+stamp+"取得）を表示中") : stamp;
+  els.updatedAt.textContent = cachedSavedAt ? ("保存データ（"+(cachedSlim?"開催予定のみ・":"")+(cachedLite?"軽量版・":"")+stamp+"取得）を表示中") : stamp;
   var upcomingN=allEvents.filter(function(ev){ return !isEnded(ev); }).length;
   els.totalCount.innerHTML = "掲載 <strong>"+allEvents.length.toLocaleString()+"件</strong>（開催予定・開催中 "+upcomingN.toLocaleString()+"件／終了 "+(allEvents.length-upcomingN).toLocaleString()+"件は既定で非表示）";
   els.loadingState.hidden=true; els.errorState.hidden=true; els.controls.hidden=false; els.listMain.classList.remove("hidden");
@@ -3999,8 +4006,8 @@ function showError(err){
   els.errorDetail.textContent = "取得に失敗しました（"+(err&&err.message?err.message:"ネットワークエラー")+"）。";
   els.updatedAt.textContent="取得できませんでした";
 }
-function loadViaFetch(done, fail){
-  fetch(SHEET_URL, {cache:"no-store"}).then(function(res){
+function loadViaFetch(sheetName, done, fail){
+  fetch(sheetFetchUrl(sheetName), {cache:"no-store"}).then(function(res){
     if(!res.ok) throw new Error("HTTP "+res.status);
     return res.text();
   }).then(function(text){
@@ -4010,7 +4017,7 @@ function loadViaFetch(done, fail){
 }
 var loadSeq=0;
 var pendingSheetHandler=null;
-function loadViaJsonp(done, fail){
+function loadViaJsonp(sheetName, done, fail){
   var cbName="__kgSheetCb"+(++loadSeq);
   var settled=false;
   var script=document.createElement("script");
@@ -4038,7 +4045,7 @@ function loadViaJsonp(done, fail){
   }catch(e){}
   script.onerror=function(){ finish(null, new Error("データを読み込めませんでした")); };
   script.async=true;
-  script.src=SHEET_JSONP_BASE+cbName+"&_="+Date.now();
+  script.src=sheetJsonpBase(sheetName)+cbName+"&_="+Date.now();
   document.head.appendChild(script);
 }
 /* ---------- 端末内キャッシュ（IndexedDB） ----------
@@ -4077,14 +4084,16 @@ function evCacheStore(value){
     });
   }).catch(function(){ return false; });
 }
-function evCachePut(events){
+function evCachePut(events, lite){
   /* 容量不足の端末では全件保存が失敗することがある。その場合は
-     開催予定のみの軽量版で保存し直す（終了分はオンライン時に取得する） */
-  return evCacheStore({savedAt:Date.now(), events:events, slim:false}).then(function(saved){
+     開催予定のみの軽量版で保存し直す（終了分はオンライン時に取得する）。
+     lite=true は「詳細（出演者・説明・リンク）未結合の軽量データ」の印。
+     軽量キャッシュは次回起動時に必ず再取得して詳細を補う */
+  return evCacheStore({savedAt:Date.now(), events:events, slim:false, lite:!!lite}).then(function(saved){
     if(saved) return true;
     var upcoming=events.filter(function(ev){ return !isEnded(ev); });
     if(upcoming.length===events.length) return false;
-    return evCacheStore({savedAt:Date.now(), events:upcoming, slim:true});
+    return evCacheStore({savedAt:Date.now(), events:upcoming, slim:true, lite:!!lite});
   });
 }
 /* ---------- ローカル保存の二重化（IndexedDBミラー） ----------
@@ -4159,7 +4168,8 @@ function load(force){
   resyncLocalState();
   evCacheGet().then(function(cached){
     if(cached && cached.events && cached.events.length){
-      applyData(cached.events, cached.savedAt, cached.slim);
+      detailsState = cached.lite ? "pending" : "merged";
+      applyData(cached.events, cached.savedAt, cached.slim, cached.lite);
       var ageMin=(Date.now()-(cached.savedAt||0))/60000;
       var conn=navigator.connection||{};
       var et=conn.effectiveType||"";
@@ -4171,7 +4181,7 @@ function load(force){
          ただし「再読み込み」ボタンの手動操作（force）では常に最新を取得する
          （2026-11-23修正：ボタンでも12時間ルールに止められ、登録・修正が
          反映されない問題への対処。自動取得の12時間ルールは従来どおり） */
-      if(force || (ageMin>=720 && !dataSaver)) startNetworkLoad(true);
+      if(force || cached.lite || (ageMin>=720 && !dataSaver)) startNetworkLoad(true);
     }else{
       startNetworkLoad(false);
     }
@@ -4179,28 +4189,88 @@ function load(force){
   });
 }
 function startNetworkLoad(background){
-  /* 主経路は従来どおり JSONP（responseHandler: 形式）。6秒で応答がなければ
-     fetch を並行して開始し、先に成功した方を採用する（スマホ回線での待ち時間を短縮）。
-     両方失敗した場合のみ JSONP をもう一度試し、それでもだめならエラー表示にする。
-     background=true（保存データ表示中）は、失敗してもエラー画面にせず保存データを残す */
+  /* 初回読み込み軽量化（2026-11-23、仕様 lite-first-loading-spec）：
+     events_lite（軽量・19列）を先に取得して一覧を出し、events_details
+     （出演者・説明・リンク・主催者）を続けて取得して id で結合し、静かに
+     差し替える。lite が読めない場合は従来の events 全件取得に落とす。
+     background=true（保存データ表示中）は、完成した全件データが揃うまで
+     表示を差し替えない（表示中の詳細を軽量データで潰さないため） */
+  var hint1=setTimeout(function(){ if(els.loadHint) els.loadHint.textContent="読み込みに時間がかかっています。そのままお待ちください。"; }, 7000);
+  var hint2=setTimeout(function(){ if(els.loadHint) els.loadHint.textContent="通信が混み合っているようです。別の方法でも取得を試しています。"; }, 16000);
+  function clearTimers(){ clearTimeout(hint1); clearTimeout(hint2); }
+  function finishFail(err){
+    clearTimers();
+    if(background){ els.updatedAt.textContent += "（最新を取得できませんでした）"; }
+    else { showError(err); }
+  }
+  loadSheetRace("events_lite", function(liteEvents){
+    if(!background){
+      detailsState="pending";
+      clearTimers();
+      applyData(liteEvents);
+      evCachePut(liteEvents, true);
+    }
+    loadSheetRace("events_details", function(detEvents){
+      var merged=mergeDetails(liteEvents, detEvents);
+      detailsState="merged";
+      clearTimers();
+      applyData(merged);
+      evCachePut(merged, false);
+    }, function(err){
+      detailsState="failed";
+      clearTimers();
+      if(!background){ els.updatedAt.textContent += "（詳細情報を取得できませんでした）"; }
+      if(allEvents.length) render();
+    });
+  }, function(err){
+    loadSheetRace("events", function(fullEvents){
+      detailsState="merged";
+      clearTimers();
+      applyData(fullEvents);
+      evCachePut(fullEvents, false);
+    }, function(e2){ finishFail(e2||err); });
+  });
+}
+/* 1タブ分の取得レース：JSONP（responseHandler: 形式）を主経路に、6秒で
+   応答がなければ fetch を並行開始し、先に成功した方を採用する。両方失敗
+   した場合のみ JSONP をもう一度試す（従来の startNetworkLoad と同じ作法） */
+function loadSheetRace(sheetName, ok, failAll){
   var settled=false, jsonpFailed=false, fetchStarted=false, fetchFailed=false, hedgeTimer=null;
-  var hint1=setTimeout(function(){ if(!settled && els.loadHint) els.loadHint.textContent="読み込みに時間がかかっています。そのままお待ちください。"; }, 7000);
-  var hint2=setTimeout(function(){ if(!settled && els.loadHint) els.loadHint.textContent="通信が混み合っているようです。別の方法でも取得を試しています。"; }, 16000);
-  function clearTimers(){ clearTimeout(hint1); clearTimeout(hint2); if(hedgeTimer) clearTimeout(hedgeTimer); }
-  function ok(events){ if(settled) return; settled=true; clearTimers(); applyData(events); evCachePut(events); }
-  function failAll(err){ if(settled) return; settled=true; clearTimers(); if(background){ els.updatedAt.textContent += "（最新を取得できませんでした）"; } else { showError(err); } }
+  function done(events){ if(settled) return; settled=true; if(hedgeTimer) clearTimeout(hedgeTimer); ok(events); }
+  function fail(err){ if(settled) return; settled=true; if(hedgeTimer) clearTimeout(hedgeTimer); failAll(err); }
   function maybeFail(err){
     if(settled) return;
     if(jsonpFailed && fetchFailed){
-      loadViaJsonp(ok, function(e2){ failAll(e2||err); });
+      loadViaJsonp(sheetName, done, function(e2){ fail(e2||err); });
     }
   }
   function startFetch(){
     if(fetchStarted || settled) return; fetchStarted=true;
-    loadViaFetch(ok, function(e){ fetchFailed=true; maybeFail(e); });
+    loadViaFetch(sheetName, done, function(e){ fetchFailed=true; maybeFail(e); });
   }
-  loadViaJsonp(ok, function(e){ jsonpFailed=true; startFetch(); maybeFail(e); });
+  loadViaJsonp(sheetName, done, function(e){ jsonpFailed=true; startFetch(); maybeFail(e); });
   hedgeTimer=setTimeout(startFetch, 6000);
+}
+/* 詳細データの結合状態：none（未開始）／pending（軽量表示中で取得中）／
+   merged（結合済み）／failed（取得失敗）。詳細モーダルと編集フォームの
+   読み込みガードが参照する */
+var detailsState="none";
+/* events_details の行を id で events_lite 側へ結合する。結合後のイベントは
+   新しいオブジェクトにする（参照ベースの索引・キャッシュを確実に作り直すため） */
+function mergeDetails(events, detEvents){
+  var map={};
+  (detEvents||[]).forEach(function(d){ if(d && d.id!=null && String(d.id)!=="") map[String(d.id)]=d; });
+  return events.map(function(ev){
+    var d=map[String(ev.id)]; if(!d) return ev;
+    var out={};
+    for(var k in ev) out[k]=ev[k];
+    out.performers=d.performers||""; out.description=d.description||"";
+    out.linkWeb=d.linkWeb||""; out.linkTicket=d.linkTicket||""; out.linkX=d.linkX||""; out.linkInstagram=d.linkInstagram||"";
+    out.organizerName=d.organizerName||"";
+    out._perfList=splitPerfs(out.performers);
+    out._hay=null;
+    return out;
+  });
 }
 /* ---------- 回せる現場（スペース版 2026-11-22 仕様の移植） ----------
    判定はすべて端末内の決定的計算（トークン不要）。移動時間は直線距離からの
@@ -5034,6 +5104,8 @@ window.addEventListener("storage",function(e){
 
 window.KGEditorBridge = {
   count: function(){ return allEvents.length; },
+  detailsReady: function(){ return detailsState==="merged"; },
+  detailsFailed: function(){ return detailsState==="failed"; },
   getById: function(id){
     var want = String(id == null ? '' : id).trim();
     for (var i = 0; i < allEvents.length; i++) {
