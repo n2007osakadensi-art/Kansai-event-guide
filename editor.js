@@ -30,6 +30,10 @@
     + '#kg-editor .chk{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px;padding:6px 0}'
     + '#kg-editor .chk input{width:18px;height:18px;min-height:0;margin:0;padding:0}'
     + '#kg-editor .mini{font-size:12px;color:#666;margin-top:2px;line-height:1.5}'
+    + '#kg-editor .ke-venue-wrap{display:block;position:relative}'
+    + '#kg-editor .ke-sug{position:absolute;left:0;right:0;top:100%;z-index:6;background:var(--surface,#fff);color:var(--text,#222);border:1px solid var(--border,#bbb);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);max-height:264px;overflow-y:auto;display:none}'
+    + '#kg-editor .ke-sug.show{display:block}'
+    + '#kg-editor .ke-sug button{display:block;width:100%;text-align:left;padding:11px 12px;border:0;background:transparent;color:inherit;font-size:15px;cursor:pointer}'
     + '@media (max-width:640px){'
     + '#kg-editor{width:calc(100vw - 12px)}'
     + '#kg-editor .row2{flex-direction:column;gap:0}'
@@ -73,7 +77,7 @@
     '</div>' +
     field('時刻の表示文（例：開場12:00／開演12:30）', '<input id="ke-time" type="text">') +
     sec('会場') +
-    field('会場（会場DBの正式キー「名称（自治体）」。候補から選べます）', '<input id="ke-venue" type="text" list="ke-venue-list"><datalist id="ke-venue-list"></datalist>') +
+    field('会場（会場DBの正式キー「名称（自治体）」。入力すると候補が出ます）', '<span class="ke-venue-wrap"><input id="ke-venue" type="text" autocomplete="off"><span id="ke-venue-sug" class="ke-sug"></span></span>') +
     field('会場補足（会場内のスペース・階など）', '<input id="ke-venuespace" type="text">') +
     field('追加の会場（1行に1会場、複数会場のとき）', '<textarea id="ke-venues"></textarea>') +
     sec('出演者') +
@@ -161,6 +165,7 @@
   var NEVER_SPLIT = ['ジョニー・デッパ', 'と、いうわけで', '君に、胸キュン。', 'mofu/mofu'];
   var SEP_RE = /[\n\r、,，;；・\/／|｜•]/;
   var dictNames = [];
+  var venueKeys = [];
   function sortDictNames() {
     var seen = {}, out = [];
     dictNames.forEach(function (n) { if (n && n.length >= 2 && !seen[n]) { seen[n] = 1; out.push(n); } });
@@ -177,8 +182,7 @@
       sortDictNames();
     }).catch(function () {});
     fetch('assets/venues.json').then(function (r) { return r.json(); }).then(function (j) {
-      var dl = $('ke-venue-list'); if (!dl) return;
-      Object.keys(j).forEach(function (k) { var o = document.createElement('option'); o.value = k; dl.appendChild(o); });
+      venueKeys = Object.keys(j);
     }).catch(function () {});
   }
   function protectTokens(work, names, hold) {
@@ -219,6 +223,24 @@
     $('ke-perf-preview').textContent = list.length ? '出演者 ' + list.length + '組：' + list.join(' / ') : '';
   }
   $('ke-performers').addEventListener('input', perfPreview);
+  var venueInput = $('ke-venue'), venueSug = $('ke-venue-sug');
+  function hideVenueSug() { venueSug.classList.remove('show'); venueSug.innerHTML = ''; }
+  function showVenueSug() {
+    var q = venueInput.value.trim();
+    if (!q || !venueKeys.length) { hideVenueSug(); return; }
+    var hits = [];
+    for (var vi = 0; vi < venueKeys.length && hits.length < 8; vi++) { if (venueKeys[vi].indexOf(q) >= 0) hits.push(venueKeys[vi]); }
+    if (!hits.length) { hideVenueSug(); return; }
+    venueSug.innerHTML = hits.map(function (k) { return '<button type="button" data-vsug="' + k.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '">' + k.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</button>'; }).join('');
+    venueSug.classList.add('show');
+  }
+  venueInput.addEventListener('input', showVenueSug);
+  venueInput.addEventListener('focus', showVenueSug);
+  venueInput.addEventListener('blur', function () { setTimeout(hideVenueSug, 150); });
+  venueSug.addEventListener('mousedown', function (ev2) {
+    var b = ev2.target.closest('[data-vsug]');
+    if (b) { venueInput.value = b.getAttribute('data-vsug'); hideVenueSug(); }
+  });
   $('ke-split').onclick = function () {
     var list = splitPerformers($('ke-performers').value);
     setLines('ke-performers', list);
