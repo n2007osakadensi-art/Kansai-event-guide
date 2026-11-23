@@ -55,15 +55,12 @@
       else { status('送信できませんでした。時間をおいてお試しください。'); }
     } catch (e) { status('送信できたか確認できませんでした。通信状態をご確認ください。'); }
   };
-  /* 入口：管理者モードの端末ではヘッダー（ログイン/同期の隣、スペース版と同じメイン画面の位置）に
-     「＋ 新規登録・修正」ボタンを出す。それ以外の端末では「ログイン・同期」ダイアログの中から開ける。 */
+  /* 入口：ヘッダー（ログイン/同期の隣、スペース版と同じメイン画面の位置）に
+     「＋ 新規登録・修正」ボタンを常時出す。送信は受付タブへの申請形式なので、
+     誰が見えても掲載に直接は影響しない。「ログイン・同期」ダイアログの中からも開ける。 */
   function openEditor() { if (!dlg.open) dlg.showModal(); }
   var headerBtn = document.getElementById('kg-editor-open');
-  function refreshEditorEntry() {
-    var admin = false;
-    try { admin = localStorage.getItem('kg_admin_mode_v1') === '1'; } catch (_) {}
-    if (headerBtn) headerBtn.hidden = !admin;
-  }
+  function refreshEditorEntry() { if (headerBtn) headerBtn.hidden = false; }
   if (headerBtn) { headerBtn.onclick = openEditor; refreshEditorEntry(); }
   var accountDlg = document.getElementById('kg-account-dialog') || document.getElementById('kg-account');
   if (accountDlg) {
