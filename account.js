@@ -22,8 +22,8 @@
     '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
     '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button><span id="kg-guest-end-confirm" hidden> <span style="font-size:13px">この端末のデータを消去しますか？</span> <button id="kg-guest-end-yes" type="button">消去する</button> <button id="kg-guest-end-no" type="button">やめる</button></span></div></div>' +
     '<div id="kg-admin"><hr><p><strong>管理者モード</strong>（この端末だけ）</p>' +
-    '<div id="kg-admin-off"><p style="font-size:13px">管理者の端末では、ログイン操作なしで管理者として扱います。有効化には管理者パスフレーズの設定が必要です（この端末内にだけ保存されます）。</p><button id="kg-admin-enable" type="button">管理者モードを有効にする</button></div>' +
-    '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。ログイン操作は不要です。</p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></div></div>' +
+    '<div id="kg-admin-off"><p style="font-size:13px">管理者の端末では、ログイン操作なしで管理者として扱います。有効化には管理者パスフレーズの設定が必要です（この端末内にだけ保存されます）。</p><p><input id="kg-admin-p1" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-admin-p2" type="password" placeholder="確認のためもう一度（新規設定のとき）" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-enable" type="button">管理者モードを有効にする</button></div>' +
+    '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。ログイン操作は不要です。</p><p><input id="kg-admin-off-p" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></div></div>' +
     '<p style="font-size:13px">メールアドレス・推し・お気に入りを認証・保存サービスで扱います。サービス提供者のプライバシーポリシーをご確認ください。</p></dialog>';
   document.body.appendChild(overlay);
   var dialog = $('kg-account-dialog');
@@ -45,8 +45,8 @@
       while(q.length && sameUser(uid,g)) {
         var x=q[0], result;
         var ref=client.doc(client.db,'users',uid,'favorites',favoriteId(x.kind,x.value));
-        if(x.op==='add') await client.setDoc(ref,{kind:x.kind,item_id:x.value});
-        else await client.deleteDoc(ref);
+        if(x.op==='add') await fsTimeout(client.setDoc(ref,{kind:x.kind,item_id:x.value}), '同期がタイムアウトしました');
+        else await fsTimeout(client.deleteDoc(ref), '同期がタイムアウトしました');
         // 読み出し中に追加された操作を失わない
         var now=queueRead(uid); now.shift(); queueWrite(uid,now); q=now;
       }
@@ -59,12 +59,21 @@
     bytes.forEach(function(b){binary+=String.fromCharCode(b);});
     return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   }
+  /* Firestore 呼び出しのタイムアウト（v53）: オフライン等で Promise が
+     永遠に戻らないと同期全体が無言で止まるため、15秒で失敗として扱う */
+  function fsTimeout(p, label) {
+    return Promise.race([p, new Promise(function (_, rej) {
+      setTimeout(function () { var e = new Error(label || '通信がタイムアウトしました'); e.code = 'kg-timeout'; rej(e); }, 15000);
+    })]);
+  }
   async function pull(uid) {
     var data={event:[],artist:[]}, last=null, pageSize=500;
+    var pages=0;
     while(true) {
+      if(++pages>20) throw new Error('読み込み件数が上限を超えました');
       var col=client.collection(client.db,'users',uid,'favorites');
       var q=last ? client.query(col,client.orderBy(client.documentId()),client.startAfter(last),client.limit(pageSize)) : client.query(col,client.orderBy(client.documentId()),client.limit(pageSize));
-      var snapshot=await client.getDocs(q);
+      var snapshot=await fsTimeout(client.getDocs(q), 'クラウドの読み込みがタイムアウトしました');
       snapshot.docs.forEach(function(doc){var x=doc.data();if(data[x.kind] && typeof x.item_id==='string')data[x.kind].push(x.item_id);});
       if(snapshot.docs.length<pageSize)break;
       last=snapshot.docs[snapshot.docs.length-1];
@@ -127,10 +136,10 @@
   function codeHashOf(code){ return sha256hex('kg-code:'+normCode(code)); }
   function recoveryHashOf(q,a){ return sha256hex('kg-recovery:'+normQA(q)+':'+normQA(a)); }
   function memberRef(acct){ return client.doc(client.db,'memberdata',acct); }
-  async function memberDoc(acct){ var snap=await client.getDoc(memberRef(acct)); return snap.exists() ? (snap.data()||{}) : null; }
+  async function memberDoc(acct){ var snap=await fsTimeout(client.getDoc(memberRef(acct)), 'データの読み込みがタイムアウトしました'); return snap.exists() ? (snap.data()||{}) : null; }
   function cloudOf(d){ return {event:Array.isArray(d.events)?d.events:[], artist:Array.isArray(d.artists)?d.artists:[]}; }
-  async function memberPushFavorites(acct){ var local=bridge.read(); await client.setDoc(memberRef(acct), {events:local.event, artists:local.artist, updatedAt:Date.now()}, {merge:true}); }
-  async function memberSetMeta(acct, fields){ await client.setDoc(memberRef(acct), fields, {merge:true}); }
+  async function memberPushFavorites(acct){ var local=bridge.read(); await fsTimeout(client.setDoc(memberRef(acct), {events:local.event, artists:local.artist, updatedAt:Date.now()}, {merge:true}), '同期がタイムアウトしました'); }
+  async function memberSetMeta(acct, fields){ await fsTimeout(client.setDoc(memberRef(acct), fields, {merge:true}), '保存がタイムアウトしました'); }
   function saveMemberSession(){ if(member) localStorage.setItem('kg_member_session_v2', JSON.stringify({acct:member.acct, code:member.code||null})); }
   function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has) $('kg-code-display').textContent = member.code ? member.code : '（未設定）'; }
   function scheduleMemberPush(){ if(!member||!memberReady)return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member)return; memberPushFavorites(member.acct).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
@@ -163,13 +172,13 @@
     try {
       var acct=newAcct(); var code=newCode(); var ch=await codeHashOf(code);
       var local=bridge.read();
-      await client.setDoc(memberRef(acct), {events:local.event, artists:local.artist, updatedAt:Date.now(), codeHash:ch});
-      await client.setDoc(client.doc(client.db,'codes',ch), {acct:acct});
+      await fsTimeout(client.setDoc(memberRef(acct), {events:local.event, artists:local.artist, updatedAt:Date.now(), codeHash:ch}), '発行がタイムアウトしました。データベースの準備ができていない可能性があります');
+      await fsTimeout(client.setDoc(client.doc(client.db,'codes',ch), {acct:acct}), '発行がタイムアウトしました。データベースの準備ができていない可能性があります');
       member={acct:acct, code:code}; saveMemberSession();
       localStorage.setItem('kg_member_selected_v2', acct);
       memberReady=true; renderMember();
       text('会員コードを発行しました。コードを控えてください。質問と回答を設定すると、コードを失くしても戻れます。');
-    } catch(e){ member=null; text('コードを発行できませんでした（'+((e&&e.code)||'エラー')+'）。データベースの準備ができていない可能性があります。'); }
+    } catch(e){ member=null; text('コードを発行できませんでした（'+((e&&e.code)||'エラー')+'）。接続できないか、データベースの準備ができていない可能性があります。通信を確認してもう一度お試しください。'); }
   };
   $('kg-code-login').onclick=async function(){
     if(!client){ text('接続の準備中です。少し待ってからお試しください。'); return; }
@@ -177,10 +186,10 @@
     if(normCode(code).length<20){ text('コードの形式が違うようです。'); return; }
     try {
       var ch=await codeHashOf(code);
-      var snap=await client.getDoc(client.doc(client.db,'codes',ch));
+      var snap=await fsTimeout(client.getDoc(client.doc(client.db,'codes',ch)), 'ログインがタイムアウトしました');
       if(!snap.exists()){ text('そのコードが見つかりませんでした。'); return; }
       if(!await activateMember(snap.data().acct, code)) text('データが見つかりませんでした。');
-    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。'); }
+    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); }
   };
   $('kg-recovery-login').onclick=async function(){
     if(!client){ text('接続の準備中です。少し待ってからお試しください。'); return; }
@@ -188,12 +197,12 @@
     if(!normQA(q)||!normQA(a)){ text('質問と回答の両方を入力してください。'); return; }
     try {
       var rh=await recoveryHashOf(q,a);
-      var snap=await client.getDoc(client.doc(client.db,'recovery',rh));
+      var snap=await fsTimeout(client.getDoc(client.doc(client.db,'recovery',rh)), 'ログインがタイムアウトしました');
       if(!snap.exists()){ text('質問と回答が一致するアカウントが見つかりませんでした。'); return; }
       var ok=await activateMember(snap.data().acct, null);
       if(!ok){ text('データが見つかりませんでした。'); return; }
       if(memberReady) text('質問と回答でログインしました。コードは未設定です。「コードを再発行」で新しいコードを作ってください。');
-    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。'); }
+    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); }
   };
   $('kg-code-copy').onclick=function(){ if(!member||!member.code)return; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(member.code).then(function(){ text('コードをコピーしました。'); }, function(){ text('コピーできませんでした。コードをメモしてください。'); }); } };
   $('kg-code-reissue').onclick=async function(){
@@ -202,8 +211,8 @@
     try {
       var d=await memberDoc(member.acct);
       var code=newCode(); var ch=await codeHashOf(code);
-      await client.setDoc(client.doc(client.db,'codes',ch), {acct:member.acct});
-      if(d && d.codeHash && d.codeHash!==ch){ try{ await client.deleteDoc(client.doc(client.db,'codes',d.codeHash)); }catch(_){} }
+      await fsTimeout(client.setDoc(client.doc(client.db,'codes',ch), {acct:member.acct}), '再発行がタイムアウトしました');
+      if(d && d.codeHash && d.codeHash!==ch){ try{ await fsTimeout(client.deleteDoc(client.doc(client.db,'codes',d.codeHash))); }catch(_){} }
       await memberSetMeta(member.acct, {codeHash:ch});
       member.code=code; saveMemberSession(); renderMember();
       text('新しいコードを発行しました。控えてください。');
@@ -216,10 +225,10 @@
     try {
       var d=await memberDoc(member.acct);
       var rh=await recoveryHashOf(q,a);
-      var existing=await client.getDoc(client.doc(client.db,'recovery',rh));
+      var existing=await fsTimeout(client.getDoc(client.doc(client.db,'recovery',rh)), '保存がタイムアウトしました');
       if(existing.exists() && existing.data().acct!==member.acct){ text('その質問と回答の組み合わせは、すでに使われています。質問か回答を少し変えてください。'); return; }
-      if(d && d.recoveryHash && d.recoveryHash!==rh){ try{ await client.deleteDoc(client.doc(client.db,'recovery',d.recoveryHash)); }catch(_){} }
-      await client.setDoc(client.doc(client.db,'recovery',rh), {acct:member.acct});
+      if(d && d.recoveryHash && d.recoveryHash!==rh){ try{ await fsTimeout(client.deleteDoc(client.doc(client.db,'recovery',d.recoveryHash))); }catch(_){} }
+      await fsTimeout(client.setDoc(client.doc(client.db,'recovery',rh), {acct:member.acct}), '保存がタイムアウトしました');
       await memberSetMeta(member.acct, {recoveryHash:rh});
       $('kg-qa-a').value='';
       text('質問と回答を保存しました。コードを失くしても、この質問と回答でログインできます。');
@@ -269,33 +278,38 @@
   var ADMIN_FLAG='kg_admin_mode_v1', ADMIN_HASH='kg_admin_hash_v1';
   function adminOn(){ try{ return localStorage.getItem(ADMIN_FLAG)==='1'; }catch(_){ return false; } }
   function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）。ログインは不要です。'); renderState(); }
+  /* パスフレーズはダイアログ内の通常 input で扱う（v53）。prompt() は
+     ダイアログ抑制環境で無言で null を返し、管理者フロー全体が死ぬため使わない。
+     ハッシュ保存形式（kg-admin: 前置＋ kg_admin_hash_v1 / kg_admin_mode_v1）は従来互換 */
   $('kg-admin-enable').onclick=async function(){
     var existing=null; try{ existing=localStorage.getItem(ADMIN_HASH); }catch(_){}
-    var p1=prompt(existing ? '管理者パスフレーズを入力してください。' : '管理者パスフレーズを決めて入力してください（この端末の管理者モード用）。');
-    if(!p1) return;
+    var p1=($('kg-admin-p1')||{}).value||'';
+    if(!p1){ text('パスフレーズを入力してください。'); return; }
     var h=await sha256hex('kg-admin:'+p1);
     if(existing){ if(h!==existing){ text('パスフレーズが違います。'); return; } }
     else {
-      var p2=prompt('確認のため、もう一度入力してください。');
-      if(p2!==p1){ text('パスフレーズが一致しませんでした。'); return; }
+      var p2=($('kg-admin-p2')||{}).value||'';
+      if(p2!==p1){ text('パスフレーズが一致しませんでした。確認欄にも同じものを入力してください。'); return; }
       try{ localStorage.setItem(ADMIN_HASH, h); }catch(_){}
     }
     try{ localStorage.setItem(ADMIN_FLAG, '1'); }catch(_){}
+    var i1=$('kg-admin-p1'), i2=$('kg-admin-p2'); if(i1)i1.value=''; if(i2)i2.value='';
     renderAdmin();
     text('管理者モードを有効にしました。この端末ではログイン不要です。');
   };
   $('kg-admin-disable').onclick=async function(){
-    var p=prompt('管理者パスフレーズを入力してください。');
-    if(p===null) return;
+    var p=($('kg-admin-off-p')||{}).value||'';
+    if(!p){ text('パスフレーズを入力してください。'); return; }
     var h=await sha256hex('kg-admin:'+p);
     var existing=null; try{ existing=localStorage.getItem(ADMIN_HASH); }catch(_){}
     if(h!==existing){ text('パスフレーズが違います。'); return; }
     try{ localStorage.removeItem(ADMIN_FLAG); }catch(_){}
+    var io=$('kg-admin-off-p'); if(io)io.value='';
     renderAdmin();
     text('管理者モードを解除しました。');
   };
   $('kg-google-login').onclick=async function(){
-    if(!client)return;
+    if(!client){ text('ログイン機能を読み込めませんでした。通信を確認して、画面を再読み込みしてください。'); return; }
     var button=$('kg-google-login');button.disabled=true;
     var provider=new client.GoogleAuthProvider();
     /* 方式の経緯（2026-11-23）：当初ポップアップのみ→スマホではリダイレクトを先にしたが、
@@ -315,9 +329,9 @@
   parts(false,false,false,false); text('ログイン機能を読み込んでいます…');
   (async function(){
     try {
-      var app=await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
-      var auth=await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
-      var db=await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js');
+      var app=await fsTimeout(import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'), '読み込みがタイムアウトしました');
+      var auth=await fsTimeout(import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js'), '読み込みがタイムアウトしました');
+      var db=await fsTimeout(import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js'), '読み込みがタイムアウトしました');
       var instance=app.initializeApp(cfg);
       client=Object.assign({},db,auth,{auth:auth.getAuth(instance),db:db.getFirestore(instance)});
       auth.onAuthStateChanged(client.auth,function(u){setupSession(u ? {user:{id:u.uid,email:u.email}} : null);});
@@ -327,6 +341,6 @@
       var savedSession=null; try{ savedSession=JSON.parse(localStorage.getItem('kg_member_session_v2')||'null'); }catch(_){}
       if(savedSession && savedSession.acct){ activateMember(savedSession.acct, savedSession.code||null, true).catch(function(){ /* 復元できない場合は未ログインのまま */ }); }
       renderAdmin();
-    } catch(e){parts(true,false,false,false);text('ログイン機能を読み込めません。通信と設定をご確認ください。');}
+    } catch(e){parts(true,false,false,false);text('ログイン機能を読み込めませんでした（'+((e&&e.message)||'エラー')+'）。通信と設定をご確認ください。');}
   })();
 })();

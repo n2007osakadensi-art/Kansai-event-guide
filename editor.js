@@ -56,6 +56,8 @@
     sec('種別') +
     field('種別', '<select id="ke-kind"><option value="new">新規登録</option><option value="edit">修正</option></select>') +
     field('対象イベントID（修正のとき）', '<input id="ke-target" type="text" inputmode="numeric">') +
+    field('対象イベントをタイトルで探す（修正のとき）', '<input id="ke-pick-q" type="text" placeholder="タイトルの一部を入力すると候補が出ます" autocomplete="off">') +
+    '<div id="ke-pick-list"></div>' +
     '<p><button id="ke-load" type="button">現在の内容を読み込む（修正のとき）</button></p>' +
     '<p class="mini">修正のときは、読み込むとこのサイトが表示中のデータで各欄が埋まります。そこから直して送信してください。このサイトの表示データに無い項目（追加会場・主催リンクなど）は、読み込みで空欄でもガイド側の既存値が保持されます（変更した項目だけが届きます）。</p>' +
     sec('テキスト貼り付け取り込み') +
@@ -326,12 +328,38 @@
       sourceType: $('ke-source').value, photoNote: $('ke-photonote').value.trim(), notes: $('ke-notes').value.trim()
     };
   }
+  /* ---------- タイムテーブル行の判別（表示側 descRowParts と同じ規則） ----------
+     [時刻,内容] / [ラベル,時刻]（id 1 の実形式）/ [ラベル+時刻,内容] /
+     {time,act} などのオブジェクト行 / 文字列行を判別して正しい列へ入れる */
+  var TT_LABELS = ['開場', '開演', '終演', '物販', '特典会'];
+  function ttFromDescRow(r) {
+    if (r == null) return { time: '', stage: '', label: '', text: '' };
+    if (typeof r === 'string') {
+      var am = r.match(/act['"]?\s*[:：]\s*['"]([^'"]*)['"]/);
+      var tm = r.match(/(?:time|時刻)['"]?\s*[:：]\s*['"]?(\d{1,2}[:：]\d{2})/);
+      if (am || tm) return { time: tm ? tm[1].replace('：', ':') : '', stage: '', label: '', text: am ? am[1] : r };
+      return { time: '', stage: '', label: '', text: r };
+    }
+    if (Array.isArray(r)) {
+      var cells = r.map(function (c) { return c == null ? '' : String(c).trim(); });
+      var c0 = cells[0] || '', c1 = cells[1] || '', rest = cells.slice(2).filter(Boolean).join(' ');
+      var isTime = function (x) { return /^\d{1,2}[:：]\d{2}/.test(x); };
+      if (TT_LABELS.indexOf(c0) >= 0) {
+        if (isTime(c1)) return { time: c1.replace('：', ':'), stage: '', label: c0, text: rest };
+        return { time: '', stage: '', label: c0, text: [c1, rest].filter(Boolean).join(' ') };
+      }
+      var cm = c0.match(/^(開場|開演|終演|物販|特典会)\s*(\d{1,2}[:：]\d{2})/);
+      if (cm) return { time: cm[2].replace('：', ':'), stage: '', label: cm[1], text: [c1, rest].filter(Boolean).join(' ') };
+      return { time: c0, stage: '', label: '', text: [c1, rest].filter(Boolean).join(' ') };
+    }
+    return { time: String(r.time || ''), stage: String(r.stage || ''), label: String(r.label || ''), text: String(r.act || r.text || r.performer || r.content || '') };
+  }
   /* ---------- 修正：現在の内容を読み込む ---------- */
   function minToTime(m) {
     if (m == null || m === '') return '';
     return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2);
   }
-  $('ke-load').onclick = function () {
+  function loadTarget() {
     var id = $('ke-target').value.trim();
     if (!id) { status('対象イベントIDを入れてください。'); return; }
     var normId = function (v) { return String(v == null ? '' : v).replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/\s+/g, ''); };
@@ -363,7 +391,7 @@
     $('ke-pref').value = ev.prefecture || '大阪府';
     $('ke-area').value = ev.area || '';
     $('ke-category').value = ev.category || '';
-    setLines('ke-categories', ev.categories || []);
+    setLines('ke-categories', (ev.categories || []).filter(function (c) { return String(c).trim() !== String(ev.category || '').trim(); }));
     $('ke-price').value = ev.price || '';
     $('ke-isfree').checked = !!ev.isFree;
     updatePcAuto();
@@ -377,10 +405,7 @@
     try {
       var dj = JSON.parse(ev.description || '');
       note = dj.note || '';
-      (dj.rows || []).forEach(function (r) {
-        if (Array.isArray(r)) ttRow({ time: r[0] || '', text: r.slice(1).join(' ') });
-        else ttRow({ time: r.time || '', stage: r.stage || '', label: r.label || '', text: r.text || r.performer || '' });
-      });
+      (dj.rows || []).forEach(function (r) { ttRow(ttFromDescRow(r)); });
     } catch (_) { note = ev.description || ''; }
     if (!ttBox.querySelector('.ttrow')) ttRow();
     $('ke-desc').value = note;
@@ -392,7 +417,27 @@
     setLines('ke-images', ev.imageUrl ? [ev.imageUrl] : []);
     unloadedSnapshot = unloadedState();
     status('読み込みました。直す箇所だけ変更して送信してください。このサイトの表示データに無い項目は、変更していなければガイド側の既存値が保持されます。');
-  };
+  }
+  $('ke-load').onclick = loadTarget;
+  /* タイトル検索ピッカー: 候補をタップすると ID が入り、そのまま読み込む */
+  var pickQ = $('ke-pick-q'), pickList = $('ke-pick-list');
+  if (pickQ && pickList) {
+    pickQ.addEventListener('input', function () {
+      var q = pickQ.value.trim();
+      pickList.innerHTML = '';
+      if (!q || !window.KGEditorBridge || !window.KGEditorBridge.findByTitle) return;
+      var hits = window.KGEditorBridge.findByTitle(q, 8);
+      hits.forEach(function (h) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.style.cssText = 'display:block;width:100%;text-align:left;margin-top:6px;padding:10px 12px;font-size:14px';
+        b.textContent = '「' + h.title + '」 ' + (h.date || '') + (h.venue ? ' ＠ ' + h.venue : '') + '（ID ' + h.id + '）';
+        b.onclick = function () { $('ke-target').value = String(h.id); pickList.innerHTML = ''; loadTarget(); };
+        pickList.appendChild(b);
+      });
+      if (!hits.length) pickList.innerHTML = '<p class="mini">タイトルに合うイベントが見つかりませんでした。</p>';
+    });
+  }
   $('ke-cancel').onclick = function () { dlg.close(); };
   /* ---------- 送信 ---------- */
   function timeToMin(v) {
@@ -432,7 +477,7 @@
       startMin: timeToMin($('ke-start').value), endMin: timeToMin($('ke-end').value),
       venue: $('ke-venue').value.trim(), venues: lines('ke-venues'), venueSpaceNote: $('ke-venuespace').value.trim(),
       prefecture: $('ke-pref').value, area: $('ke-area').value.trim(),
-      category: $('ke-category').value.trim(), categories: lines('ke-categories'), subCategories: lines('ke-subcategories'),
+      category: $('ke-category').value.trim(), categories: lines('ke-categories').filter(function (c) { return c !== $('ke-category').value.trim(); }), subCategories: lines('ke-subcategories'),
       price: $('ke-price').value.trim(), priceClass: priceClass, isFree: $('ke-isfree').checked,
       performers: perfList(), timetableRows: sortTtRows(ttRows()), description: $('ke-desc').value.trim(),
       descriptionUnchanged: ($('ke-kind').value === 'edit' && loadedEventId !== '' && !ttTouched && !noteTouched),
@@ -468,19 +513,36 @@
   /* 入口：ヘッダー（ログイン/同期の隣、スペース版と同じメイン画面の位置）に
      「＋ 新規登録・修正」ボタンを常時出す。送信は受付への申請形式なので、
      誰が見えても掲載に直接は影響しない。「ログイン・同期」ダイアログの中からも開ける。 */
-  function openEditor() { loadDictNames(); updatePcAuto(); if (!dlg.open) dlg.showModal(); }
+  /* 開くたびに前回の入力を残さない（下書き扱いはしない） */
+  function resetEditorForm() {
+    ['ke-target', 'ke-pick-q', 'ke-paste', 'ke-images', 'ke-title', 'ke-time', 'ke-venue', 'ke-venuespace', 'ke-venues', 'ke-performers', 'ke-category', 'ke-categories', 'ke-subcategories', 'ke-area', 'ke-price', 'ke-ticket', 'ke-linkweb', 'ke-linkx', 'ke-linkig', 'ke-photonote', 'ke-desc', 'ke-organizer', 'ke-orgweb', 'ke-orgx', 'ke-orgig', 'ke-notes', 'ke-start', 'ke-end'].forEach(function (id) { var el = $(id); if (el) el.value = ''; });
+    $('ke-kind').value = 'new';
+    $('ke-date').value = ''; $('ke-dateend').value = '';
+    $('ke-isfree').checked = false; $('ke-collab').checked = false; $('ke-closed').checked = false;
+    $('ke-source').value = 'primary';
+    if ($('ke-pick-list')) $('ke-pick-list').innerHTML = '';
+    if ($('ke-perf-preview')) $('ke-perf-preview').textContent = '';
+    ttBox.innerHTML = ''; ttRow();
+    ttTouched = false; noteTouched = false; loadedEventId = ''; dupArmKey = ''; unloadedSnapshot = null;
+    status('');
+    updatePcAuto();
+  }
+  function openEditor() { loadDictNames(); resetEditorForm(); if (!dlg.open) dlg.showModal(); }
+  /* 詳細モーダルからの導線: 対象イベントがセット済みの状態で開く */
+  window.KGEditorOpenWithId = function (id) {
+    loadDictNames(); resetEditorForm();
+    $('ke-kind').value = 'edit';
+    $('ke-target').value = String(id == null ? '' : id);
+    if (!dlg.open) dlg.showModal();
+    loadTarget();
+  };
   var headerBtn = document.getElementById('kg-editor-open');
   function refreshEditorEntry() { if (headerBtn) headerBtn.hidden = false; }
   if (headerBtn) { headerBtn.onclick = openEditor; refreshEditorEntry(); }
+  /* アカウントダイアログ最下部への編集ボタン追加は廃止（v53 Minor）。
+     入口はヘッダーの「＋ 新規登録・修正」だけに統一する */
   var accountDlg = document.getElementById('kg-account-dialog') || document.getElementById('kg-account');
   if (accountDlg) {
-    var p = document.createElement('p');
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = 'イベントの新規登録・修正';
-    btn.onclick = openEditor;
-    p.appendChild(btn);
-    accountDlg.appendChild(p);
     accountDlg.addEventListener('close', refreshEditorEntry);
   }
 })();
