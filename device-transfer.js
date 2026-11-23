@@ -237,7 +237,8 @@
   dialog.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2 style="margin:0;font-size:20px">データ引っ越し</h2><button id="kg-device-transfer-close" type="button" aria-label="閉じる" style="min-width:44px">✕</button></div>'+
     '<p style="line-height:1.65">お気に入り・推し・好み・保存条件は同じサイトURL・同じブラウザに自動保存されます。通常はタブ切替、ページ再読込、アプリ終了、スマホ再起動後も残ります。対応ブラウザでは保存領域の保護も自動で要求します（許可されない場合もあります）。サイトデータ消去やプライベートモードは例外です。</p>'+
     '<p style="padding:10px 12px;border-radius:10px;background:rgba(180,30,40,.10);line-height:1.6"><strong>別のブラウザへ移すときだけ、以下のバックアップを使ってください。</strong>ブラウザ間で保存領域は共有されないため、旧ブラウザで保存し、新ブラウザで読み込みます。</p>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="kg-device-export" type="button" style="min-height:44px;padding:8px 14px;border:0;border-radius:9px;background:#b92b37;color:#fff;font-weight:700">バックアップを保存</button><button id="kg-device-import" type="button" style="min-height:44px;padding:8px 14px;border:1px solid #888;border-radius:9px;background:transparent;color:inherit;font-weight:700">バックアップを読み込む</button></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="kg-device-export" type="button" style="min-height:44px;padding:8px 14px;border:0;border-radius:9px;background:#b92b37;color:#fff;font-weight:700">バックアップを保存</button><button id="kg-device-import" type="button" style="min-height:44px;padding:8px 14px;border:1px solid #888;border-radius:9px;background:transparent;color:inherit;font-weight:700">バックアップを読み込む</button><button id="kg-device-itinerary" type="button" style="min-height:44px;padding:8px 14px;border:1px solid #888;border-radius:9px;background:transparent;color:inherit;font-weight:700">行程表テキストを書き出す</button></div>'+
+    '<p style="margin:10px 0 0;font-size:12.5px;line-height:1.6;opacity:.85">行程表テキストは、お気に入りのイベントを日付順に文章化したものです。GPTやGeminiなどのAIに渡すと、旅のしおりの下書き作りなどに使えます。</p>'+
     '<input id="kg-device-file" type="file" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">'+
     '<div id="kg-device-preview" hidden style="margin-top:14px;padding:12px;border:1px solid #aaa;border-radius:10px"><p id="kg-device-file-summary" style="margin:0 0 10px"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="kg-device-merge" type="button" style="min-height:42px;padding:7px 12px;border:1px solid #888;border-radius:8px;background:transparent;color:inherit">追加・統合</button><button id="kg-device-replace" type="button" style="min-height:42px;padding:7px 12px;border:1px solid #b92b37;border-radius:8px;background:#b92b37;color:#fff">置き換える</button><button id="kg-device-cancel" type="button" style="min-height:42px;padding:7px 12px;border:0;border-radius:8px;background:transparent;color:inherit">キャンセル</button></div><p style="margin:8px 0 0;font-size:12.5px;opacity:.8">「追加・統合」はお気に入りを追加し、同名の保存条件はファイル側で上書きします。</p></div>'+
     '<p id="kg-device-status" role="status" aria-live="polite" style="min-height:1.5em;margin:12px 0 6px;font-weight:600"></p>'+
@@ -259,6 +260,41 @@
       downloadBackup(backup);
       setStatus('バックアップの保存を開始しました。内容：'+summary(backup.data));
     }catch(e){setStatus(e.message||'現在のデータを読み取れませんでした。');}
+  });
+  function buildItinerary(){
+    var ids=parseStored(KEYS.favorites,[]);
+    var byId={};(window.allEvents||[]).forEach(function(ev){byId[String(ev.id)]=ev;});
+    var list=ids.map(function(id){return byId[String(id)];}).filter(Boolean);
+    list.sort(function(a,b){var d=String(a.date).localeCompare(String(b.date));if(d)return d;return (a.startMin||9999)-(b.startMin||9999);});
+    var wdays=['日','月','火','水','木','金','土'];
+    var out=['# 関西イベントガイド お気に入り行程表',''];
+    var cur='';
+    list.forEach(function(ev){
+      if(ev.date!==cur){cur=ev.date;var dt=new Date(cur+'T00:00:00');out.push('## '+cur+'（'+wdays[dt.getDay()]+'）','');}
+      var line='- ';
+      if(ev.timeLabel)line+=ev.timeLabel+' ';
+      line+='**'+(ev.title||'')+'**';
+      var bits=[];
+      if(ev.venue)bits.push('会場：'+ev.venue);
+      if(ev._perfList&&ev._perfList.length)bits.push('出演：'+ev._perfList.join('、'));
+      if(ev.price)bits.push('料金：'+ev.price);
+      if(bits.length)line+='（'+bits.join('／')+'）';
+      out.push(line);
+      var links=[];
+      if(ev.linkOfficial)links.push('公式：'+ev.linkOfficial);
+      if(ev.linkTicket)links.push('チケット：'+ev.linkTicket);
+      if(links.length)out.push('  '+links.join(' '));
+    });
+    if(!list.length)out.push('（お気に入りのイベントがありません）');
+    out.push('','※関西イベントガイドのお気に入りから作成');
+    return {text:out.join('\n'),count:list.length,total:ids.length};
+  }
+  dialog.querySelector('#kg-device-itinerary').addEventListener('click',function(){
+    var r=buildItinerary();
+    if(!r.count){setStatus(r.total?'イベント情報の読み込みが終わっていないため、行程表を作れませんでした。読み込み完了後にお試しください。':'お気に入りのイベントがありません。');return;}
+    var file=new File([r.text],'kansai-event-guide-itinerary-'+dateStamp()+'.md',{type:'text/markdown'});
+    downloadFile(file);
+    setStatus('行程表テキストを保存しました（'+r.count+'件）。GPTやGeminiに渡すと、旅のしおりの下書きなどに使えます。');
   });
   dialog.querySelector('#kg-device-import').addEventListener('click',function(){fileEl.click();});
   fileEl.addEventListener('change',function(){
