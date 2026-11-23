@@ -1486,6 +1486,42 @@ function dictHit(name, textNorm){
   for(var i=0;i<ws.length;i++){ if(normSearch(ws[i]).indexOf(textNorm)>=0) return true; }
   return false;
 }
+/* 会場名の表記ゆれ吸収：登録名には「箕面市立かやの広場」のように行政の設置者区分
+   （市立・県立など）が入るが、利用者は「箕面かやの広場」と区分なしで探すことが多い。
+   登録データは変えず、照合側に区分を落とした形も持たせる */
+var VENUE_QUALIFIERS=/市立|区立|県立|府立|都立|町立|村立|国立/g;
+function venueQualStrip(s){ return String(s||"").replace(VENUE_QUALIFIERS,""); }
+function venueVariants(name){
+  var memo=venueVariants.memo||(venueVariants.memo={});
+  if(Object.prototype.hasOwnProperty.call(memo, name)) return memo[name];
+  var out=[], seen={};
+  function add(x){ x=String(x||"").trim(); if(x && !seen[x]){ seen[x]=1; out.push(x); } }
+  add(name);
+  var st=stripVenueSuffix(name); add(st); add(venueQualStrip(name)); add(venueQualStrip(st));
+  memo[name]=out;
+  return out;
+}
+/* 同一施設の判定：プロフィール同一に加え、区分・括弧注記を落とした形の一致、
+   または6文字以上の形の包含（例:「みのおキューズモール 箕面市立かやの広場」と
+   「箕面市立かやの広場」は同じ施設）でも同一とみなす */
+function sameVenueFacility(a, b){
+  if(!a || !b) return false;
+  if(a===b) return true;
+  var pa=venueProfileFor(a), pb=venueProfileFor(b);
+  if(pa && pb && pa===pb) return true;
+  var va=venueVariants(a), vb=venueVariants(b);
+  if(pa && pa.n) venueVariants(pa.n).forEach(function(x){ if(va.indexOf(x)<0) va.push(x); });
+  if(pb && pb.n) venueVariants(pb.n).forEach(function(x){ if(vb.indexOf(x)<0) vb.push(x); });
+  for(var i=0;i<va.length;i++){
+    for(var j=0;j<vb.length;j++){
+      var x=normSearch(va[i]), y=normSearch(vb[j]);
+      if(x===y) return true;
+      if(x.length>=6 && y.indexOf(x)>=0) return true;
+      if(y.length>=6 && x.indexOf(y)>=0) return true;
+    }
+  }
+  return false;
+}
 /* ===== 検索の追加照合（スペース版ガイドの確定ルールに合わせたもの） =====
    簡易検索キー：タイトル中の年号・副題（括弧内、〜以降）を落とした照合用キー。
    登録タイトル自体は公式名のまま変えず、検索側の照合だけを寛容にする。 */
@@ -1580,12 +1616,13 @@ function searchHay(ev){
     var dw=dictWords(p); if(dw.length) parts.push(dw.join(" "));
   });
   var vdw=dictWords(ev.venue); if(vdw.length) parts.push(vdw.join(" "));
+  venueVariants(ev.venue).forEach(function(vv){ if(vv!==ev.venue) parts.push(vv); });
   var vp=venueProfileFor(ev.venue);
   if(vp){
     if(vp.n) parts.push(vp.n);
     if(vp.al && vp.al.length) parts.push(vp.al.join(" "));
     if(vp.ad) parts.push(vp.ad);
-    if(vp.n){ var ndw=dictWords(vp.n); if(ndw.length) parts.push(ndw.join(" ")); }
+    if(vp.n){ var ndw=dictWords(vp.n); if(ndw.length) parts.push(ndw.join(" ")); venueVariants(vp.n).forEach(function(vv){ if(vv!==vp.n) parts.push(vv); }); }
   }
   ev._hay=normSearch(parts.filter(Boolean).join(" "));
   return ev._hay;
@@ -1612,9 +1649,7 @@ function exactMatch(ev, t){
   if(t.kind==="venue"){
     var v=(ev.venue||"").trim();
     if(v===t.value) return true;
-    var p=venueProfileFor(v);
-    if(!p) return false;
-    return venueProfileFor(t.value)===p;
+    return sameVenueFacility(v, t.value);
   }
   return false;
 }
@@ -1787,8 +1822,8 @@ function renderFilterOpts(){
   var vcount={}, vnames=[];
   allEvents.forEach(function(ev){ var v=(ev.venue||"").trim(); if(!v) return; if(!vcount[v]){ vcount[v]=0; vnames.push(v); } vcount[v]++; });
   vnames.sort(function(a,b){ if(vcount[b]!==vcount[a]) return vcount[b]-vcount[a]; return a.localeCompare(b,"ja"); });
-  var vq=(els.venueSearch.value||"").trim().toLowerCase();
-  var vshown=vnames.filter(function(v){ return selVenues.has(v) || !vq || v.toLowerCase().indexOf(vq)>=0; });
+  var vqRaw=(els.venueSearch.value||"").trim(); var vq=vqRaw.toLowerCase();
+  var vshown=vnames.filter(function(v){ return selVenues.has(v) || !vq || v.toLowerCase().indexOf(vq)>=0 || normSearch(v).indexOf(normSearch(vqRaw))>=0 || normSearch(venueQualStrip(v)).indexOf(normSearch(vqRaw))>=0 || dictHit(v, normSearch(vqRaw)); });
   var vcap=vshown.slice(0,40);
   els.venueOpts.innerHTML = vcap.map(function(v){
     return '<button type="button" class="fopt" data-fvenue="'+esc(v)+'" aria-pressed="'+selVenues.has(v)+'">'+esc(v)+'（'+vcount[v]+'）</button>';
@@ -1957,12 +1992,11 @@ function venueGenreParts(prof){
 }
 function venueKeyOfProfile(prof, fallbackName){ return prof? ("P:"+(prof._key||prof.n||fallbackName)) : ("R:"+(fallbackName||"")); }
 function venueMatchesSel(ev){
-  // イベント絞り込みパネルの会場選択：生の会場名一致＋会場DBプロフィール同一でも一致
+  // イベント絞り込みパネルの会場選択：生の会場名一致＋同一施設（表記ゆれ含む）でも一致
   var v=(ev.venue||"").trim(); if(!v) return false;
   if(selVenues.has(v)) return true;
-  var prof=venueProfileFor(v); if(!prof) return false;
   var hit=false;
-  selVenues.forEach(function(name){ if(venueProfileFor(name)===prof) hit=true; });
+  selVenues.forEach(function(name){ if(sameVenueFacility(v, name)) hit=true; });
   return hit;
 }
 function contentFiltersActiveForVenue(){
@@ -2255,7 +2289,7 @@ function renderDir(){
     var prof=it.profile||{};
     var parts=venueGenreParts(it.profile);
     var hay=(it.name+" "+(it.area||"")+" "+(it.prefecture||"")+" "+(readingByName[it.name]||"")
-      +" "+((prof.al||[]).join(" "))+" "+(dictWords(it.name).join(" "))+" "+(prof.ad||"")+" "+parts.form+" "+parts.sub+" "+genrePath(parts.form,parts.sub)+" "+(prof.tp||"")).toLowerCase();
+      +" "+((prof.al||[]).join(" "))+" "+(dictWords(it.name).join(" "))+" "+venueQualStrip(it.name)+" "+(prof.ad||"")+" "+parts.form+" "+parts.sub+" "+genrePath(parts.form,parts.sub)+" "+(prof.tp||"")).toLowerCase();
     return hay.indexOf(q.replace(/\s+/g," "))>=0;
   });
   if(filtersOn){
@@ -3340,8 +3374,9 @@ function renderSuggest(){
     var v=(ev.venue||"").trim();
     if(v && !seenV[v]){
       var vhit = normSearch(v).indexOf(text)>=0;
+      if(!vhit && normSearch(venueQualStrip(v)).indexOf(text)>=0) vhit=true;
       if(!vhit && dictHit(v, text)) vhit=true;
-      if(!vhit){ var vp=venueProfileFor(v); if(vp && vp.al && vp.al.some(function(a){ return normSearch(a).indexOf(text)>=0; })) vhit=true; if(!vhit && vp && vp.n && dictHit(vp.n, text)) vhit=true; }
+      if(!vhit){ var vp=venueProfileFor(v); if(vp && vp.al && vp.al.some(function(a){ return normSearch(a).indexOf(text)>=0; })) vhit=true; if(!vhit && vp && vp.n && (dictHit(vp.n, text) || normSearch(venueQualStrip(vp.n)).indexOf(text)>=0)) vhit=true; }
       if(vhit){ seenV[v]=1; venues.push({kind:"venue", klabel:"会場", color:"var(--gold)", label:v, value:v, score:score(v)}); }
     }
     if(!seenE[ev.title] && normSearch(ev.title).indexOf(text)>=0){
