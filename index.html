@@ -570,7 +570,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v49';
+  window.__kgShell='v50';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -5272,7 +5272,7 @@ window.KGEditorBridge = {
   count: function(){ return allEvents.length; },
   getArtistProfile: function(name){
     var p = artistProfileFor(name);
-    var out = { name: name, cat: artistCategoryOf(name), profile: null };
+    var out = { name: name, cat: artistCategoryOf(name), reading: readingByName[name] || '', profile: null };
     if (p) out.profile = { c: p.c || '', p: p.p || '', w: p.w || '', x: p.x || '', i: p.i || '', t: p.t || '', al: (p.al || []).slice(), m: (p.m || []).map(function(mb){ return { n: mb.n || '', r: mb.r || '', x: mb.x || '', i: mb.i || '', g: mb.g || '' }; }) };
     return out;
   },

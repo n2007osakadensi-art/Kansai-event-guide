@@ -98,12 +98,16 @@
     var h = '<p style="margin:6px 0 0;font-size:15px;font-weight:700">' + esc(name) + '</p>';
     if (kind === 'artist') {
       h += field('カテゴリ', 'kp-f-cat', p.c || data.cat || '');
+      h += field('読み（カタカナ）', 'kp-f-rd', data.reading || '');
       h += field('公式サイト', 'kp-f-w', p.w || '');
       h += field('X', 'kp-f-x', p.x || '');
       h += field('Instagram', 'kp-f-i', p.i || '');
       h += field('TikTok', 'kp-f-t', p.t || '');
       h += field('紹介文', 'kp-f-p', p.p || '', true);
       h += field('別名（、区切り）', 'kp-f-al', (p.al || []).join('、'));
+      h += field('略称（、区切り）', 'kp-f-ab', '');
+      h += field('ファンネーム（、区切り）', 'kp-f-fn', '');
+      h += '<p class="kp-note">略称とファンネームは、新しく追加する分だけ書いてください（既存の分は上の「別名」にまとまって表示されています）。送信時に種類付きで受付へ送られ、検索でもその呼び方で探せるようになります。</p>';
       h += '<label>メンバー</label><div id="kp-members">'
         + (p.m || []).map(function (mb, i) { return memberRow(mb, i); }).join('')
         + '</div><button type="button" class="kp-madd" id="kp-madd">＋ メンバーを追加</button>'
@@ -175,6 +179,9 @@
         category: val('kp-f-cat'), linkWeb: val('kp-f-w'), linkX: val('kp-f-x'),
         linkInstagram: val('kp-f-i'), linkTikTok: val('kp-f-t'), profileText: val('kp-f-p'),
         aliases: val('kp-f-al') ? val('kp-f-al').split(/[、,，]/).map(function (x) { return x.trim(); }).filter(Boolean) : [],
+        reading: val('kp-f-rd'),
+        abbreviations: val('kp-f-ab') ? val('kp-f-ab').split(/[、,，]/).map(function (x) { return x.trim(); }).filter(Boolean) : [],
+        fanNames: val('kp-f-fn') ? val('kp-f-fn').split(/[、,，]/).map(function (x) { return x.trim(); }).filter(Boolean) : [],
         members: members, membersText: membersText, source: val('kp-f-src'), notes: val('kp-f-note')
       };
     } else {
