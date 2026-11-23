@@ -3864,6 +3864,13 @@ els.suggest.addEventListener("click", function(e){
 document.addEventListener("click", function(e){
   if(!e.target.closest(".search-wrap")) els.suggest.classList.remove("show");
 });
+/* 検索を確定したら候補は閉じる（選ばなくても閉じる。スクロールしても残らない） */
+els.searchInput.addEventListener("keydown", function(e){
+  if(e.key==="Enter"){ e.preventDefault(); els.suggest.classList.remove("show"); els.searchInput.blur(); }
+});
+window.addEventListener("scroll", function(){
+  if(document.activeElement!==els.searchInput) els.suggest.classList.remove("show");
+}, {passive:true});
 els.searchInput.addEventListener("focus", renderSuggest);
 var searchRenderTimer=null;
 els.searchInput.addEventListener("input", function(){
