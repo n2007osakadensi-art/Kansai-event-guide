@@ -572,7 +572,24 @@
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
   window.__kgBooted=false;
-  window.__kgBootMarkOk=function(){ window.__kgBooted=true; save({pending:0, fails:0, ok:Date.now()}); };
+  window.__kgBootMarkOk=function(){ window.__kgBooted=true; save({pending:0, fails:0, ok:Date.now()}); if(window.__kgDiagLine) window.__kgDiagLine(); };
+  /* エラー記録: 起きている端末でしか分からないエラーを、画面下の「動作記録」と
+     復旧バナーに残す（固まった端末自身が原因を言えるようにする） */
+  var DKEY='kg_diag_v1';
+  function diagRead(){ try{ return JSON.parse(localStorage.getItem(DKEY)||'[]'); }catch(e){ return []; } }
+  function diagPush(msg){ try{ var arr=diagRead(); arr.push({t:Date.now(), m:String(msg||'').slice(0,200)}); while(arr.length>5) arr.shift(); localStorage.setItem(DKEY, JSON.stringify(arr)); }catch(e){} }
+  window.addEventListener('error', function(ev){ diagPush((ev.message||'error')+' @'+String(ev.filename||'').split('/').pop()+':'+(ev.lineno||'')); });
+  window.addEventListener('unhandledrejection', function(ev){ var r=ev.reason; diagPush('未処理の失敗: '+((r&&r.message)||r||'')); });
+  window.__kgDiagLast=function(){ var arr=diagRead(); return arr.length? arr[arr.length-1] : null; };
+  function escT(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function fmtT(ts){ var d=new Date(ts); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+  window.__kgDiagLine=function(){
+    var el=document.getElementById('kg-diag-line'); if(!el) return;
+    var g=read()||{}; var last=window.__kgDiagLast();
+    var bootTxt = window.__kgBooted ? 'この画面は起動完了' : (g.ok ? ('前回の起動は完了（'+fmtT(g.ok)+'）') : '起動完了の記録なし');
+    el.textContent='動作記録: '+bootTxt+(last ? (' / 直近のエラー: '+last.m+'（'+fmtT(last.t)+'）') : ' / エラー記録: なし');
+  };
+  document.addEventListener('DOMContentLoaded', function(){ window.__kgDiagLine(); });
   function wipeDerived(){
     var jobs=[];
     if(window.caches && caches.keys){ jobs.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); }).catch(function(){})); }
@@ -593,7 +610,8 @@
     if(window.__kgBooted) return;
     var d=document.createElement('div');
     d.setAttribute('style','position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;background:#fff;color:#222;border:2px solid #c0392b;border-radius:12px;padding:14px 16px;font-family:system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3);line-height:1.6');
-    d.innerHTML='<strong style="font-size:15px">読み込みが止まっているようです</strong><br><span style="font-size:13px">端末内に保存されたサイトのデータが壊れていると、固まったままになることがあります。保存データを消して読み込み直すと直る場合があります（お気に入り・推しは消えません）。</span><br><button type="button" style="margin-top:10px;min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#c0392b;color:#fff;font-size:15px;font-weight:700;cursor:pointer">保存データを消して再読み込み</button>';
+    var lastErr=window.__kgDiagLast();
+    d.innerHTML='<strong style="font-size:15px">読み込みが止まっているようです</strong><br><span style="font-size:13px">端末内に保存されたサイトのデータが壊れていると、固まったままになることがあります。保存データを消して読み込み直すと直る場合があります（お気に入り・推しは消えません）。</span>'+(lastErr? '<br><span style="font-size:12px;color:#c0392b">直近のエラー: '+escT(lastErr.m)+'</span>' : '')+'<br><button type="button" style="margin-top:10px;min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#c0392b;color:#fff;font-size:15px;font-weight:700;cursor:pointer">保存データを消して再読み込み</button>';
     d.querySelector('button').addEventListener('click', function(){ window.KG_RESET_SITE(); });
     (document.body||document.documentElement).appendChild(d);
   }, 20000);
@@ -810,6 +828,7 @@
       <a class="contact-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdtDfeYaOzT9zeOT2knIVMUPOHG2yjSD_ATrekJbIuadvtwhg/viewform" target="_blank" rel="noopener noreferrer">掲載・修正依頼フォームを開く</a>
       <p class="contact-mail" style="margin:0"><span>メール：</span> <a href="/cdn-cgi/l/email-protection#2348424d50424a0e4655464d570e4a4d454c634e5650460d424a"><span class="__cf_email__" data-cfemail="402b212e3321296d2536252e346d292e262f002d3533256e2129">[email&#160;protected]</span></a></p>
     </div>
+    <p id="kg-diag-line" style="font-size:11px;color:#888;margin-top:14px">動作記録を確認中…</p>
   </footer>
 </div>
 

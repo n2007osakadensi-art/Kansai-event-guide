@@ -82,7 +82,7 @@
       if(!await flush(uid,g)) return;
       try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; text('同期済み。'); }
       catch(e) { text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
-    } else { choiceMode='google'; parts(false,false,false,true); text('同期方法を選んでください。'); showModal(); }
+    } else { choiceMode='google'; parts(false,false,false,true); text('同期方法を選んでください。'); bootChoicePending=true; renderState(); }
   }
   async function applyChoice(merge) {
     if(!user) return; var uid=user.id,g=generation; text('データを確認しています…');
@@ -99,8 +99,8 @@
       parts(false,false,true,false); text('同期済み。');
     } catch(e) { text('同期に失敗しました。端末内データは保持されています。もう一度お試しください。'); }
   }
-  $('kg-merge').onclick=function(){ if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
-  $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
+  $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
+  $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
   $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');}catch(e){text('同期に失敗しました。端末内のデータは保持されています。');} };
   $('kg-signout').onclick=async function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。アカウントのデータは残ります。'))return; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); bridge.replace({event:[],artist:[]}); };
   window.addEventListener('kg:favorites-change',function(e){
@@ -141,7 +141,7 @@
     saveMemberSession();
     renderMember(); renderState();
     if(localStorage.getItem('kg_member_selected_v2')===acct){ bridge.replace(cloudOf(d)); memberReady=true; text('同期済み（会員コード）。'); }
-    else { pendingMemberCloud=cloudOf(d); choiceMode='member'; parts(false, !user, !!user, true); text('同期方法を選んでください。'); if(!fromRestore) showModal(); }
+    else { pendingMemberCloud=cloudOf(d); choiceMode='member'; parts(false, !user, !!user, true); text('同期方法を選んでください。'); if(!fromRestore){ bootChoicePending=true; renderState(); } }
     return true;
   }
   async function applyMemberChoice(merge){
@@ -237,10 +237,11 @@
      ゲスト利用は一時的な端末向け（端末内だけに保存し、終了時に消せる）。 */
   var GUEST_FLAG='kg_guest_mode_v1';
   function guestOn(){ try{ return localStorage.getItem(GUEST_FLAG)==='1'; }catch(_){ return false; } }
+  var bootChoicePending=false;
   function stateLabel(){
     if(adminOn()) return '管理者モード';
-    if(user) return 'ログイン中（同期ON）';
-    if(member) return 'ログイン中（会員コード）';
+    if(user) return 'ログイン中（同期ON）'+(bootChoicePending?'・要選択':'');
+    if(member) return 'ログイン中（会員コード）'+(bootChoicePending?'・要選択':'');
     if(guestOn()) return 'ゲスト利用中';
     return '未ログイン / 同期';
   }
