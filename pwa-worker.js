@@ -6,7 +6,7 @@
 'use strict';
 
 var CACHE_PREFIX='kg-event-guide-shell-';
-var CACHE_NAME=CACHE_PREFIX+'v50';
+var CACHE_NAME=CACHE_PREFIX+'v51';
 var SHELL_FILES=[
   './index.html',
   './app.webmanifest',
@@ -83,10 +83,19 @@ self.addEventListener('fetch',function(event){
   event.respondWith((async function(){
     var cache=await caches.open(CACHE_NAME);
     try{
+      /* JS/CSS/データ等の部品ファイルは、現行バージョンのキャッシュを最優先する。
+         ネットワーク優先だと GitHub Pages の HTTPキャッシュ (max-age=600) が
+         更新直前の古い部品を返すことがあり、画面だけ新しく部品が古い
+         「版は上がったのに機能が無い」状態になる (2026-11-24 v50で実発生)。
+         インストール時に reload で取り直した現行キャッシュが常に正。 */
+      if(!isNavigation){
+        var preHit=await cache.match(request,{ignoreSearch:true});
+        if(preHit)return preHit;
+      }
       /* 画面（ナビゲーション）はHTTPキャッシュを経由せず取り直す。
          GitHub Pagesの max-age=600 の間は古い画面が返り、更新が届かないため。
          取得が10秒を超えたら待たずに保存済みの画面へ落とす（固まり防止） */
-      var fetchReq=isNavigation?new Request(request,{cache:'reload'}):request;
+      var fetchReq=new Request(request,{cache:'reload'});
       var response;
       if(isNavigation && self.AbortController){
         var ac=new AbortController();

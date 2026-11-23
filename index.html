@@ -335,6 +335,9 @@
   .member-row .mname{font-weight:700}
   .member-row .mgroup{color:var(--accent);font-size:12.5px;font-weight:700}
   .venue-hero{width:100%;border-radius:12px;margin-top:12px;display:block}
+  .artist-avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none;background:var(--surface2)}
+  .member-row .micon{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:none;background:var(--surface2)}
+  .dir-row .dicon{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:none;background:var(--surface2)}
   .member-row .mrole{color:var(--muted);font-size:12.5px}
   .member-row .mlinks{margin-left:auto;display:flex;gap:10px}
   .member-row a{color:var(--accent);font-weight:700;font-size:13px;text-decoration:none}
@@ -570,7 +573,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v50';
+  window.__kgShell='v51';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -590,9 +593,23 @@
     var el=document.getElementById('kg-diag-line'); if(!el) return;
     var g=read()||{}; var last=window.__kgDiagLast();
     var bootTxt = window.__kgBooted ? 'この画面は起動完了' : (g.ok ? ('前回の起動は完了（'+fmtT(g.ok)+'）') : '起動完了の記録なし');
-    el.textContent='動作記録: 版 '+(window.__kgShell||'?')+' / '+bootTxt+(last ? (' / 直近のエラー: '+last.m+'（'+fmtT(last.t)+'）') : ' / エラー記録: なし');
+    var stall=window.__kgLastStall?window.__kgLastStall():'';
+    el.textContent='動作記録: 版 '+(window.__kgShell||'?')+' / '+bootTxt+(last ? (' / 直近のエラー: '+last.m+'（'+fmtT(last.t)+'）') : ' / エラー記録: なし')+(stall ? (' / 前回停止: '+stall) : '');
   };
   document.addEventListener('DOMContentLoaded', function(){ window.__kgDiagLine(); });
+  /* フリーズ記録: 主要処理の実行中マーカーと心拍を端末内に残す。
+     前回の利用が処理の途中で終わっていたら、その処理名を「前回停止」として
+     動作記録に出す（固まった端末自身に原因を言わせるための仕掛け） */
+  window.__kgStack=[];
+  window.__kgMark=function(n){ window.__kgStack.push(n); try{ localStorage.setItem('kg_busy_v1', window.__kgStack.join('>')); }catch(e){} };
+  window.__kgUnmark=function(){ window.__kgStack.pop(); try{ localStorage.setItem('kg_busy_v1', window.__kgStack.join('>')); }catch(e){} };
+  try{
+    var prevBusy=localStorage.getItem('kg_busy_v1')||'';
+    if(prevBusy) localStorage.setItem('kg_laststall_v1', prevBusy);
+    localStorage.setItem('kg_busy_v1','');
+  }catch(e){}
+  window.__kgLastStall=function(){ try{ return localStorage.getItem('kg_laststall_v1')||''; }catch(e){ return ''; } };
+  setInterval(function(){ try{ localStorage.setItem('kg_hb_v1', String(Date.now())); }catch(e){} }, 1000);
   function wipeDerived(){
     var jobs=[];
     if(window.caches && caches.keys){ jobs.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); }).catch(function(){})); }
@@ -2538,6 +2555,10 @@ function abcInitOf(name){
   return ROMAJI_INIT[kanaBase(src.charAt(0))]||"";
 }
 function renderDir(){
+  if(window.__kgMark){ window.__kgMark('dir'); try{ renderDirInner(); }finally{ window.__kgUnmark(); } return; }
+  renderDirInner();
+}
+function renderDirInner(){
   var isArtists = view==="artists";
   els.dirSearch.placeholder = isArtists ? "アーティスト名・読み仮名で検索" : "会場名・住所・エリア・ジャンルで検索";
   var q=dirQuery.trim().toLowerCase();
@@ -2605,7 +2626,7 @@ function renderDir(){
       var sub = it.cat || (readingByName[it.name]||"");
       var oshiBtn = '<button class="oshi-mini'+(favPerfs.has(it.name)?" on":"")+'" type="button" data-oshi-toggle="'+esc(it.name)+'" aria-label="推し登録">'+(favPerfs.has(it.name)?"★":"☆")+'</button>';
       var counts = '<span class="dir-counts"><strong>'+it.upcoming+'件</strong>開催予定（全'+it.total+'件）</span>';
-      return '<div class="dir-row"><button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">プロフィール</span>':"")+(favPerfs.has(it.name)?'<span style="color:var(--oshi);font-size:12.5px">★ 推し</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+oshiBtn+counts+'</div>';
+      return '<div class="dir-row">'+(it.profile&&it.profile.av?'<img class="dicon" src="'+esc(it.profile.av)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':"")+'<button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">プロフィール</span>':"")+(favPerfs.has(it.name)?'<span style="color:var(--oshi);font-size:12.5px">★ 推し</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+oshiBtn+counts+'</div>';
     }).join("") + (shownA.length>dirCap ? '<p style="font-size:13px;color:var(--muted);text-align:center">'+(dirArtistSort==="count"?"上位":"先頭")+dirCap+'件まで表示しています。検索や絞り込みで探してください。</p>' : "");
     return;
   }
@@ -2687,6 +2708,10 @@ function openDirDetail(kind, name){
   window.scrollTo({top:0});
 }
 function renderDetail(){
+  if(window.__kgMark){ window.__kgMark('detail'); try{ renderDetailInner(); }finally{ window.__kgUnmark(); } return; }
+  renderDetailInner();
+}
+function renderDetailInner(){
   if(!detailCtx) return;
   var kind=detailCtx.kind, name=detailCtx.name;
   var evs;
@@ -2702,8 +2727,9 @@ function renderDetail(){
   var head="";
   if(kind==="artist"){
     var isOshi=favPerfs.has(name);
+    var aprof0=artistProfileFor(name);
     head='<div class="detail-head"><span class="cat-chip" style="background:var(--oshi)">アーティスト</span>'
-      +'<h2>'+esc(name)+'</h2>'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-top:8px">'+(aprof0&&aprof0.av?'<img class="artist-avatar" src="'+esc(aprof0.av)+'" alt="" onerror="this.style.display=\'none\'">':"")+'<h2 style="margin:0">'+esc(name)+'</h2></div>'
       +'<p>開催予定 '+upcoming.length+'件 ／ 全 '+evs.length+'件の出演イベントを掲載データから集計しています。</p>'
       +'<div style="margin-top:10px"><button class="modal-fav'+(isOshi?" on":"")+'" type="button" id="detailOshiBtn" style="border-color:var(--oshi);color:'+(isOshi?"#fff":"var(--oshi)")+';'+(isOshi?"background:var(--oshi)":"")+'">'+(isOshi?"★ 推し登録中":"☆ 推しに登録")+'</button></div>';
     var aprof=artistProfileFor(name);
@@ -2724,7 +2750,7 @@ function renderDetail(){
               var ml="";
               if(mb.x) ml+='<a href="'+esc(mb.x)+'" target="_blank" rel="noopener">X</a>';
               if(mb.i) ml+='<a href="'+esc(mb.i)+'" target="_blank" rel="noopener">Instagram</a>';
-              return '<div class="member-row"><span class="mname">'+esc(mb.n||"")+'</span>'+(mb.g?'<span class="mgroup">'+esc(mb.g)+'</span>':"")+(mb.r?'<span class="mrole">'+esc(mb.r)+'</span>':"")+(ml?'<span class="mlinks">'+ml+'</span>':"")+'</div>';
+              return '<div class="member-row">'+(mb.ic?'<img class="micon" src="'+esc(mb.ic)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':"")+'<span class="mname">'+esc(mb.n||"")+'</span>'+(mb.g?'<span class="mgroup">'+esc(mb.g)+'</span>':"")+(mb.r?'<span class="mrole">'+esc(mb.r)+'</span>':"")+(ml?'<span class="mlinks">'+ml+'</span>':"")+'</div>';
             }).join("")+'</div>';
       }
     }
@@ -2963,6 +2989,10 @@ function renderActiveFilters(){
 
 var lastSearchFxQuery="";
 function render(){
+  if(window.__kgMark){ window.__kgMark('render'); try{ renderInner(); }finally{ window.__kgUnmark(); } return; }
+  renderInner();
+}
+function renderInner(){
   renderChips(); renderOshiBar(); renderXmasChrome(); renderExpoChrome(); renderSignageChrome();
   if(!els.filterPanel.classList.contains("hidden")) renderFilterOpts(); else updateFilterBadge();
   renderCountsOnly();
@@ -3131,9 +3161,10 @@ function buildICS(){
 
 /* ---------- modal ---------- */
 var currentEv=null;
-/* 詳細画面の「関連イベント」（スペース版ガイドと同仕様）：
-   他の開催日／同時開催（同じ主催・同日）／この日の他のイベント／
-   同じ会場のイベント（今後を優先し、少なければ直近の終了分で補充）／同じ主催の次の予定。
+/* 詳細画面の「関連イベント」：
+   他の開催日／同時開催（同じ主催・同日）／同じ会場の次の予定（今後のみ）／
+   この日のはしご候補（この公演の終了後に始まる同日の公演。同じ会場→同じエリア→開始順）／
+   この日の他のイベント／同じ主催の次の予定。
    各軸 最大5件、軸をまたいだ重複は先の軸を優先して除く */
 function relatedEventsHTML(ev){
   var selfId=String(ev.id);
@@ -3149,17 +3180,30 @@ function relatedEventsHTML(ev){
     var douji=allEvents.filter(function(e2){ return String(e2.id)!==selfId && (e2.organizerName||"").trim()===org && e2.date===ev.date; }).sort(byDateAsc);
     if(douji.length) axes.push({label:"同時開催（同じ主催・同日）", list:take(douji), total:douji.length});
   }
+  if(ev.venue){
+    var vup=allEvents.filter(function(e2){ return String(e2.id)!==selfId && sameVenueFacility((e2.venue||"").trim(), (ev.venue||"").trim()) && !isEnded(e2); }).sort(byDateAsc);
+    var vt=take(vup);
+    if(vt.length) axes.push({label:"同じ会場の次の予定", list:vt, total:vup.length});
+  }
+  if(ev.date && ev.startMin!=null){
+    var hBase=(ev.endMin!=null)?ev.endMin:ev.startMin;
+    var hops=allEvents.filter(function(e2){
+      if(String(e2.id)===selfId || e2.date!==ev.date || e2.startMin==null) return false;
+      return (ev.endMin!=null)? (e2.startMin>=hBase) : (e2.startMin>hBase);
+    });
+    hops.sort(function(a,b){
+      var av=sameVenueFacility((a.venue||"").trim(), (ev.venue||"").trim())?0:(ev.area&&a.area===ev.area?1:2);
+      var bv=sameVenueFacility((b.venue||"").trim(), (ev.venue||"").trim())?0:(ev.area&&b.area===ev.area?1:2);
+      if(av!==bv) return av-bv;
+      return a.startMin-b.startMin;
+    });
+    var ht=take(hops);
+    if(ht.length) axes.push({label:"この日のはしご候補", list:ht, total:hops.length, range:true});
+  }
   if(ev.date){
     var sameDay=allEvents.filter(function(e2){ return String(e2.id)!==selfId && e2.date===ev.date; }).sort(byDateAsc);
     var sd=take(sameDay);
     if(sd.length) axes.push({label:"この日の他のイベント", list:sd, total:sameDay.length});
-  }
-  if(ev.venue){
-    var vlist=allEvents.filter(function(e2){ return String(e2.id)!==selfId && sameVenueFacility((e2.venue||"").trim(), (ev.venue||"").trim()); });
-    var vup=vlist.filter(function(e2){ return !isEnded(e2); }).sort(byDateAsc);
-    var vpast=vlist.filter(function(e2){ return isEnded(e2); }).sort(function(a,b){ return a.date<b.date?1:-1; });
-    var vt=take(vup.concat(vpast));
-    if(vt.length) axes.push({label:"同じ会場のイベント", list:vt, total:vlist.length});
   }
   if(org){
     var olist=allEvents.filter(function(e2){ return String(e2.id)!==selfId && (e2.organizerName||"").trim()===org && !isEnded(e2); }).sort(byDateAsc);
@@ -3171,7 +3215,8 @@ function relatedEventsHTML(ev){
   axes.forEach(function(ax){
     html+='<div class="rel-axis"><div class="rel-label">'+esc(ax.label)+(ax.total>ax.list.length?'（全'+ax.total+'件）':'')+'</div>';
     html+=ax.list.slice(0,5).map(function(e2){
-      return '<button type="button" class="rel-row" data-rel-id="'+esc(String(e2.id))+'"><span class="rel-date">'+esc(fmtDate(e2.date))+(e2.startMin!=null?' '+esc(minToTime(e2.startMin)):'')+'</span><span class="rel-title">'+esc(e2.title)+'</span><span class="rel-venue">'+esc(e2.venue||"")+'</span></button>';
+      var tm=e2.startMin!=null? ' '+esc(minToTime(e2.startMin))+(ax.range&&e2.endMin!=null?'–'+esc(minToTime(e2.endMin)):'') : '';
+      return '<button type="button" class="rel-row" data-rel-id="'+esc(String(e2.id))+'"><span class="rel-date">'+esc(fmtDate(e2.date))+tm+'</span><span class="rel-title">'+esc(e2.title)+'</span><span class="rel-venue">'+esc(e2.venue||"")+'</span></button>';
     }).join("");
     if(ax.org) html+='<button type="button" class="rel-row" data-org-open="'+esc(ax.org)+'"><span class="rel-title">主催「'+esc(ax.org)+'」の全スケジュールを見る →</span></button>';
     html+='</div>';
@@ -4125,6 +4170,10 @@ document.getElementById("icsBtn").addEventListener("click", function(){
 
 /* ---------- data loading (JSONP primary, fetch fallback) ---------- */
 function applyData(events, cachedSavedAt, cachedSlim, cachedLite){
+  if(window.__kgMark){ window.__kgMark('applyData'); try{ applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite); }finally{ window.__kgUnmark(); } return; }
+  applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite);
+}
+function applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite){
   allEvents=events;
   attachVenueSupp();
   var shownAt = cachedSavedAt ? new Date(cachedSavedAt) : new Date();
