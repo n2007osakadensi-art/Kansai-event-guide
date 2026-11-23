@@ -2242,25 +2242,41 @@ function groupMembers(p){
 }
 /* その名前をメンバーに持つグループ（出演者として載っている名前）の一覧 */
 function groupsOfMember(name){
-  var out=[], seen={};
-  allEvents.forEach(function(ev){
-    ev._perfList.forEach(function(p){
-      if(seen[p]) return; seen[p]=1;
-      if(groupMembers(p).indexOf(name)>=0) out.push(p);
-    });
+  /* プロフィールのメンバー欄から逆引きする（旧実装は全イベント走査で、
+     アーティスト一覧の集計と組み合わさると端末が固まる原因になっていた） */
+  var out=[];
+  Object.keys(artistProfiles).forEach(function(k){
+    if(groupMembers(k).indexOf(name)>=0) out.push(k);
   });
   return out;
 }
-function artistEvents(name){
-  var tp=artistProfileFor(name);
-  var groups=groupsOfMember(name);
-  return allEvents.filter(function(ev){
-    if(ev._perfList.indexOf(name)>=0) return true;
-    if(tp && ev._perfList.some(function(p){ return artistProfileFor(p)===tp; })) return true;
-    /* メンバー名で開いたときは、所属グループの公演も出す */
-    if(groups.length && ev._perfList.some(function(p){ return groups.indexOf(p)>=0; })) return true;
-    return isOskRelated(ev,name);
+/* 出演者→イベントの逆引き索引（データ／プロフィールが差し替わったときだけ作り直す）。
+   旧方式は「名前ごとに全イベントを走査」していたため、アーティスト数が増えるほど
+   指数的に重くなっていた。索引には直接の出演名に加え、別名の正式名・所属グループの
+   メンバー名・OSK特例までを展開して入れる（詳細ページの集計と一致させるため） */
+var perfIndex=null, perfIndexSrc=null, perfIndexProf=null;
+function buildPerfIndex(){
+  if(perfIndex && perfIndexSrc===allEvents && perfIndexProf===artistProfiles) return perfIndex;
+  var profKey={};
+  Object.keys(artistProfiles).forEach(function(k){ profKey[artistProfiles[k]]=k; });
+  var map={};
+  function addTo(n, ev, seen){ if(!n || seen[n]) return; seen[n]=1; (map[n]||(map[n]=[])).push(ev); }
+  allEvents.forEach(function(ev){
+    var seen={};
+    (ev._perfList||[]).forEach(function(p){
+      addTo(p, ev, seen);
+      var tp=artistProfileFor(p);
+      if(tp && profKey[tp]) addTo(profKey[tp], ev, seen);
+      groupMembers(p).forEach(function(mn){ addTo(mn, ev, seen); });
+    });
+    if(isOskRelated(ev, OSK_BASE)) addTo(OSK_BASE, ev, seen);
   });
+  perfIndex=map; perfIndexSrc=allEvents; perfIndexProf=artistProfiles;
+  return perfIndex;
+}
+function artistEvents(name){
+  var idx=buildPerfIndex();
+  return (idx[name]||[]).slice();
 }
 /* ---------- bundled profile DB (ガイド側の会場DB・アーティストプロフィール) ---------- */
 var venueProfiles={}, artistProfiles={}, readingByName={}, dictByName={}, profilesLoaded=false, profilesLoading=null;
@@ -2320,15 +2336,17 @@ function loadProfiles(){
   }
 }
 function buildArtists(){
+  var idx=buildPerfIndex();
   var map={};
   allEvents.forEach(function(ev){
     ev._perfList.forEach(function(p){ if(!map[p]) map[p]={name:p,total:0,upcoming:0,cats:{}}; });
   });
   Object.keys(map).forEach(function(name){
-    var evs=artistEvents(name);
+    var evs=idx[name]||[];
     map[name].total=evs.length;
-    map[name].upcoming=evs.filter(function(ev){ return !isEnded(ev); }).length;
-    evs.forEach(function(ev){ if(ev.category) map[name].cats[ev.category]=1; });
+    var up=0;
+    evs.forEach(function(ev){ if(!isEnded(ev)) up++; if(ev.category) map[name].cats[ev.category]=1; });
+    map[name].upcoming=up;
   });
   Object.keys(artistProfiles).forEach(function(k){
     if(!map[k]) map[k]={name:k,total:0,upcoming:0,cats:{}};
