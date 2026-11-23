@@ -4209,7 +4209,10 @@ function renderRouteFit(){
   els.rfOriginInfo.textContent = !profilesLoaded ? "会場データを読み込み中です（距離判定は読み込み後に有効になります）。"
     : origin ? ("起点："+origin.label+"／基準時刻 "+minToTime(baseMin)+"（移動時間は推定です）")
     : "起点なし：時刻だけで判定しています。GPSか起点を選ぶと移動時間も加味します。";
-  var okList=[], onList=[], timeList=[], noTime=0;
+  /* グループ分けはスペース版ガイドの回せる現場と同一（2026-11-23 統一）：
+     「間に合う・途中から行ける（推定）」「開催中（終了時刻不明）」「距離不明」
+     「時間未確認のため判定不可」。間に合う/途中からの区別はカードのラベルで示す */
+  var reachList=[], unknownEndList=[], noCoordList=[], noTime=0;
   rfTodayEvents().forEach(function(ev){
     if(origin && origin.kind==="event" && String(ev.id)===String(origin.evId)) return;
     if(rfCat!=="すべて" && evCategories(ev).indexOf(rfCat)<0) return;
@@ -4220,31 +4223,45 @@ function renderRouteFit(){
     if(origin && origin.lat!=null && vp && vp.lt && vp.lg){ km=rfHaversineKm(origin.lat, origin.lng, vp.lt, vp.lg); travel=rfTravelMin(km); }
     var rec={ev:ev, vp:vp, km:km, travel:travel};
     if(ev.startMin>baseMin){
-      if(travel==null){ rec.label="開始まで あと"+(ev.startMin-baseMin)+"分"; timeList.push(rec); }
+      if(travel==null){ rec.label="開始まで あと"+(ev.startMin-baseMin)+"分"; noCoordList.push(rec); }
       else{
         var deadline=ev.startMin-travel;
-        if(deadline<baseMin) return;
-        if(maxTravel && travel>maxTravel) return;
-        rec.label="あと"+(deadline-baseMin)+"分以内に出れば間に合う";
-        rec.sortKey=deadline;
-        rec.slot=rfSlotNote(ev, baseMin, travel);
-        okList.push(rec);
+        if(deadline>=baseMin){
+          if(maxTravel && travel>maxTravel) return;
+          rec.label="あと"+(deadline-baseMin)+"分以内に出れば間に合う（推定）";
+          rec.sortKey=deadline;
+          rec.slot=rfSlotNote(ev, baseMin, travel);
+          reachList.push(rec);
+        }else{
+          var slotNote=rfSlotNote(ev, baseMin, travel);
+          if(slotNote){
+            if(maxTravel && travel>maxTravel) return;
+            rec.label="開演には間に合わない見込みでも、出演者の出番には間に合う可能性があります（推定）";
+            rec.sortKey=deadline;
+            rec.slot=slotNote;
+            reachList.push(rec);
+          }
+        }
       }
-    }else if(ev.endMin==null || ev.endMin>baseMin){
-      if(travel==null){ rec.label=ev.endMin==null? "開催中（終了時刻不明）" : "開催中（"+minToTime(ev.endMin)+"まで）"; timeList.push(rec); }
+    }else if(ev.endMin==null){
+      rec.label="開催中（終了時刻不明）";
+      rec.sortKey=ev.startMin;
+      unknownEndList.push(rec);
+    }else if(ev.endMin>baseMin){
+      if(travel==null){ rec.label="開催中（"+minToTime(ev.endMin)+"まで）"; noCoordList.push(rec); }
       else{
-        if(ev.endMin!=null && baseMin+travel>ev.endMin) return;
+        if(baseMin+travel>ev.endMin) return;
         if(maxTravel && travel>maxTravel) return;
-        rec.label=ev.endMin==null? "途中から行ける（終了時刻不明）" : "途中から行ける";
-        rec.sortKey=ev.endMin==null?99999:ev.endMin;
+        rec.label="途中から行ける（推定）";
+        rec.sortKey=ev.endMin;
         rec.slot=rfSlotNote(ev, baseMin, travel);
-        onList.push(rec);
+        reachList.push(rec);
       }
     }
   });
-  okList.sort(function(a,b){ return a.sortKey-b.sortKey; });
-  onList.sort(function(a,b){ return a.sortKey-b.sortKey; });
-  timeList.sort(function(a,b){ var as=a.ev.startMin==null?99999:a.ev.startMin, bs=b.ev.startMin==null?99999:b.ev.startMin; return as-bs; });
+  reachList.sort(function(a,b){ return a.sortKey-b.sortKey; });
+  unknownEndList.sort(function(a,b){ return a.sortKey-b.sortKey; });
+  noCoordList.sort(function(a,b){ var as=a.ev.startMin==null?99999:a.ev.startMin, bs=b.ev.startMin==null?99999:b.ev.startMin; return as-bs; });
   function rowHTML(rec, badgeCls){
     var ev=rec.ev;
     var meta=fmtDate(ev.date)+(ev.startMin!=null? " "+minToTime(ev.startMin):"")+(ev.endMin!=null? "〜"+minToTime(ev.endMin):"")+"／"+(ev.venue||"");
@@ -4261,11 +4278,11 @@ function renderRouteFit(){
       +'</div></article>';
   }
   var h="";
-  if(okList.length){ h+='<h3 class="rf-group">これから間に合う（'+okList.length+'件）</h3>'+okList.map(function(r){ return rowHTML(r,""); }).join(""); }
-  if(onList.length){ h+='<h3 class="rf-group">開催中・途中から行ける（'+onList.length+'件）</h3>'+onList.map(function(r){ return rowHTML(r,""); }).join(""); }
-  if(timeList.length){ h+='<h3 class="rf-group">距離不明・時間だけの判定（'+timeList.length+'件）</h3>'+timeList.map(function(r){ return rowHTML(r," sub"); }).join(""); }
+  if(reachList.length){ h+='<h3 class="rf-group">間に合う・途中から行ける（推定）（'+reachList.length+'件）</h3>'+reachList.map(function(r){ return rowHTML(r,""); }).join(""); }
+  if(unknownEndList.length){ h+='<h3 class="rf-group">開催中（終了時刻不明）（'+unknownEndList.length+'件）</h3>'+unknownEndList.map(function(r){ return rowHTML(r,""); }).join(""); }
+  if(noCoordList.length){ h+='<h3 class="rf-group">距離不明（'+noCoordList.length+'件）</h3>'+noCoordList.map(function(r){ return rowHTML(r," sub"); }).join(""); }
   if(noTime>0){ h+='<h3 class="rf-group">時間未確認のため判定不可（'+noTime+'件）</h3><p class="rf-note">開始時刻が登録されていない今日のイベントです。黙って落とさず、件数だけここに出しています。</p>'; }
-  if(!okList.length && !onList.length && !timeList.length && !noTime){ h='<div class="state"><h2>今日これから行けるイベントは見つかりませんでした</h2><p>条件（カテゴリ・無料のみ・移動時間）をゆるめるか、起点を変えてお試しください。</p></div>'; }
+  if(!reachList.length && !unknownEndList.length && !noCoordList.length && !noTime){ h='<div class="state"><h2>今日これから行けるイベントは見つかりませんでした</h2><p>条件（カテゴリ・無料のみ・移動時間）をゆるめるか、起点を変えてお試しください。</p></div>'; }
   els.routeBody.innerHTML=h;
 }
 els.routeFitBtn.addEventListener("click", function(){ view="routefit"; render(); window.scrollTo(0,0); });
