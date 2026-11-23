@@ -1,7 +1,8 @@
 /* 試作サイトの編集入力（スペース版と同じ登録・修正の入口、2026-11-23着工）
-   送信先は Apps Script ゲートウェイ → シート「編集入力」タブ（ステージング）。
-   掲載への反映はスペース版ガイドへの取り込み経由。シート events タブはガイド同期で
-   全件上書きされるため、ここから直接は書かない。仕様: trial-site-editor-spec-20261123 */
+   送信先は受付メール kansai-event-info@muse.ai（FormSubmit AJAX経由、2026-11-23
+   Kota指示で設定）。届いた内容は確認のうえスペース版ガイドへ登録され、シート同期
+   経由で各面に反映される。シート events タブはガイド同期で全件上書きされるため、
+   ここから直接は書かない。仕様: trial-site-editor-spec-20261123 */
 (function () {
   var cfg = window.KG_EDITOR_CONFIG || {};
   function $(id) { return document.getElementById(id); }
@@ -13,7 +14,7 @@
   function field(label, inner) { return '<label>' + label + inner + '</label>'; }
   dlg.innerHTML = '<form method="dialog"><button value="close" aria-label="閉じる">×</button></form>' +
     '<h2 style="margin-top:0">イベントの新規登録・修正</h2>' +
-    '<p style="font-size:13px">送信内容は受付タブに届き、確認のうえスペース版ガイドへ登録・反映されます。</p>' +
+    '<p style="font-size:13px">送信内容は受付に届き、確認のうえスペース版ガイドへ登録・反映されます。</p>' +
     '<p id="kg-editor-status" role="status"></p>' +
     field('種別', '<select id="ke-kind"><option value="new">新規登録</option><option value="edit">修正</option></select>') +
     field('対象イベントID（修正のとき）', '<input id="ke-target" type="text" inputmode="numeric">') +
@@ -46,13 +47,13 @@
     try { if (localStorage.getItem('kg_admin_mode_v1') === '1') submitter = 'admin'; } catch (_) {}
     if (submitter === '未ログイン') { try { if (localStorage.getItem('kg_guest_mode_v1') === '1') submitter = 'guest'; } catch (_) {} }
     if (submitter === '未ログイン') { try { var s = JSON.parse(localStorage.getItem('kg_member_session_v2') || 'null'); if (s && s.acct) submitter = 'member:' + s.acct.slice(0, 12); } catch (_) {} }
-    var payload = { kind: $('ke-kind').value, targetId: $('ke-target').value.trim(), title: title, date: date, dateEnd: $('ke-dateend').value, timeLabel: $('ke-time').value.trim(), venue: $('ke-venue').value.trim(), prefecture: $('ke-pref').value, area: $('ke-area').value.trim(), category: $('ke-category').value.trim(), performers: lines('ke-performers'), timetable: lines('ke-timetable'), price: $('ke-price').value.trim(), priceClass: $('ke-priceclass').value, organizer: $('ke-organizer').value.trim(), linkOfficial: $('ke-official').value.trim(), linkTicket: $('ke-ticket').value.trim(), imageUrls: lines('ke-images'), description: $('ke-desc').value.trim(), notes: $('ke-notes').value.trim(), submitter: submitter };
+    var payload = { kind: $('ke-kind').value, targetId: $('ke-target').value.trim(), title: title, date: date, dateEnd: $('ke-dateend').value, timeLabel: $('ke-time').value.trim(), venue: $('ke-venue').value.trim(), prefecture: $('ke-pref').value, area: $('ke-area').value.trim(), category: $('ke-category').value.trim(), performers: lines('ke-performers'), timetable: lines('ke-timetable'), price: $('ke-price').value.trim(), priceClass: $('ke-priceclass').value, organizer: $('ke-organizer').value.trim(), linkOfficial: $('ke-official').value.trim(), linkTicket: $('ke-ticket').value.trim(), imageUrls: lines('ke-images'), description: $('ke-desc').value.trim(), notes: $('ke-notes').value.trim(), submitter: submitter, _subject: '【編集入力】' + ($('ke-kind').value === 'new' ? '新規登録' : '修正') + '：' + title, _template: 'table', _captcha: 'false' };
     if (!cfg.endpoint) { status('送信先が未設定です（受付の準備中）。入力内容はまだ送信されていません。'); return; }
     status('送信しています…');
     try {
       var res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
       var data = await res.json();
-      if (data && data.ok) { status('送信しました。確認のうえガイドへ反映されます。'); }
+      if (data && (data.ok || data.success === 'true' || data.success === true)) { status('送信しました。確認のうえガイドへ反映されます。'); }
       else { status('送信できませんでした。時間をおいてお試しください。'); }
     } catch (e) { status('送信できたか確認できませんでした。通信状態をご確認ください。'); }
   };
