@@ -20,7 +20,7 @@
     '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><p style="font-size:13px">コードを失くしたとき用に、質問と回答を設定できます（自分で決めた質問と、その回答）。</p><p><input id="kg-qa-q" type="text" placeholder="質問（例：初めて行ったライブは？）" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-qa-a" type="text" placeholder="回答" autocomplete="off" style="min-width:220px;padding:6px"> <button id="kg-qa-save" type="button">質問と回答を保存</button></p><button id="kg-code-logout" type="button">この端末からログアウト</button></div></div>' +
     '<div id="kg-guest"><hr><p><strong>ゲスト利用</strong>（一時的な端末向け）</p>' +
     '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
-    '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button></div></div>' +
+    '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button><span id="kg-guest-end-confirm" hidden> <span style="font-size:13px">この端末のデータを消去しますか？</span> <button id="kg-guest-end-yes" type="button">消去する</button> <button id="kg-guest-end-no" type="button">やめる</button></span></div></div>' +
     '<div id="kg-admin"><hr><p><strong>管理者モード</strong>（この端末だけ）</p>' +
     '<div id="kg-admin-off"><p style="font-size:13px">管理者の端末では、ログイン操作なしで管理者として扱います。有効化には管理者パスフレーズの設定が必要です（この端末内にだけ保存されます）。</p><button id="kg-admin-enable" type="button">管理者モードを有効にする</button></div>' +
     '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。ログイン操作は不要です。</p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></div></div>' +
@@ -253,8 +253,10 @@
     renderState();
     text('ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。');
   };
-  $('kg-guest-end').onclick=function(){
-    if(!confirm('ゲスト利用を終了します。この端末内の推し・お気に入りと好みの設定を消去します。よろしいですか？')) return;
+  $('kg-guest-end').onclick=function(){ var c=$('kg-guest-end-confirm'); if(c) c.hidden=false; };
+  $('kg-guest-end-no').onclick=function(){ var c=$('kg-guest-end-confirm'); if(c) c.hidden=true; };
+  $('kg-guest-end-yes').onclick=function(){
+    var c=$('kg-guest-end-confirm'); if(c) c.hidden=true;
     try{ localStorage.removeItem(GUEST_FLAG); localStorage.removeItem('kg_trial_prefs_v1'); localStorage.removeItem('kg_trial_learn_v1'); }catch(_){}
     bridge.replace({event:[],artist:[]});
     renderState();
