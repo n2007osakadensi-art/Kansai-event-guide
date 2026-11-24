@@ -788,7 +788,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v90';
+  window.__kgShell='v91';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -7247,7 +7247,7 @@ function psInfoHTML(kind, name, prof, upcoming){
       if(prof.t) links+='<a class="link-btn lb-tt" href="'+esc(prof.t)+'" target="_blank" rel="noopener">TikTok</a>';
       if(links) h+='<div class="link-row">'+links+'</div>';
       if(prof.m && prof.m.length){
-        h+='<p class="ps-sec">メンバー</p>'+prof.m.map(function(mb){ return '<p style="margin:4px 0">'+esc(mb.n||"")+(mb.r? '（'+esc(mb.r)+'）' : "")+(mb.g? ' ・ '+esc(mb.g) : "")+'</p>'; }).join("");
+        h+='<p class="ps-sec">メンバー</p>'+prof.m.map(function(mb){ var ml=""; if(mb.x) ml+=' <a href="'+esc(mb.x)+'" target="_blank" rel="noopener">X</a>'; if(mb.i) ml+=' <a href="'+esc(mb.i)+'" target="_blank" rel="noopener">Instagram</a>'; return '<p style="margin:4px 0">'+esc(mb.n||"")+(mb.r? '（'+esc(mb.r)+'）' : "")+(mb.g? ' ・ '+esc(mb.g) : "")+ml+'</p>'; }).join("");
       }
     }
   } else if(kind==="venue"){
@@ -7275,6 +7275,7 @@ function psInfoHTML(kind, name, prof, upcoming){
     h+='<p>'+(upcoming.length? '次の開催：'+esc(fmtDate(upcoming[0].date))+'「'+esc(upcoming[0].title)+'」' : '開催予定のイベントはまだ掲載されていません。')+'</p>';
   }
   if(kind!=="organizer") h+='<div style="margin-top:14px"><button class="modal-fav" type="button" id="psProfEditBtn">プロフィールの追加・修正を送る</button></div>';
+  h+='<p class="prof-note" style="margin-top:14px">表示しているのは、ガイドのデータベースに登録された公式プロフィール（公開情報）です。フォロー・推しの状態はこの端末の中だけのもので、ほかの人に公開されることはありません。</p>';
   return h;
 }
 /* 検証・保守用にタイムラインの算出結果へアクセスできるようにする */
