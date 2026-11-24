@@ -100,7 +100,7 @@
       }
       if(seen.has(row.id)) throw new Error('マイリストのIDが重複しています。');
       seen.add(row.id);
-      out.push({id:row.id,name:row.name.trim(),events:stringArray(row.events||[],'マイリストのイベント',50000),artists:stringArray(row.artists||[],'マイリストの推し',5000),createdAt:Number.isFinite(Number(row.createdAt))?Number(row.createdAt):0});
+      out.push({id:row.id,name:row.name.trim(),events:stringArray(row.events||[],'マイリストのイベント',50000),artists:stringArray(row.artists||[],'マイリストの推し',5000),venues:stringArray(row.venues||[],'マイリストの会場',5000),organizers:stringArray(row.organizers||[],'マイリストの主催',5000),createdAt:Number.isFinite(Number(row.createdAt))?Number(row.createdAt):0});
     });
     return out;
   }
@@ -174,7 +174,7 @@
     var out=(a||[]).map(function(x){return deepClone(x);});
     (b||[]).forEach(function(row){
       var i=out.findIndex(function(x){return x.id===row.id;});
-      if(i>=0){ out[i].events=union(out[i].events,row.events); out[i].artists=union(out[i].artists,row.artists); out[i].name=row.name; }
+      if(i>=0){ out[i].events=union(out[i].events,row.events); out[i].artists=union(out[i].artists,row.artists); out[i].venues=union(out[i].venues||[],row.venues||[]); out[i].organizers=union(out[i].organizers||[],row.organizers||[]); out[i].name=row.name; }
       else out.push(deepClone(row));
     });
     if(out.length>200) throw new Error('統合後のマイリストが200件を超えます。不要なリストを削除するか、「置き換える」を選んでください。');

@@ -721,7 +721,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v68';
+  window.__kgShell='v69';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3271,6 +3271,7 @@ function renderDetailInner(){
       +'<h2>'+esc(name)+'</h2>'
       +'<p>開催予定 '+upcoming.length+'件 ／ 全 '+evs.length+'件のイベントを掲載データから集計しています。</p>'
       +(upcoming.length? '<p style="margin-top:4px">次の開催：'+esc(fmtDate(upcoming[0].date))+'「'+esc(upcoming[0].title)+'」</p>' : '<p style="margin-top:4px">開催予定のイベントはまだ掲載されていません。</p>')
+      +'<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailListBtn">リストに追加</button></div>'
       +'</div>';
   } else {
     var vinfo=buildVenues().filter(function(v){ return v.name===name; })[0]||{};
@@ -3308,6 +3309,7 @@ function renderDetailInner(){
     } else {
       head+='<div class="link-row"><a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
     }
+    head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailListBtn">リストに追加</button></div>';
     head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailProfEditBtn">プロフィールの追加・修正を送る</button></div>';
     head+='</div>';
   }
@@ -3327,7 +3329,7 @@ function renderDetailInner(){
   var peb=document.getElementById("detailProfEditBtn");
   if(peb) peb.addEventListener("click", function(){ if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name); });
   var dlb=document.getElementById("detailListBtn");
-  if(dlb) dlb.addEventListener("click", function(){ openListPicker("artist", name); });
+  if(dlb) dlb.addEventListener("click", function(){ openListPicker(kind, name); });
   var ob=document.getElementById("detailOshiBtn");
   if(ob) ob.addEventListener("click", function(){
     if(favPerfs.has(name)){ favPerfs.delete(name); toast("推しから外しました："+name); } else { favPerfs.add(name); toast("推しに登録しました："+name); }
@@ -4108,6 +4110,8 @@ function loadMyLists(){
       return { id:x.id, name:x.name,
         events:Array.isArray(x.events)?x.events.map(String):[],
         artists:Array.isArray(x.artists)?x.artists.map(String):[],
+        venues:Array.isArray(x.venues)?x.venues.map(String):[],
+        organizers:Array.isArray(x.organizers)?x.organizers.map(String):[],
         createdAt:Number(x.createdAt)||0 };
     });
   }catch(e){ return []; }
@@ -4126,7 +4130,7 @@ function activeList(){
 }
 function createList(name){
   var l={ id:"l"+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36),
-    name:String(name||"").trim()||"無題のリスト", events:[], artists:[], createdAt:Date.now() };
+    name:String(name||"").trim()||"無題のリスト", events:[], artists:[], venues:[], organizers:[], createdAt:Date.now() };
   myLists.push(l); saveMyLists();
   return l;
 }
@@ -4134,22 +4138,47 @@ function listEventIdSet(l){
   var set=new Set();
   if(!l) return set;
   l.events.forEach(function(id){ set.add(String(id)); });
-  if(l.artists.length){
-    var arts=new Set(l.artists);
+  var arts=new Set(l.artists||[]), vens=new Set(l.venues||[]), orgs=new Set(l.organizers||[]);
+  if(arts.size || vens.size || orgs.size){
     allEvents.forEach(function(ev){
-      if(ev._perfList && ev._perfList.some(function(p){ return arts.has(p); })) set.add(String(ev.id));
+      if(arts.size && ev._perfList && ev._perfList.some(function(p){ return arts.has(p); })) set.add(String(ev.id));
+      else if(vens.size && ev.venue && Array.from(vens).some(function(v){ return sameVenueFacility((ev.venue||"").trim(), v); })) set.add(String(ev.id));
+      else if(orgs.size && orgs.has((ev.organizerName||"").trim())) set.add(String(ev.id));
     });
   }
   return set;
 }
 function listCounts(l){
   var set=listEventIdSet(l), directSet=new Set((l?l.events:[]).map(String));
-  var direct=0, via=0;
-  set.forEach(function(id){ if(directSet.has(id)) direct++; else via++; });
-  return {direct:direct, via:via, total:set.size};
+  var byId={}; allEvents.forEach(function(ev){ byId[String(ev.id)]=ev; });
+  var arts=new Set((l?l.artists:[])||[]), vens=new Set((l?l.venues:[])||[]), orgs=new Set((l?l.organizers:[])||[]);
+  var direct=0, viaArtist=0, viaVenue=0, viaOrg=0;
+  set.forEach(function(id){
+    if(directSet.has(id)){ direct++; return; }
+    var ev=byId[id];
+    if(ev && arts.size && ev._perfList && ev._perfList.some(function(p){ return arts.has(p); })) viaArtist++;
+    else if(ev && vens.size && ev.venue && Array.from(vens).some(function(v){ return sameVenueFacility((ev.venue||"").trim(), v); })) viaVenue++;
+    else if(ev && orgs.size && orgs.has((ev.organizerName||"").trim())) viaOrg++;
+    else viaArtist++;
+  });
+  return {direct:direct, viaArtist:viaArtist, viaVenue:viaVenue, viaOrg:viaOrg, via:viaArtist+viaVenue+viaOrg, total:set.size};
 }
 function listHasEvent(l, id){ return !!l && l.events.indexOf(String(id))>=0; }
 function listHasArtist(l, name){ return !!l && l.artists.indexOf(name)>=0; }
+function listHasVenue(l, name){ return !!l && (l.venues||[]).indexOf(name)>=0; }
+function listHasOrganizer(l, name){ return !!l && (l.organizers||[]).indexOf(name)>=0; }
+function toggleListVenue(l, name){
+  if(!Array.isArray(l.venues)) l.venues=[];
+  var i=l.venues.indexOf(name);
+  if(i>=0) l.venues.splice(i,1); else l.venues.push(name);
+  saveMyLists();
+}
+function toggleListOrganizer(l, name){
+  if(!Array.isArray(l.organizers)) l.organizers=[];
+  var i=l.organizers.indexOf(name);
+  if(i>=0) l.organizers.splice(i,1); else l.organizers.push(name);
+  saveMyLists();
+}
 function toggleListEvent(l, id){
   id=String(id); var i=l.events.indexOf(id);
   if(i>=0) l.events.splice(i,1); else l.events.push(id);
@@ -4185,7 +4214,7 @@ function renderListsBar(){
   var bar=els.listsBar; if(!bar) return;
   if(!myLists.length){
     bar.innerHTML='<h2 class="lists-title">マイリスト</h2>'
-      + '<p class="lists-empty-note">まだリストがありません。気になるイベントや推しをまとめる「リスト」を作ると、ここで切り替えて見られます。<br>作り方：下のボタンで新規作成するか、イベント詳細の「＋ リスト」、アーティストページの「リストに追加」から入れられます。</p>'
+      + '<p class="lists-empty-note">まだリストがありません。気になるイベントや推しをまとめる「リスト」を作ると、ここで切り替えて見られます。<br>作り方：下のボタンで新規作成するか、イベント詳細の「＋ リスト」、アーティスト・会場・主催の各ページの「リストに追加」から入れられます。会場や主催を入れると、その会場・主催のイベントが自動で集まります。</p>'
       + '<div class="lists-actions"><button type="button" class="btn-accent" data-lists-new="1">＋ 新規リスト</button></div>'
       + listsEditHTML();
     return;
@@ -4198,9 +4227,17 @@ function renderListsBar(){
   }).join("");
   bar.innerHTML='<div class="lists-tabs" role="tablist" aria-label="マイリストの切り替え">'+tabs
     + '<button type="button" class="lists-tab add" data-lists-new="1">＋ 新規リスト</button></div>'
-    + '<div class="lists-meta">直接 '+c.direct+'件 ・ 推し経由 '+c.via+'件（全'+c.total+'件）　検索・絞り込みはこのリストの中に効きます</div>'
+    + '<div class="lists-meta">直接 '+c.direct+'件'
+        + (c.viaArtist? ' ・ 推し経由 '+c.viaArtist+'件' : "")
+        + (c.viaVenue? ' ・ 会場経由 '+c.viaVenue+'件' : "")
+        + (c.viaOrg? ' ・ 主催経由 '+c.viaOrg+'件' : "")
+        + '（全'+c.total+'件）　検索・絞り込みはこのリストの中に効きます</div>'
     + (l.artists.length ? '<div class="lists-artists"><span class="lists-artists-label">このリストの推し：</span>'
         + l.artists.map(function(a){ return '<button type="button" class="lists-artist" data-lists-artist="'+esc(a)+'">★ '+esc(a)+'</button>'; }).join("") + '</div>' : "")
+    + ((l.venues||[]).length ? '<div class="lists-artists"><span class="lists-artists-label">このリストの会場：</span>'
+        + l.venues.map(function(v){ return '<button type="button" class="lists-artist" data-lists-venue="'+esc(v)+'">'+esc(v)+'</button>'; }).join("") + '</div>' : "")
+    + ((l.organizers||[]).length ? '<div class="lists-artists"><span class="lists-artists-label">このリストの主催：</span>'
+        + l.organizers.map(function(o){ return '<button type="button" class="lists-artist" data-lists-org="'+esc(o)+'">'+esc(o)+'</button>'; }).join("") + '</div>' : "")
     + '<div class="lists-actions"><button type="button" class="btn-ghost" data-lists-rename="1">名前を変更</button><button type="button" class="btn-ghost" data-lists-delete="1">このリストを削除</button></div>'
     + listsEditHTML();
 }
@@ -4253,6 +4290,20 @@ function closeListPicker(){
   /* 詳細モーダルから開いた場合は、ピルの表示（リスト件数）を更新するため開き直す */
   if(wasModal && ev && els.overlay.classList.contains("open")){ openModal(ev); render(); }
 }
+function lpHas(l){
+  if(!lpCtx) return false;
+  if(lpCtx.kind==="event") return listHasEvent(l, lpCtx.key);
+  if(lpCtx.kind==="venue") return listHasVenue(l, lpCtx.key);
+  if(lpCtx.kind==="organizer") return listHasOrganizer(l, lpCtx.key);
+  return listHasArtist(l, lpCtx.key);
+}
+function lpToggle(l){
+  if(!lpCtx) return;
+  if(lpCtx.kind==="event") toggleListEvent(l, lpCtx.key);
+  else if(lpCtx.kind==="venue") toggleListVenue(l, lpCtx.key);
+  else if(lpCtx.kind==="organizer") toggleListOrganizer(l, lpCtx.key);
+  else toggleListArtist(l, lpCtx.key);
+}
 function renderListPicker(){
   var body=els.lpBody; if(!body || !lpCtx) return;
   var targetName="";
@@ -4262,10 +4313,10 @@ function renderListPicker(){
     if(els.lpTitle) els.lpTitle.textContent="イベントをリストへ";
   } else {
     targetName=lpCtx.key;
-    if(els.lpTitle) els.lpTitle.textContent="アーティストをリストへ";
+    if(els.lpTitle) els.lpTitle.textContent= lpCtx.kind==="venue" ? "会場をリストへ" : lpCtx.kind==="organizer" ? "主催をリストへ" : "アーティストをリストへ";
   }
   var rows=myLists.map(function(l){
-    var on = lpCtx.kind==="event" ? listHasEvent(l, lpCtx.key) : listHasArtist(l, lpCtx.key);
+    var on = lpHas(l);
     var c=listCounts(l);
     return '<button type="button" class="lp-row" data-lp-toggle="'+esc(l.id)+'" aria-pressed="'+on+'"><span>'+esc(l.name)+'</span><span class="lp-cnt">'+c.total+'件</span>'
       + (on ? '<span class="lp-check">✓ 入っています</span>' : '<span class="lp-add">＋ 追加</span>') + '</button>';
@@ -4279,7 +4330,7 @@ function renderListPicker(){
     if(!lpCtx) return;
     var inp=document.getElementById("lpNewName");
     var l=createList(inp?inp.value:"");
-    if(lpCtx.kind==="event") toggleListEvent(l, lpCtx.key); else toggleListArtist(l, lpCtx.key);
+    lpToggle(l);
     renderListPicker(); renderCountsOnly();
     toast("リスト「"+l.name+"」に追加しました");
   });
@@ -4299,6 +4350,10 @@ function renderListPicker(){
       if(e.target.closest("[data-lists-deleted]")){ doDeleteList(); return; }
       var a=e.target.closest("[data-lists-artist]");
       if(a){ openDirDetail("artist", a.getAttribute("data-lists-artist")); return; }
+      var vv=e.target.closest("[data-lists-venue]");
+      if(vv){ openDirDetail("venue", vv.getAttribute("data-lists-venue")); return; }
+      var oo=e.target.closest("[data-lists-org]");
+      if(oo){ openDirDetail("organizer", oo.getAttribute("data-lists-org")); return; }
     });
     bar.addEventListener("keydown", function(e){
       if(e.key==="Enter" && e.target.id==="listsNameInput"){
@@ -4313,15 +4368,9 @@ function renderListPicker(){
       if(!b || !lpCtx) return;
       var l=findList(b.getAttribute("data-lp-toggle"));
       if(!l) return;
-      if(lpCtx.kind==="event"){
-        var wasIn=listHasEvent(l, lpCtx.key);
-        toggleListEvent(l, lpCtx.key);
-        toast(wasIn ? "リスト「"+l.name+"」から外しました" : "リスト「"+l.name+"」に追加しました");
-      } else {
-        var wasInA=listHasArtist(l, lpCtx.key);
-        toggleListArtist(l, lpCtx.key);
-        toast(wasInA ? "リスト「"+l.name+"」から外しました" : "リスト「"+l.name+"」に追加しました");
-      }
+      var wasIn=lpHas(l);
+      lpToggle(l);
+      toast(wasIn ? "リスト「"+l.name+"」から外しました" : "リスト「"+l.name+"」に追加しました");
       renderListPicker(); renderCountsOnly();
     });
   }
