@@ -895,7 +895,7 @@ window.addEventListener("storage", function(e){
   }
 });
 if("serviceWorker" in navigator){
-  try{ navigator.serviceWorker.register("../pwa-worker.js", {updateViaCache:"none"}).catch(function(){}); }catch(e){}
+  try{ navigator.serviceWorker.register("./feed-worker.js", {updateViaCache:"none"}).catch(function(){}); }catch(e){}
 }
 start();
 })();
