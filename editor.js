@@ -445,6 +445,43 @@
     var m = v.match(/(\d{1,2}):(\d{2})/);
     return m ? (+m[1]) * 60 + (+m[2]) : null;
   }
+  /* 反映待ち（v57）: 送信が受付に届いたら、その内容をこの端末だけに保存する。
+     サイト本体（index.html）が読み込みのたびにシート由来データへ重ねて表示するので、
+     送信した本人の画面では「送信＝即反映」に見える。他の利用者には出ない。
+     シート側に同じ内容が現れたら本体側が自動で外す（30日で失効） */
+  function savePending(payload) {
+    try {
+      var key = 'kg_trial_pending_events_v1';
+      var list = [];
+      try { list = JSON.parse(localStorage.getItem(key) || '[]'); if (!Array.isArray(list)) list = []; } catch (_) { list = []; }
+      var descText;
+      if (payload.kind === 'edit' && payload.descriptionUnchanged && window.KGEditorBridge && window.KGEditorBridge.getById) {
+        var cur = window.KGEditorBridge.getById(payload.targetId);
+        descText = cur ? (cur.description || '') : '';
+      } else {
+        descText = JSON.stringify({ rows: payload.timetableRows || [], note: payload.description || '' });
+      }
+      var ev = {
+        title: payload.title, date: payload.date, dateEnd: payload.dateEnd || '',
+        timeLabel: payload.timeLabel || '', startMin: payload.startMin, endMin: payload.endMin,
+        venue: payload.venue || '', venueSpaceNote: payload.venueSpaceNote || '',
+        area: payload.area || '', prefecture: payload.prefecture || '',
+        category: payload.category || '', categories: (payload.categories || []).join('、'),
+        price: payload.price || '', performers: (payload.performers || []).join('、'),
+        description: descText, imageUrl: (payload.importImageUrls || [])[0] || '',
+        linkWeb: payload.linkWeb || '', linkTicket: payload.linkTicket || '', linkX: payload.linkX || '', linkInstagram: payload.linkInstagram || '',
+        organizerName: payload.organizerName || '', isFree: !!payload.isFree, priceClass: payload.priceClass || ''
+      };
+      if (payload.kind === 'edit' && payload.targetId) {
+        list = list.filter(function (p) { return !(p.kind === 'edit' && String(p.targetId) === String(payload.targetId)); });
+        list.push({ kind: 'edit', targetId: String(payload.targetId), ts: Date.now(), ev: ev });
+      } else {
+        list.push({ kind: 'new', ts: Date.now(), ev: ev });
+      }
+      localStorage.setItem(key, JSON.stringify(list));
+      window.dispatchEvent(new CustomEvent('kg:pending-change'));
+    } catch (_) {}
+  }
   $('ke-send').onclick = async function () {
     var title = $('ke-title').value.trim(), date = $('ke-date').value;
     if (!title || !date) { status('タイトルと日付は必須です。'); return; }
@@ -505,7 +542,7 @@
       var res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload), signal: ctl ? ctl.signal : undefined });
       if (timer) clearTimeout(timer);
       var data = await res.json().catch(function () { return null; });
-      if (data && (data.ok || data.success === 'true' || data.success === true)) { status('送信しました。確認のうえガイドへ反映されます。'); }
+      if (data && (data.ok || data.success === 'true' || data.success === true)) { savePending(payload); status('送信しました。確認のうえガイドへ反映されます。この端末では「反映待ち」として、送信した内容をそのまま表示しています。'); }
       else { status('送信できませんでした。時間をおいてお試しください。'); }
     } catch (e) { status('送信の確認ができませんでした（受付からの応答がありませんでした）。受付に届いている場合があるので、少し時間をおき、届いていないときだけ再送してください。'); }
     finally { sendBtn.disabled = false; }

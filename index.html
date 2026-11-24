@@ -314,6 +314,8 @@
   .search-wrap{position:relative;flex:1;display:flex}
   .badge-ended{position:absolute;left:8px;bottom:8px;z-index:3;background:rgba(30,30,30,.85);color:#fff;font-size:12px;font-weight:800;border-radius:999px;padding:4px 10px}
   .badge-now{position:absolute;left:8px;bottom:8px;z-index:3;background:var(--accent);color:#fff;font-size:12px;font-weight:800;border-radius:999px;padding:4px 10px}
+  .badge-pending{position:absolute;left:8px;top:8px;z-index:3;background:#b8860b;color:#fff;font-size:12px;font-weight:800;border-radius:999px;padding:4px 10px}
+  .pending-note{margin:10px 0 0;font-size:13px;line-height:1.6;font-weight:700;color:#8a6508;background:#fdf3d7;border:1px solid #e3c565;border-radius:10px;padding:10px 12px}
   .badge-long{font-size:11.5px;font-weight:800;border:1.5px solid var(--gold);color:var(--gold);border-radius:999px;padding:2px 8px}
   /* 会場補足（施設内のスペース名）：会場名とは別のチップで表示する（公開版と同表記） */
   .vschip{display:inline-block;font-size:11px;font-weight:700;border:1px solid var(--gold);color:var(--gold);border-radius:999px;padding:0 7px;line-height:1.7;margin-left:6px;vertical-align:1px;white-space:nowrap;background:var(--surface)}
@@ -590,6 +592,47 @@
      近日開催のイベント名が流れ続ける（サイネージ全画面モードとは別に常時表示する） */
   .home-ticker{display:flex;align-items:stretch;background:#17181c;color:#f4f2ec;border-radius:12px;overflow:hidden;min-height:50px;margin:0 0 14px;box-shadow:var(--shadow)}
   .home-ticker .sg-ticker-track{animation-duration:60s}
+  /* タイムライン（v57、サイネージ融合）: サイネージの全画面スライドを土台に、
+     端末内の利用（推し・お気に入り・好み・閲覧傾向）だけで並べる没入型フィード。
+     スライド表示と縦フィード表示を切り替えられ、選択は端末内に保持する */
+  .tl-overlay{position:fixed;inset:0;z-index:120;background:#0e0f12;color:#f4f2ec;display:none;flex-direction:column}
+  .tl-overlay.open{display:flex}
+  .tl-top{flex-wrap:wrap}
+  .tl-title{font-size:15px;font-weight:800;white-space:nowrap}
+  .tl-mode{display:flex;gap:0;border:1.5px solid rgba(255,255,255,.4);border-radius:999px;overflow:hidden;flex:none}
+  .tl-mode button{border:0;background:transparent;color:#f4f2ec;font-weight:800;font-size:13px;padding:8px 14px;min-height:40px;cursor:pointer}
+  .tl-mode button.on{background:#f2c14e;color:#17181c}
+  .tl-post{flex:none;border:0;background:var(--accent);color:#fff;border-radius:999px;padding:9px 18px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer}
+  .tl-stage{flex:1;min-height:0;overflow:hidden;padding:clamp(14px,3vh,32px) clamp(14px,4vw,56px);display:flex;position:relative;cursor:pointer;touch-action:none;-webkit-user-select:none;user-select:none}
+  .tl-slide{flex:1;min-height:0;display:flex;flex-direction:column;max-width:860px;margin:0 auto;width:100%;animation:sgfade .45s ease}
+  @media (prefers-reduced-motion: reduce){.tl-slide{animation:none}}
+  .tl-media{position:relative;flex:1;min-height:0;border-radius:16px;overflow:hidden;background:#26282e}
+  .tl-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .tl-media.noimg{display:flex;align-items:center;justify-content:center}
+  .tl-media.noimg span{color:#fff;font-weight:800;font-size:clamp(20px,3.4vw,34px);letter-spacing:.06em;text-align:center;padding:16px}
+  .tl-body{flex:none;padding:16px 4px 4px;display:flex;flex-direction:column;gap:6px}
+  .tl-date{font-size:clamp(14px,1.8vw,18px);font-weight:800;color:#f2c14e}
+  .tl-ev-title{margin:0;font-size:clamp(22px,3.6vw,38px);font-weight:800;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .tl-venue{margin:0;font-size:clamp(14px,1.8vw,18px);color:rgba(244,242,236,.78)}
+  .tl-perfs{margin:0;font-size:clamp(13px,1.6vw,16px);color:rgba(244,242,236,.85);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .tl-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+  .tl-chip{font-size:12px;font-weight:800;border:1.5px solid #f2c14e;color:#f2c14e;border-radius:999px;padding:2px 10px;line-height:1.6}
+  .tl-chip.oshi{border-color:#e05545;color:#ff9a8a}
+  .tl-chip.pend{border-color:#e3c565;color:#e9cf7a}
+  .tl-end{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:20px}
+  .tl-end h2{margin:0;font-size:clamp(22px,3.4vw,34px);font-weight:800}
+  .tl-end p{margin:0;color:rgba(244,242,236,.75);font-size:clamp(14px,1.8vw,17px);line-height:1.7;max-width:34em}
+  .tl-end .tl-post{font-size:16px;padding:12px 26px}
+  .tl-again{border:1.5px solid rgba(255,255,255,.5);background:transparent;color:#f4f2ec;border-radius:999px;padding:10px 22px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer}
+  .tl-feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px clamp(12px,4vw,40px) 28px;display:flex;flex-direction:column;gap:18px}
+  .tl-feed.hidden{display:none}
+  .tl-fcard{flex:none;max-width:680px;width:100%;margin:0 auto;background:#1a1c20;border:1px solid rgba(255,255,255,.14);border-radius:16px;overflow:hidden;cursor:pointer;text-align:left;color:inherit;padding:0;font:inherit}
+  .tl-fcard .tl-media{flex:none;aspect-ratio:16/9;border-radius:0}
+  .tl-fcard .tl-body{padding:14px 16px 16px}
+  .tl-fcard .tl-ev-title{font-size:clamp(19px,2.6vw,24px)}
+  .tl-feed-end{flex:none;max-width:680px;width:100%;margin:6px auto 0;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+  .tl-feed-end p{margin:0;color:rgba(244,242,236,.7);font-size:13.5px}
+  .sg-banner button.tl-start{background:transparent;border:1.5px solid #f2c14e;color:#f2c14e}
 </style>
 <script>
 /* 起動の見張り（2026-11-23）: 保存データや更新の仕組みが壊れて固まった場合に、
@@ -599,7 +642,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v56';
+  window.__kgShell='v57';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -668,7 +711,7 @@
     try{
       var b=document.body; if(!b) return;
       if(b.style.overflow!=='hidden' && !b.classList.contains('filter-open')) return;
-      var anyOpen=document.querySelector('.overlay.open, .lb.open, .ob-overlay.open, .sg-overlay.open, dialog[open]');
+      var anyOpen=document.querySelector('.overlay.open, .lb.open, .ob-overlay.open, .sg-overlay.open, .tl-overlay.open, dialog[open]');
       if(!anyOpen){
         var kp=document.querySelector('.kp-overlay');
         if(kp && window.getComputedStyle(kp).display!=='none') anyOpen=true;
@@ -813,6 +856,7 @@
     <div class="sg-banner" id="sgBanner">
       <div class="sgb-main"><span class="sgb-kicker">DIGITAL SIGNAGE</span><strong>サイネージ表示</strong><span class="sgb-text" id="sgBannerText">全7,803件から、本日開催 926件・今週末・新着・人気などを大画面で自動ローテーション表示します。</span></div>
       <button type="button" id="sgStartBtn">サイネージを開始</button>
+      <button type="button" id="tlStartBtn" class="tl-start">タイムラインを見る</button>
     </div>
     <div class="xmas-banner" id="xmasBanner">
       <div class="xb-main"><strong>クリスマス特集</strong><span id="xmasBannerText">イルミネーション・クリスマスマーケット・クリスマスのライブなど 351件を掲載中</span></div>
@@ -996,6 +1040,31 @@
   <div class="sg-ticker">
     <span class="sg-ticker-label">UPCOMING</span>
     <div class="sg-ticker-view"><div class="sg-ticker-track" id="sgTicker"></div></div>
+  </div>
+</div>
+<div class="tl-overlay" id="tlOverlay" role="dialog" aria-modal="true" aria-label="タイムライン">
+  <div class="sg-top tl-top">
+    <span class="sg-brand">TIMELINE</span>
+    <span class="tl-title">あなたへのタイムライン</span>
+    <span class="sg-clock" id="tlClock"></span>
+    <div class="tl-mode" role="group" aria-label="表示方法の切り替え">
+      <button type="button" id="tlModeSlide">スライド</button>
+      <button type="button" id="tlModeFeed">フィード</button>
+    </div>
+    <button class="tl-post" id="tlPostBtn" type="button">＋ 投稿する</button>
+    <button class="sg-close" id="tlClose" type="button">✕ 閉じる</button>
+  </div>
+  <div class="tl-stage" id="tlStage"></div>
+  <div class="tl-feed hidden" id="tlFeed"></div>
+  <div class="sg-nav" id="tlNav">
+    <button class="sg-navbtn" id="tlPrev" type="button" aria-label="前のイベント">‹ 前へ</button>
+    <span class="sg-count" id="tlCount"></span>
+    <button class="sg-navbtn" id="tlNext" type="button" aria-label="次のイベント">次へ ›</button>
+  </div>
+  <div class="sg-progress"><span id="tlProg"></span></div>
+  <div class="sg-ticker">
+    <span class="sg-ticker-label">UPCOMING</span>
+    <div class="sg-ticker-view"><div class="sg-ticker-track" id="tlTicker"></div></div>
   </div>
 </div>
 <button class="top-btn" id="topBtn" type="button" aria-label="ページの先頭に戻る">↑</button>
@@ -1792,6 +1861,7 @@ function cardHTML(ev){
     + '<div class="card-media">'+media
     + (ev.imageUrl?'<button class="zoom-btn" type="button" data-zoom="'+esc(ev.id)+'" aria-label="'+esc(ev.title)+' の画像を拡大表示">拡大</button>':"")
     + (oshi?'<span class="oshi-badge">★ 推し出演</span>':"")
+    + (ev._pending?'<span class="badge-pending">反映待ち</span>':"")
     + stateBadge
     + '<button class="fav-btn'+(isFav?" on":"")+'" type="button" data-fav="'+esc(ev.id)+'" aria-label="お気に入り" aria-pressed="'+isFav+'">'+(isFav?"♥":"♡")+'</button>'
     + '</div><div class="card-body">'
@@ -3505,6 +3575,7 @@ function openModal(ev){
     + '<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><button class="modal-fav" type="button" id="modalShare" style="border-color:var(--line);color:var(--ink)">共有</button><button class="modal-fav" type="button" id="modalEdit" style="border-color:var(--line);color:var(--ink)">このイベントの修正を送る</button><button class="modal-fav'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
     + '<button class="close-btn" type="button" id="modalClose" aria-label="閉じる">✕</button></span></div>'
     + '<h2 id="modalTitle">'+esc(ev.title)+'</h2>'
+    + (ev._pending?'<p class="pending-note">反映待ち：あなたが送信した内容を、この端末だけに表示しています。確認のうえガイドへ反映されると、正式な掲載に切り替わります。</p>':"")
     + '<dl class="detail">'
     + '<dt>日時</dt><dd>'+esc(dateLabel(ev))+(ev.timeLabel?"　"+esc(ev.timeLabel):"")+'</dd>'
     + (ev.venue?'<dt>会場</dt><dd><button type="button" class="venue-link" data-venue-open="'+esc(ev.venue)+'">'+esc(ev.venue)+'</button>'+vsChipHTML(ev)+'</dd>':"")
@@ -3732,7 +3803,7 @@ function toggleFav(id){
    おすすめはスコア式で、適用先はホームの棚「あなたへのおすすめ」と
    並び替え「おすすめ順」だけ。一覧の並び順・絞り込みの初期値には干渉しない */
 var LS_PREFS="kg_trial_prefs_v1", LS_LEARN="kg_trial_learn_v1";
-function emptyPrefs(){ return {onboarded:false, cats:[], artists:[], prefs:[], areas:[], free:false, weekend:false, collab:false, dismissed:[], recoOff:false, featOff:false}; }
+function emptyPrefs(){ return {onboarded:false, cats:[], artists:[], prefs:[], areas:[], free:false, weekend:false, collab:false, dismissed:[], recoOff:false, featOff:false, tlMode:"slide"}; }
 function loadPrefs(){
   try{
     var o=JSON.parse(localStorage.getItem(LS_PREFS)||"null");
@@ -3742,6 +3813,8 @@ function loadPrefs(){
       p.onboarded=!!o.onboarded; p.free=!!o.free; p.weekend=!!o.weekend; p.collab=!!o.collab;
       /* 表示設定（v56）: おすすめ棚とトップの特集バナーのオン／オフ。旧データに無い場合は初期値オン（=Offフラグfalse） */
       p.recoOff=!!o.recoOff; p.featOff=!!o.featOff;
+      /* タイムラインの表示方法（v57）: "slide"（サイネージ型）／"feed"（縦スクロール）。端末内に保持 */
+      p.tlMode = o.tlMode==="feed" ? "feed" : "slide";
       return p;
     }
   }catch(e){}
@@ -3769,6 +3842,78 @@ function learnFromEvent(ev, w){
 }
 function learnTotal(){ var t=0; [learn.cats, learn.artists, learn.areas].forEach(function(m){ Object.keys(m).forEach(function(k){ t+=m[k]; }); }); return t; }
 function hasPrefSelection(){ return prefs.cats.length>0||prefs.artists.length>0||prefs.prefs.length>0||prefs.areas.length>0||prefs.free||prefs.weekend||prefs.collab; }
+
+/* ---------- 反映待ち（v57） ----------
+   編集フォームから送信した内容は、受付で確認のうえスペース版ガイドへ登録され、
+   シート同期を経て初めて全端末に載る。送信した本人の端末では「送信＝即反映」に
+   見えるよう、送信内容をこの端末だけに保存し（kg_trial_pending_events_v1）、
+   データ適用のたびにシート由来データへ重ねて表示する。他の利用者には出ない。
+   シート側に同じ内容が現れたら（新規＝タイトル・日付・会場の一致、修正＝対象IDの
+   主要項目が送信内容と一致）反映済みとして自動で外す。30日を過ぎたものも外す */
+var LS_PENDING="kg_trial_pending_events_v1";
+var PENDING_TTL_MS=30*24*3600*1000;
+function loadPendings(){
+  try{ var o=JSON.parse(localStorage.getItem(LS_PENDING)||"[]"); return Array.isArray(o)?o:[]; }catch(e){ return []; }
+}
+function savePendings(list){ try{ localStorage.setItem(LS_PENDING, JSON.stringify(list)); }catch(e){} }
+function pendingEventObject(p){
+  var f=p.ev||{};
+  var ev={
+    id:"pend"+(p.ts||0), title:f.title||"", date:f.date||"", dateEnd:(f.dateEnd&&f.dateEnd!==f.date)?f.dateEnd:"",
+    timeLabel:f.timeLabel||"", startMin:(typeof f.startMin==="number")?f.startMin:null, endMin:(typeof f.endMin==="number")?f.endMin:null,
+    venue:f.venue||"", sheetVs:f.venueSpaceNote||"", area:f.area||"", prefecture:f.prefecture||"",
+    category:f.category||"", categories:f.categories||"", price:f.price||"", performers:f.performers||"",
+    description:f.description||"", linkWeb:f.linkWeb||"", linkTicket:f.linkTicket||"", linkX:f.linkX||"",
+    linkInstagram:f.linkInstagram||"", organizerName:f.organizerName||"", imageUrl:f.imageUrl||"",
+    isFree:f.isFree?"TRUE":"", priceClass:f.priceClass||"",
+    _freeSheet:!!f.isFree, _pcSheet:(f.priceClass==="paid"||f.priceClass==="free"||f.priceClass==="drink"||f.priceClass==="partial")?f.priceClass:"",
+    _views:null, _impressions:null, _pending:true
+  };
+  ev._perfList=splitPerfs(ev.performers);
+  return ev;
+}
+function pendingOverlayObject(base, p){
+  var ev=pendingEventObject(p);
+  var out={};
+  Object.keys(base).forEach(function(k){ out[k]=base[k]; });
+  ["title","date","dateEnd","timeLabel","startMin","endMin","venue","sheetVs","area","prefecture","category","categories","price","performers","description","linkWeb","linkTicket","linkX","linkInstagram","organizerName","imageUrl","_freeSheet","_pcSheet"].forEach(function(k){ out[k]=ev[k]; });
+  out.id=base.id;
+  out._perfList=ev._perfList;
+  out._pending=true;
+  return out;
+}
+function pendingReflectedIn(sheetEv, f){
+  return !!sheetEv && sheetEv.title===(f.title||"") && sheetEv.date===(f.date||"") && (sheetEv.venue||"")===(f.venue||"") && (sheetEv.timeLabel||"")===(f.timeLabel||"");
+}
+function mergePendingEvents(sheetEvents){
+  var list=loadPendings();
+  if(!list.length) return sheetEvents;
+  var now=Date.now(), kept=[], out=null, pruned=false;
+  list.forEach(function(p){
+    if(!p || !p.ev || !p.ts || (now-p.ts)>PENDING_TTL_MS){ pruned=true; return; }
+    if(p.kind==="edit" && p.targetId){
+      var base=null;
+      for(var i=0;i<sheetEvents.length;i++){ if(String(sheetEvents[i].id)===String(p.targetId)){ base=sheetEvents[i]; break; } }
+      if(!base){ pruned=true; return; }
+      if(pendingReflectedIn(base, p.ev)){ pruned=true; return; }
+      kept.push(p);
+      if(!out) out=sheetEvents.slice();
+      for(var j=0;j<out.length;j++){ if(String(out[j].id)===String(p.targetId)){ out[j]=pendingOverlayObject(base, p); break; } }
+    } else {
+      var reflected=sheetEvents.some(function(ev){ return pendingReflectedIn(ev, p.ev); });
+      if(reflected){ pruned=true; return; }
+      kept.push(p);
+      if(!out) out=sheetEvents.slice();
+      out.push(pendingEventObject(p));
+    }
+  });
+  if(pruned) savePendings(kept);
+  return out||sheetEvents;
+}
+var lastSheetEvents=null;
+window.addEventListener("kg:pending-change", function(){
+  if(lastSheetEvents){ allEvents=mergePendingEvents(lastSheetEvents); if(allEvents.length) render(); }
+});
 
 /* 祝日判定（日本の祝日：固定日・ハッピーマンデー・春分／秋分・振替休日・国民の休日） */
 var _holCache={};
@@ -4455,7 +4600,11 @@ function applyDataSafe(events){
   catch(e){ kgRenderError('applyData', e); return false; }
 }
 function applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite){
-  allEvents=events;
+  /* 反映待ち（v57）: シート由来データは lastSheetEvents にそのまま保持し、
+     表示用 allEvents にはこの端末の送信分を重ねたものを使う。
+     キャッシュ保存はシート由来データに対して行われるため、反映待ちは混ざらない */
+  lastSheetEvents=events;
+  allEvents=mergePendingEvents(events);
   attachVenueSupp();
   var shownAt = cachedSavedAt ? new Date(cachedSavedAt) : new Date();
   var stamp = shownAt.getFullYear()+"年"+(shownAt.getMonth()+1)+"月"+shownAt.getDate()+"日 "+String(shownAt.getHours()).padStart(2,"0")+":"+String(shownAt.getMinutes()).padStart(2,"0");
@@ -5285,8 +5434,10 @@ function renderSignageChrome(){
   if(show){
     var t=sgEl("sgBannerText");
     if(t){
-      var tc=allEvents.filter(isOngoing).length;
-      t.textContent="全"+allEvents.length.toLocaleString()+"件から、本日開催 "+tc.toLocaleString()+"件・今週末・新着・人気などを大画面で自動ローテーション表示します。";
+      /* 反映待ち（この端末だけの送信分）は公開表示の集計に入れない（v57） */
+      var pub=allEvents.filter(function(ev){ return !ev._pending; });
+      var tc=pub.filter(isOngoing).length;
+      t.textContent="全"+pub.length.toLocaleString()+"件から、本日開催 "+tc.toLocaleString()+"件・今週末・新着・人気などを大画面で自動ローテーション表示します。";
     }
   }
   buildHomeTicker();
@@ -5303,42 +5454,44 @@ function sgPick(list, n){
   return withImg.concat(noImg).slice(0,n);
 }
 function buildSignageData(){
-  var upcoming=allEvents.filter(function(ev){ return !isEnded(ev); });
-  var todayList=allEvents.filter(isOngoing);
+  /* 反映待ち（この端末だけの送信分）はサイネージの集計・スライドに入れない（v57） */
+  var src=allEvents.filter(function(ev){ return !ev._pending; });
+  var upcoming=src.filter(function(ev){ return !isEnded(ev); });
+  var todayList=src.filter(isOngoing);
   var wr=periodRange("weekend");
-  var weekendList = wr ? allEvents.filter(function(ev){ return ev.date && ev.date<=wr[1] && effectiveEnd(ev)>=wr[0]; }) : [];
+  var weekendList = wr ? src.filter(function(ev){ return ev.date && ev.date<=wr[1] && effectiveEnd(ev)>=wr[0]; }) : [];
   var venueCount, artistCount, venueCountLabel, artistCountLabel;
   if(profilesLoaded && Object.keys(venueProfiles).length){
     venueCount=Object.keys(venueProfiles).length; venueCountLabel="会場プロフィール";
   } else {
-    var vs={}; allEvents.forEach(function(ev){ var v=(ev.venue||"").trim(); if(v) vs[v]=1; });
+    var vs={}; src.forEach(function(ev){ var v=(ev.venue||"").trim(); if(v) vs[v]=1; });
     venueCount=Object.keys(vs).length; venueCountLabel="会場数（イベントに記載）";
   }
   if(profilesLoaded && Object.keys(artistProfiles).length){
     artistCount=Object.keys(artistProfiles).length; artistCountLabel="アーティスト";
   } else {
-    var ps={}; allEvents.forEach(function(ev){ ev._perfList.forEach(function(p){ ps[p]=1; }); });
+    var ps={}; src.forEach(function(ev){ ev._perfList.forEach(function(p){ ps[p]=1; }); });
     artistCount=Object.keys(ps).length; artistCountLabel="出演者数（イベントに記載）";
   }
-  var newSrc=(upcoming.length?upcoming:allEvents).slice().sort(function(a,b){
+  var newSrc=(upcoming.length?upcoming:src).slice().sort(function(a,b){
     var d=sgIdNum(b)-sgIdNum(a); if(d) return d; return sgByDate(a,b);
   });
   /* 人気：集計列の有無と最大値を先に見る。全件0ならランキングに意味がないので出さない */
-  var hasStatsCol=allEvents.some(function(ev){ return ev._views!=null || ev._impressions!=null; });
+  var hasStatsCol=src.some(function(ev){ return ev._views!=null || ev._impressions!=null; });
   var maxV=0, maxI=0;
-  allEvents.forEach(function(ev){ if((ev._views||0)>maxV) maxV=ev._views; if((ev._impressions||0)>maxI) maxI=ev._impressions; });
+  src.forEach(function(ev){ if((ev._views||0)>maxV) maxV=ev._views; if((ev._impressions||0)>maxI) maxI=ev._impressions; });
   var popular=null, popularKey=null;
   if(hasStatsCol && (maxV>0 || maxI>0)){
     popularKey = maxV>0 ? "_views" : "_impressions";
     var otherKey = popularKey==="_views" ? "_impressions" : "_views";
-    popular=allEvents.filter(function(ev){ return (ev[popularKey]||0)>0; }).sort(function(a,b){
+    popular=src.filter(function(ev){ return (ev[popularKey]||0)>0; }).sort(function(a,b){
       var d=(b[popularKey]||0)-(a[popularKey]||0); if(d) return d;
       d=(b[otherKey]||0)-(a[otherKey]||0); if(d) return d;
       return sgByDate(a,b);
     }).slice(0,4);
   }
   var gc={}, gorder=[];
-  allEvents.forEach(function(ev){
+  src.forEach(function(ev){
     var c=ev.category || (evCategories(ev)[0]||"");
     if(!c) c="その他";
     if(!gc[c]){ gc[c]=0; gorder.push(c); }
@@ -5358,7 +5511,7 @@ function buildSignageData(){
     return as-bs;
   }).slice(0,40);
   return {
-    total: allEvents.length,
+    total: src.length,
     upcomingCount: upcoming.length,
     venueCount: venueCount,
     artistCount: artistCount,
@@ -5615,6 +5768,234 @@ window.KG_SIGNAGE={build:buildSignageData, slides:buildSignageSlides, open:openS
   });
 })();
 
+/* ---------- タイムライン（v57、サイネージ融合） ----------
+   サイネージの全画面スライド表示を土台にした没入型の閲覧モード。
+   並びの材料は端末内の利用だけ：お気に入り／推し出演／アンケートの好み／
+   閲覧傾向（おすすめスコアと同じ材料）。シートの閲覧数などの人気指標や
+   広告・バズ由来の並びは使わない。画像のないイベントも落とさない。
+   表示方法（スライド／フィード）は prefs.tlMode に保持する。
+   「投稿する」から編集フォーム（新規登録・修正）をそのまま開ける */
+var TL_INTERVAL=8000;
+var tlState={open:false, idx:0, items:[], timer:null, clockTimer:null};
+function tlEl(id){ return document.getElementById(id); }
+function tlByDate(a,b){
+  if(a.date!==b.date) return a.date<b.date?-1:1;
+  var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin;
+  return as-bs;
+}
+function buildTimelineItems(){
+  var up=allEvents.filter(function(ev){ return !isEnded(ev); });
+  var mine=[], favs=[], oshi=[], scored=[], rest=[];
+  up.forEach(function(ev){
+    if(ev._pending) mine.push(ev);
+    else if(favEvents.has(String(ev.id))) favs.push(ev);
+    else if(hasOshi(ev)) oshi.push(ev);
+    else {
+      var s=scoreEvent(ev);
+      if(s>0) scored.push({ev:ev, s:s});
+      else rest.push(ev);
+    }
+  });
+  mine.sort(tlByDate); favs.sort(tlByDate); oshi.sort(tlByDate);
+  scored.sort(function(a,b){ if(b.s!==a.s) return b.s-a.s; return tlByDate(a.ev,b.ev); });
+  rest.sort(tlByDate);
+  return mine.concat(favs, oshi, scored.map(function(x){ return x.ev; }), rest).slice(0,60);
+}
+function tlChipsHTML(ev){
+  var chips=[];
+  if(ev._pending) chips.push('<span class="tl-chip pend">反映待ち</span>');
+  if(favEvents.has(String(ev.id))) chips.push('<span class="tl-chip">♥ お気に入り</span>');
+  if(hasOshi(ev)) chips.push('<span class="tl-chip oshi">★ 推し出演：'+esc(oshiIn(ev).join("、"))+'</span>');
+  recoReasonsFor(ev, prefs).forEach(function(r){ chips.push('<span class="tl-chip">'+esc(r)+'</span>'); });
+  return chips.length? '<div class="tl-chips">'+chips.join("")+'</div>' : "";
+}
+function tlMediaHTML(ev){
+  var ph='<span>'+esc(ev.category||"イベント")+'</span>';
+  if(ev.imageUrl) return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" onerror="this.remove()"></div>';
+  return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'</div>';
+}
+function tlBodyHTML(ev, titleTag){
+  return '<div class="tl-body">'
+    + '<div class="tl-date">'+esc(dateLabel(ev))+(ev.timeLabel?' '+esc(ev.timeLabel):"")+'</div>'
+    + '<'+titleTag+' class="tl-ev-title">'+esc(ev.title)+'</'+titleTag+'>'
+    + (ev.venue? '<p class="tl-venue">'+esc(ev.venue)+'</p>' : "")
+    + (ev._perfList.length? '<p class="tl-perfs">'+esc(ev._perfList.join("、"))+'</p>' : "")
+    + tlChipsHTML(ev)
+    + '</div>';
+}
+function tlSlideHTML(ev){
+  return '<section class="tl-slide" aria-label="'+esc(ev.title)+'">'+tlMediaHTML(ev)+tlBodyHTML(ev, "h2")+'</section>';
+}
+function tlEndSlideHTML(){
+  return '<section class="tl-slide"><div class="tl-end"><h2>ここまでがタイムラインです</h2>'
+    + '<p>あなたの推し・お気に入り・好みから選んだイベントを表示しました。<br>新しいイベントの登録や修正は「投稿する」から送れます。</p>'
+    + '<button type="button" class="tl-post" data-tl-post="1">＋ 投稿する（新規登録・修正）</button>'
+    + '<button type="button" class="tl-again" data-tl-again="1">最初から見る</button>'
+    + '</div></section>';
+}
+function tlShow(i){
+  var n=tlState.items.length+1;
+  if(!tlState.items.length) return;
+  tlState.idx=((i%n)+n)%n;
+  var st=tlEl("tlStage"); if(!st) return;
+  st.innerHTML = tlState.idx<tlState.items.length ? tlSlideHTML(tlState.items[tlState.idx]) : tlEndSlideHTML();
+  var cnt=tlEl("tlCount"); if(cnt) cnt.textContent=(tlState.idx+1)+" / "+n;
+  var prog=tlEl("tlProg");
+  if(prog){
+    prog.style.transition="none"; prog.style.width="0%";
+    void prog.offsetWidth;
+    if(!sgReducedMotion()){ prog.style.transition="width "+TL_INTERVAL+"ms linear"; prog.style.width="100%"; }
+  }
+}
+function tlSchedule(){
+  if(tlState.timer) clearTimeout(tlState.timer);
+  if(!tlState.open || prefs.tlMode==="feed") return;
+  tlState.timer=setTimeout(function(){ tlShow(tlState.idx+1); tlSchedule(); }, TL_INTERVAL);
+}
+function tlGo(i){ tlShow(i); tlSchedule(); }
+function tlRenderFeed(){
+  var feed=tlEl("tlFeed"); if(!feed) return;
+  feed.scrollTop=0;
+  feed.innerHTML=tlState.items.map(function(ev){
+    return '<button type="button" class="tl-fcard" data-tl-id="'+esc(String(ev.id))+'">'+tlMediaHTML(ev)+tlBodyHTML(ev, "h3")+'</button>';
+  }).join("")
+  + '<div class="tl-feed-end"><p>ここまでがタイムラインです（推し・お気に入り・好みから選んでいます）</p>'
+  + '<button type="button" class="tl-post" data-tl-post="1">＋ 投稿する（新規登録・修正）</button></div>';
+}
+function tlApplyMode(){
+  var slide = prefs.tlMode!=="feed";
+  var st=tlEl("tlStage"), feed=tlEl("tlFeed"), nav=tlEl("tlNav");
+  if(st) st.style.display=slide?"":"none";
+  if(feed) feed.classList.toggle("hidden", slide);
+  if(nav) nav.style.display=slide?"":"none";
+  var bs=tlEl("tlModeSlide"), bf=tlEl("tlModeFeed");
+  if(bs) bs.classList.toggle("on", slide);
+  if(bf) bf.classList.toggle("on", !slide);
+  if(tlState.timer) clearTimeout(tlState.timer);
+  if(!tlState.open) return;
+  if(slide){ tlShow(tlState.idx); tlSchedule(); }
+  else {
+    tlRenderFeed();
+    var pr=tlEl("tlProg"); if(pr){ pr.style.transition="none"; pr.style.width="0%"; }
+  }
+}
+function tlSetMode(m){
+  prefs.tlMode = m==="feed" ? "feed" : "slide";
+  savePrefs();
+  tlApplyMode();
+}
+function tlBuildTicker(){
+  var track=tlEl("tlTicker"); if(!track) return;
+  if(!tlState.items.length){ track.innerHTML=""; return; }
+  track.innerHTML=sgTickerTrackHTML(tlState.items.slice(0,40));
+  sgFitTickerDuration(track);
+}
+function tlUpdateClock(){
+  var el=tlEl("tlClock"); if(!el) return;
+  var now=new Date();
+  el.textContent=fmtDateFull(todayStr())+" "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+}
+function openTimeline(){
+  if(!allEvents.length){ toast("データの読み込みが終わってから開始できます"); return; }
+  tlState.items=buildTimelineItems();
+  if(!tlState.items.length){ toast("表示できるイベントがありません"); return; }
+  var ov=tlEl("tlOverlay"); if(!ov) return;
+  ov.classList.add("open");
+  tlState.open=true;
+  document.body.style.overflow="hidden";
+  tlBuildTicker();
+  tlUpdateClock();
+  if(tlState.clockTimer) clearInterval(tlState.clockTimer);
+  tlState.clockTimer=setInterval(tlUpdateClock, 1000);
+  tlState.idx=0;
+  tlApplyMode();
+  try{
+    var p=document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+    if(p && p.catch) p.catch(function(){});
+  }catch(e){}
+}
+function closeTimeline(){
+  tlState.open=false;
+  if(tlState.timer) clearTimeout(tlState.timer);
+  if(tlState.clockTimer) clearInterval(tlState.clockTimer);
+  var ov=tlEl("tlOverlay"); if(ov) ov.classList.remove("open");
+  document.body.style.overflow="";
+  try{ if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); }catch(e){}
+}
+function tlOpenPost(){
+  closeTimeline();
+  var b=document.getElementById("kg-editor-open");
+  if(b) b.click();
+}
+function tlOpenDetail(ev){
+  closeTimeline();
+  openModal(ev);
+}
+/* 検証・保守用にタイムラインの算出結果へアクセスできるようにする */
+window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
+  build:buildTimelineItems,
+  state:function(){ return {open:tlState.open, idx:tlState.idx, count:tlState.items.length, mode:prefs.tlMode, ids:tlState.items.map(function(ev){ return String(ev.id); })}; }};
+(function initTimeline(){
+  var startBtn=tlEl("tlStartBtn");
+  if(startBtn) startBtn.addEventListener("click", openTimeline);
+  var closeBtn=tlEl("tlClose");
+  if(closeBtn) closeBtn.addEventListener("click", closeTimeline);
+  var prev=tlEl("tlPrev"), next=tlEl("tlNext");
+  if(prev) prev.addEventListener("click", function(){ tlGo(tlState.idx-1); });
+  if(next) next.addEventListener("click", function(){ tlGo(tlState.idx+1); });
+  var ms=tlEl("tlModeSlide"), mf=tlEl("tlModeFeed");
+  if(ms) ms.addEventListener("click", function(){ tlSetMode("slide"); });
+  if(mf) mf.addEventListener("click", function(){ tlSetMode("feed"); });
+  var post=tlEl("tlPostBtn");
+  if(post) post.addEventListener("click", tlOpenPost);
+  var stage=tlEl("tlStage");
+  if(stage){
+    var sx=null, sy=null, stT=0;
+    function tlFlash(dir){
+      try{
+        var fb=document.createElement('div');
+        fb.className='sg-flash '+(dir>0?'next':'prev');
+        fb.textContent=dir>0?'›':'‹';
+        stage.appendChild(fb);
+        setTimeout(function(){ if(fb.parentNode) fb.parentNode.removeChild(fb); }, 420);
+      }catch(_){}
+    }
+    stage.addEventListener("pointerdown", function(e){ sx=e.clientX; sy=e.clientY; stT=Date.now(); });
+    stage.addEventListener("pointerup", function(e){
+      if(sx==null) return;
+      var dx=e.clientX-sx, dy=e.clientY-sy, dt=Date.now()-stT; sx=null; sy=null;
+      if(Math.abs(dx)>48 && Math.abs(dx)>Math.abs(dy)*1.4){ var d1=dx<0?1:-1; tlGo(tlState.idx + d1); tlFlash(d1); return; }
+      /* タップ: 終了スライドのボタン類を優先し、それ以外は現在のイベントの詳細へ */
+      if(Math.abs(dx)<12 && Math.abs(dy)<12 && dt<600){
+        var postBtn = e.target && e.target.closest ? e.target.closest("[data-tl-post]") : null;
+        if(postBtn){ tlOpenPost(); return; }
+        var again = e.target && e.target.closest ? e.target.closest("[data-tl-again]") : null;
+        if(again){ tlGo(0); return; }
+        if(tlState.idx<tlState.items.length) tlOpenDetail(tlState.items[tlState.idx]);
+      }
+    });
+    stage.addEventListener("pointercancel", function(){ sx=null; sy=null; });
+  }
+  var feed=tlEl("tlFeed");
+  if(feed){
+    feed.addEventListener("click", function(e){
+      var postBtn = e.target && e.target.closest ? e.target.closest("[data-tl-post]") : null;
+      if(postBtn){ tlOpenPost(); return; }
+      var card = e.target && e.target.closest ? e.target.closest("[data-tl-id]") : null;
+      if(!card) return;
+      var want=card.getAttribute("data-tl-id"), found=null;
+      for(var i=0;i<tlState.items.length;i++){ if(String(tlState.items[i].id)===want){ found=tlState.items[i]; break; } }
+      if(found) tlOpenDetail(found);
+    });
+  }
+  document.addEventListener("keydown", function(e){
+    if(!tlState.open) return;
+    if(e.key==="Escape"){ closeTimeline(); }
+    else if(prefs.tlMode!=="feed" && e.key==="ArrowRight"){ tlGo(tlState.idx+1); }
+    else if(prefs.tlMode!=="feed" && e.key==="ArrowLeft"){ tlGo(tlState.idx-1); }
+  });
+})();
+
 /* Saved filter profiles are local to this browser. */
 (function setupFilterProfiles(){
   var KEY='kg_filter_profiles_v1', scroll=els.filterScroll;
@@ -5678,6 +6059,7 @@ window.addEventListener("storage",function(e){
   if(all||e.key===LS_PREFS)prefs=loadPrefs();
   if(all||e.key===LS_LEARN)learn=loadLearn();
   if(all||e.key==="kg_trial_show_ended"){showEnded=localStorage.getItem("kg_trial_show_ended")==="1";syncEndedUI();}
+  if(all||e.key===LS_PENDING){ if(lastSheetEvents){ allEvents=mergePendingEvents(lastSheetEvents); if(allEvents.length) render(); } }
   if(all||e.key==="kg_filter_profiles_v1")window.dispatchEvent(new Event("kg:profiles-refresh"));
   if(all||e.key===LS_FAV||e.key===LS_OSHI||e.key===LS_PREFS||e.key===LS_LEARN||e.key==="kg_trial_show_ended")if(allEvents.length)render();
 });
