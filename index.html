@@ -219,6 +219,8 @@
   .gal-slide{flex:0 0 100%;scroll-snap-align:start;position:relative;height:100%}
   .gal-slide img{width:100%;height:100%;object-fit:contain;display:block;position:relative;cursor:zoom-in}
   .gal-ui{position:absolute;left:8px;bottom:8px;z-index:3;display:flex;align-items:center;gap:8px;pointer-events:none}
+  .gal-nav{pointer-events:auto;width:34px;height:34px;border-radius:50%;border:none;background:rgba(15,15,18,.6);color:#fff;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+  .gal-nav:disabled{opacity:.3;cursor:default}
   .gal-dots{display:flex;gap:6px;background:rgba(15,15,18,.55);border-radius:999px;padding:6px 9px}
   .gal-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.45)}
   .gal-dot.on{background:#fff}
@@ -719,7 +721,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v67';
+  window.__kgShell='v68';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3777,9 +3779,9 @@ function openModal(ev){
     /* 複数画像: 横スワイプのギャラリー（スナップ＋ドット＋カウンタ）。
        タップでその画像をライトボックスで開く */
     media='<div class="gal-track" id="galTrack">'
-      + imgList.map(function(u,i){ return '<div class="gal-slide">'+phHTML+'<img src="'+esc(u)+'" alt="'+esc(ev.title)+' のフライヤー画像（'+(i+1)+'枚目）" data-lbopen="'+i+'"'+(i?' loading="lazy"':"")+' onerror="this.remove()">'; }).join("")
+      + imgList.map(function(u,i){ return '<div class="gal-slide">'+phHTML+'<img src="'+esc(u)+'" alt="'+esc(ev.title)+' のフライヤー画像（'+(i+1)+'枚目）" data-lbopen="'+i+'" draggable="false"'+(i?' loading="lazy"':"")+' onerror="this.remove()">'; }).join("")
       + '</div>'
-      + '<div class="gal-ui"><span class="gal-dots">'+imgList.map(function(_,i){ return '<span class="gal-dot'+(i===0?" on":"")+'"></span>'; }).join("")+'</span><span class="gal-count" id="galCount">1/'+imgList.length+'</span></div>';
+      + '<div class="gal-ui"><button class="gal-nav" type="button" id="galPrev" aria-label="前の画像" disabled>‹</button><span class="gal-dots">'+imgList.map(function(_,i){ return '<span class="gal-dot'+(i===0?" on":"")+'"></span>'; }).join("")+'</span><span class="gal-count" id="galCount">1/'+imgList.length+'</span><button class="gal-nav" type="button" id="galNext" aria-label="次の画像">›</button></div>';
   } else if(imgList.length===1){
     // fix fallback layering: placeholder behind image
     media=phHTML+'<img src="'+esc(imgList[0])+'" alt="'+esc(ev.title)+' のフライヤー画像" class="lb-openable" data-lbopen="0" style="position:relative" onerror="this.remove()">';
@@ -3884,8 +3886,16 @@ function openModal(ev){
         galIdx=i;
         els.modal.querySelectorAll(".gal-dot").forEach(function(d,j){ d.classList.toggle("on", j===i); });
         var cnt=els.modal.querySelector("#galCount"); if(cnt) cnt.textContent=(i+1)+"/"+imgList.length;
+        var pv=els.modal.querySelector("#galPrev"); if(pv) pv.disabled=(i<=0);
+        var nx=els.modal.querySelector("#galNext"); if(nx) nx.disabled=(i>=imgList.length-1);
       });
     }, {passive:true});
+    var galGo=function(i){
+      if(i<0) i=0; if(i>imgList.length-1) i=imgList.length-1;
+      galTrack.scrollTo({left:i*galTrack.clientWidth, behavior:"smooth"});
+    };
+    var pvB=els.modal.querySelector("#galPrev"); if(pvB) pvB.addEventListener("click", function(){ galGo(galIdx-1); });
+    var nxB=els.modal.querySelector("#galNext"); if(nxB) nxB.addEventListener("click", function(){ galGo(galIdx+1); });
   }
   els.modal.querySelectorAll("[data-perf]").forEach(function(b){
     b.addEventListener("click", function(){
