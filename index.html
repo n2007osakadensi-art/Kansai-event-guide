@@ -755,7 +755,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v85';
+  window.__kgShell='v86';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -909,7 +909,7 @@
 
 <div class="wrap">
   <div class="controls" id="controls">
-    <div class="search-row">
+    <div class="search-row" id="searchRow">
       <div class="search-wrap">
         <label class="search-box" style="flex:1">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.8-3.8"></path></svg>
@@ -920,7 +920,7 @@
       </div>
       <button class="reload-btn" id="reloadBtn" type="button">再読み込み</button>
     </div>
-    <p class="search-hint">検索は入力した文字列そのままで探します。期間・料金・曜日などの条件は「絞り込む」から選んでください。</p>
+    <p class="search-hint" id="searchHint">検索は入力した文字列そのままで探します。期間・料金・曜日などの条件は「絞り込む」から選んでください。</p>
     <div class="view-tabs" role="tablist" aria-label="表示切り替え">
       <button class="view-tab" role="tab" data-view="all" aria-selected="true" type="button">イベント</button>
       <button class="view-tab" role="tab" data-view="christmas" aria-selected="false" type="button">クリスマス特集<span class="cnt" id="xmasCnt">(351)</span></button>
@@ -1941,7 +1941,7 @@ var dirCatFilter="すべて", dirEventsOnly=false;
 var venueGenres=new Set(), venueGenreSubs=new Set(), venueGenreGroups=new Set(), venueGenreClosed={}, venueSugDismissed="";
 try{ showEnded = localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
 var els={};
-["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope","rankShelf","rankList","followShelf","followList","tlSort"].forEach(function(id){ els[id]=document.getElementById(id); });
+["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope","rankShelf","rankList","followShelf","followList","tlSort","searchRow","searchHint"].forEach(function(id){ els[id]=document.getElementById(id); });
 
 var toastTimer=null;
 function toast(msg){
@@ -3621,6 +3621,9 @@ function renderInner(){
   els.detailView.classList.toggle("hidden", !isDetail);
   els.prefsView.classList.toggle("hidden", !isPrefs);
   els.routeView.classList.toggle("hidden", !isRoute);
+  /* データベース表示では本体のイベント検索を隠す（検索バーが2つ並ばないように。DB側の検索だけを使う） */
+  if(els.searchRow) els.searchRow.classList.toggle("hidden", isDir);
+  if(els.searchHint) els.searchHint.classList.toggle("hidden", isDir);
   var tabView = isRoute ? "all" : (isDetail ? (view==="artistDetail" ? "artists" : view==="venueDetail" ? "venues" : "all") : view);
   document.querySelectorAll(".view-tab").forEach(function(t){ var on=t.getAttribute("data-view")===tabView; t.setAttribute("aria-selected", on ? "true":"false"); if(on && tabView!==render._lastTabView){ render._lastTabView=tabView; try{ t.scrollIntoView({block:"nearest", inline:"nearest"}); }catch(e){} } });
   if(isPlan){ renderPlan(); return; }
@@ -5485,7 +5488,14 @@ document.getElementById("emptyState").addEventListener("click", function(e){
   render();
 });
 document.querySelectorAll(".view-tab").forEach(function(t){
-  t.addEventListener("click", function(){ view=t.getAttribute("data-view"); if(view==="artists"||view==="venues") loadProfiles(); render(); window.scrollTo({top:0,behavior:"smooth"}); });
+  t.addEventListener("click", function(){
+    var nv=t.getAttribute("data-view");
+    /* DBタブを切り替えたらDB検索の入力は残さない（アーティスト⇔会場でも、他の表示から戻ったときも） */
+    if(nv!==view && (nv==="artists"||nv==="venues"||view==="artists"||view==="venues")){ dirQuery=""; if(els.dirSearch) els.dirSearch.value=""; }
+    view=nv;
+    if(view==="artists"||view==="venues") loadProfiles();
+    render(); window.scrollTo({top:0,behavior:"smooth"});
+  });
 });
 if(els.xmasSubs){
   els.xmasSubs.addEventListener("click", function(e){
