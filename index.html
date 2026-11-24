@@ -520,6 +520,17 @@
   .genre-suggest .gs-btns{display:flex;gap:8px;flex:none;flex-wrap:wrap}
   .genre-suggest button{border-radius:999px;padding:9px 16px;font-weight:800;font-size:13.5px;min-height:42px}
   .reco-shelf{margin:0 0 20px}
+  .rank-shelf{margin:0 0 20px}
+  .rank-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .rank-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px 10px;cursor:pointer;text-align:left}
+  .rank-no{font-size:17px;font-weight:900;color:var(--muted);min-width:22px;text-align:center}
+  .rank-no.top{color:var(--accent)}
+  .rank-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;flex:none}
+  .rank-thumb.rank-ph{display:block}
+  .rank-main{flex:1;min-width:0}
+  .rank-title{font-weight:800;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rank-meta{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .rank-why{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
   .reco-title{font-size:17px;margin:0 0 4px}
   .reco-title span{font-size:12.5px;color:var(--muted);font-weight:600;margin-left:8px}
   .reco-shelf .grid{margin-top:10px}
@@ -721,7 +732,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v71';
+  window.__kgShell='v72';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -974,6 +985,10 @@
     <section class="reco-shelf hidden" id="recoShelf" aria-label="あなたへのおすすめ">
       <h2 class="reco-title">あなたへのおすすめ<span>好みと閲覧傾向から選んでいます</span></h2>
       <div class="grid" id="recoGrid"></div>
+    </section>
+    <section class="rank-shelf hidden" id="rankShelf" aria-label="関心ランキング">
+      <h2 class="reco-title">関心ランキング<span>あなたの印・閲覧と、みんなの閲覧数から集計しています</span></h2>
+      <div class="rank-list" id="rankList"></div>
     </section>
     <div id="listsBar" class="lists-bar hidden"></div>
     <p class="result-line" id="resultLine"><strong>5,150件</strong> のイベント（全7,803件中） ・ 終了した2,653件は非表示中</p>
@@ -1894,7 +1909,7 @@ var dirCatFilter="すべて", dirEventsOnly=false;
 var venueGenres=new Set(), venueGenreSubs=new Set(), venueGenreGroups=new Set(), venueGenreClosed={}, venueSugDismissed="";
 try{ showEnded = localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
 var els={};
-["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope"].forEach(function(id){ els[id]=document.getElementById(id); });
+["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope","rankShelf","rankList"].forEach(function(id){ els[id]=document.getElementById(id); });
 
 var toastTimer=null;
 function toast(msg){
@@ -4852,6 +4867,37 @@ function kgAdminOn(){ try{ return localStorage.getItem("kg_admin_mode_v1")==="1"
    セッションがある端末では、アンケートを自動では出さない */
 function kgHasLocalSession(){ try{ return !!(localStorage.getItem("kg_member_session_v2") || localStorage.getItem("kg_account_selected_user_v1")); }catch(e){ return false; } }
 /* ---------- ホームのおすすめ表示（未回答バー／ジャンル提案バー／おすすめ棚） ---------- */
+/* ---------- 関心ランキング（v72） ----------
+   端末データ（自分の印・推し・閲覧傾向）と、ログイン側の集計（現行はシートの
+   閲覧数。将来のクラウド集計 _wantCloud/_favCloud が入れば自動で合算）を
+   ミックスして裏で集計し、トップにランキングとして出す。広告・バズ由来の
+   数は使わない（Kota方針：おすすめ・人気は利用者自身の利用から作る） */
+function rankScore(ev){
+  var id=String(ev.id), s=0, why=[];
+  if(wantEvents.has(id)){ s+=30; why.push("行きたい"); }
+  if(favEvents.has(id)){ s+=20; why.push("お気に入り"); }
+  if(intEvents.has(id)){ s+=10; why.push("気になる"); }
+  if(hasOshi(ev)){ s+=15; why.push("推し出演"); }
+  if(ev._views){ var v=Math.min(ev._views,20); if(v>0){ s+=v; why.push("よく見られている"); } }
+  if(ev._wantCloud){ s+=Math.min(ev._wantCloud*3,30); }
+  if(ev._favCloud){ s+=Math.min(ev._favCloud*2,20); }
+  var lc=0; evCategories(ev).forEach(function(c){ lc+=(learn.cats[c]||0); });
+  if(lc>0) s+=Math.min(lc,10);
+  return {s:s, why:why};
+}
+function rankRowHTML(ev, no, why){
+  var img=ev.imageUrl
+    ? '<img class="rank-thumb" src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" onerror="this.remove()">'
+    : '<span class="rank-thumb rank-ph" style="background:'+catColor(ev.category)+'"></span>';
+  return '<div class="rank-row" data-id="'+esc(ev.id)+'" role="button" tabindex="0" aria-label="'+esc(ev.title)+'">'
+    + '<span class="rank-no'+(no<=3?" top":"")+'">'+no+'</span>'
+    + img
+    + '<div class="rank-main"><div class="rank-title">'+esc(ev.title)+'</div>'
+    + '<div class="rank-meta">'+esc(fmtDate(ev.date))+(ev.timeLabel?" "+esc(ev.timeLabel):"")+(ev.venue?" ・ "+esc(ev.venue):"")+'</div>'
+    + (why.length? '<div class="rank-why">'+why.map(function(w){ return '<span class="reco-chip">'+esc(w)+'</span>'; }).join("")+'</div>' : "")
+    + '</div></div>';
+}
+
 function renderHomeExtras(){
   /* 検索中は検索結果だけを表示する（Kota指示 2026-11-23）：
      キーワードが入っている間は おすすめ棚・ジャンル提案・アンケートCTA を出さない */
@@ -4915,6 +4961,29 @@ function renderHomeExtras(){
       });
     }
   }
+  if(els.rankShelf){
+    /* 関心ランキングもトップページの初期表示だけ（おすすめ棚と同じ条件）。
+       表示オフ設定（recoOff）でも消える。信号のあるイベントが3件未満なら出さない */
+    var showRank = isHome && activeCat==="すべて" && selCats.size===0 && !prefs.recoOff;
+    var ranked=[];
+    if(showRank){
+      ranked=allEvents.filter(function(ev){ return !isEnded(ev); })
+        .map(function(ev){ var r=rankScore(ev); return {ev:ev, s:r.s, why:r.why}; })
+        .filter(function(r){ return r.s>0; })
+        .sort(function(a,b){
+          if(b.s!==a.s) return b.s-a.s;
+          if(a.ev.date!==b.ev.date) return a.ev.date<b.ev.date?-1:1;
+          var as=a.ev.startMin==null?99999:a.ev.startMin, bs=b.ev.startMin==null?99999:b.ev.startMin;
+          return as-bs;
+        })
+        .slice(0,10);
+      showRank = ranked.length>=3;
+    }
+    els.rankShelf.classList.toggle("hidden", !showRank);
+    if(showRank){
+      els.rankList.innerHTML=ranked.map(function(r,i){ return rankRowHTML(r.ev, i+1, r.why); }).join("");
+    }
+  }
 }
 if(els.prefsCta){
   /* CTAは好み画面ではなく、アンケート本体を直接開く */
@@ -4929,6 +4998,11 @@ if(els.genreSuggest){
   });
 }
 if(els.recoGrid) els.recoGrid.addEventListener("click", gridCardClick);
+if(els.rankList) els.rankList.addEventListener("click", function(e){
+  var row=e.target.closest(".rank-row"); if(!row) return;
+  var ev=allEvents.find(function(x){ return String(x.id)===row.getAttribute("data-id"); });
+  if(ev) openModal(ev);
+});
 
 /* ---------- events wiring ---------- */
 els.grid.addEventListener("click", function(e){
