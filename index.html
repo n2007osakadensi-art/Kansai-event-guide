@@ -234,6 +234,12 @@
   .close-btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:44px;height:44px;min-height:44px;font-size:18px;padding:0;flex:none}
   .modal-fav{border:1.5px solid var(--heart);background:transparent;color:var(--heart);border-radius:999px;padding:8px 16px;font-weight:800;font-size:14px;min-height:44px}
   .modal-fav.on{background:var(--heart);color:#fff}
+  .act-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(102px,1fr));gap:8px;margin:14px 0 6px}
+  .act-btn{display:flex;align-items:center;justify-content:center;gap:6px;min-height:52px;padding:10px 8px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-weight:800;font-size:14.5px;text-decoration:none;cursor:pointer;font-family:inherit}
+  .act-btn.on{background:var(--heart);border-color:var(--heart);color:#fff}
+  .act-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .modal-edit-row{margin-top:24px;border-top:1px solid var(--line);padding-top:14px}
+  .modal-edit-btn{width:100%;min-height:44px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit}
   dl.detail{margin:0;display:grid;grid-template-columns:86px 1fr;gap:8px 12px;font-size:14.5px}
   dl.detail dt{color:var(--muted);font-weight:700}
   dl.detail dd{margin:0;word-break:break-word}
@@ -642,7 +648,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v58';
+  window.__kgShell='v59';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3572,10 +3578,17 @@ function openModal(ev){
   els.modal.innerHTML =
     '<div class="modal-media'+(ev.imageUrl?"":" noimg")+'">'+media+(ev.imageUrl?'<button class="zoom-btn" type="button" data-lbopen="1" aria-label="'+esc(ev.title)+' の画像を拡大表示">画像を拡大</button>':"")+'</div><div class="modal-in">'
     + '<div class="close-row"><span class="cat-chip" style="background:'+catColor(ev.category)+'">'+catIcon(ev.category,13)+esc(ev.category||"イベント")+'</span>'
-    + '<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><button class="modal-fav" type="button" id="modalShare" style="border-color:var(--line);color:var(--ink)">共有</button><button class="modal-fav" type="button" id="modalEdit" style="border-color:var(--line);color:var(--ink)">このイベントの修正を送る</button><button class="modal-fav'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
-    + '<button class="close-btn" type="button" id="modalClose" aria-label="閉じる">✕</button></span></div>'
+    + '<button class="close-btn" type="button" id="modalClose" aria-label="閉じる">✕</button></div>'
     + '<h2 id="modalTitle">'+esc(ev.title)+'</h2>'
     + (ev._pending?'<p class="pending-note">反映待ち：あなたが送信した内容を、この端末だけに表示しています。確認のうえガイドへ反映されると、正式な掲載に切り替わります。</p>':"")
+    + '<div class="act-bar">'
+    + '<button class="act-btn'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
+    + '<button class="act-btn" type="button" id="modalShare">共有する</button>'
+    + (ev.linkTicket?'<a class="act-btn primary" href="'+esc(ev.linkTicket)+'" target="_blank" rel="noopener">チケット</a>':"")
+    + (ev.linkWeb?'<a class="act-btn" href="'+esc(ev.linkWeb)+'" target="_blank" rel="noopener">公式サイト</a>':"")
+    + (ev.linkX?'<a class="act-btn" href="'+esc(ev.linkX)+'" target="_blank" rel="noopener">X</a>':"")
+    + (ev.linkInstagram?'<a class="act-btn" href="'+esc(ev.linkInstagram)+'" target="_blank" rel="noopener">Instagram</a>':"")
+    + '</div>'
     + '<dl class="detail">'
     + '<dt>日時</dt><dd>'+esc(dateLabel(ev))+(ev.timeLabel?"　"+esc(ev.timeLabel):"")+'</dd>'
     + (ev.venue?'<dt>会場</dt><dd><button type="button" class="venue-link" data-venue-open="'+esc(ev.venue)+'">'+esc(ev.venue)+'</button>'+vsChipHTML(ev)+'</dd>':"")
@@ -3588,8 +3601,8 @@ function openModal(ev){
         + ev._perfList.map(function(p){ var on=favPerfs.has(p); return '<button class="perf'+(on?" on":"")+'" type="button" data-perf="'+esc(p)+'" aria-pressed="'+on+'"><span class="star">'+(on?"★":"☆")+'</span>'+esc(p)+'</button>'; }).join("")
         + '</div><p class="perf-hint">出演者名をタップすると、その出演者の公演一覧（プロフィール）へ移動します。推しの登録は公演一覧ページのボタンからできます。</p>' : "")
     + '<h3 style="margin:20px 0 8px;font-size:15px">詳細・タイムテーブル</h3>'+descHTML
-    + (links? '<div class="link-row">'+links+'</div>':"")
     + relatedEventsHTML(ev)
+    + '<div class="modal-edit-row"><button class="modal-edit-btn" type="button" id="modalEdit">このイベントの修正を送る</button></div>'
     + '</div>';
   els.overlay.classList.add("open");
   document.body.style.overflow="hidden";
@@ -3598,9 +3611,17 @@ function openModal(ev){
   /* 共有は開くたびに必ず同じ場所に出す（v53）。Web Share が無い環境では
      タイトルと日時をコピーする */
   document.getElementById("modalShare").addEventListener("click", function(){
-    var shareText=ev.title+"（"+dateLabel(ev)+(ev.venue?" ＠ "+ev.venue:"")+"）";
-    if(navigator.share){ navigator.share({title:ev.title, text:shareText}).catch(function(){}); }
-    else if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(shareText).then(function(){ toast("タイトルと日時をコピーしました"); }, function(){ toast("コピーできませんでした"); }); }
+    var hasId=/^\d+$/.test(String(ev.id));
+    var url="https://n2007osakadensi-art.github.io/Kansai-event-guide/?event="+encodeURIComponent(ev.id);
+    var lines=[ev.title, "日時："+dateLabel(ev)+(ev.timeLabel?" "+ev.timeLabel:"")];
+    if(ev.venue) lines.push("会場："+ev.venue);
+    if(ev.price) lines.push("料金："+ev.price);
+    if(ev._perfList && ev._perfList.length) lines.push("出演："+ev._perfList.slice(0,6).join("、")+(ev._perfList.length>6?" ほか":""));
+    if(hasId) lines.push("詳細："+url);
+    if(ev.linkWeb) lines.push("公式："+ev.linkWeb);
+    var shareText=lines.join("\n");
+    if(navigator.share){ var payload={title:ev.title, text:shareText}; if(hasId) payload.url=url; navigator.share(payload).catch(function(){}); }
+    else if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(shareText).then(function(){ toast("共有文をコピーしました"); }, function(){ toast("コピーできませんでした"); }); }
     else { toast("このブラウザでは共有できません"); }
   });
   document.getElementById("modalEdit").addEventListener("click", function(){
@@ -4595,6 +4616,17 @@ function applyData(events, cachedSavedAt, cachedSlim, cachedLite){
 /* ネットワーク経路専用の安全な適用（v53）: 例外を呼び出し側へ伝播させず、
    成否を返す。JSONP ハンドラ内では伝播すると settled 済みで握り潰され、
    読み込み画面のまま固まるため（コード監査 C1） */
+var deepLinkDone=false;
+function tryDeepLink(){
+  if(deepLinkDone) return; deepLinkDone=true;
+  try{
+    var p=new URLSearchParams(location.search); var id=p.get("event");
+    if(!id) return;
+    var ev=allEvents.find(function(x){ return String(x.id)===String(id); });
+    var u=new URL(location.href); u.searchParams.delete("event"); history.replaceState(null,"",u.href);
+    if(ev) openModal(ev);
+  }catch(e){}
+}
 function applyDataSafe(events){
   try{ applyData(events); return true; }
   catch(e){ kgRenderError('applyData', e); return false; }
@@ -4622,6 +4654,7 @@ function applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite){
     obAutoShown=true;
     setTimeout(function(){ if(!prefs.onboarded && !kgAdminOn() && !kgHasLocalSession()) obOpen(); }, 900);
   }
+  if(detailsState!=="pending") tryDeepLink();
   loadProfiles();
   if(window.__kgBootMarkOk) window.__kgBootMarkOk();
 }
