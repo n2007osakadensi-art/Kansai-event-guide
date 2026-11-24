@@ -745,7 +745,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v81';
+  window.__kgShell='v82';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -6747,6 +6747,10 @@ function buildTimelineItems(){
       up=up.filter(function(ev){ return pset.has(String(ev.id)); });
     }
   }
+  /* フォロー中は「フォローした相手の新着」として日付順に並べる（v82）。
+     通常の優先バケツ方式だと推し出演が枠を埋め、フォロー会場・主催の
+     イベントが60件枠の外に押し出されるため、この範囲だけ日付順にする */
+  if(tlScopePreset==="follow"){ up.sort(tlByDate); return up.slice(0,60); }
   var mine=[], favs=[], oshi=[], scored=[], rest=[];
   up.forEach(function(ev){
     if(ev._pending) mine.push(ev);

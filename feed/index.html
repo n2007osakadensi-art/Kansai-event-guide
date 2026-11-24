@@ -607,6 +607,8 @@ function buildFeedItems(events){
   var up=events.filter(function(ev){ return !isEnded(ev); });
   var ss=feedScopeSet();
   if(ss) up=up.filter(function(ev){ return ss.has(String(ev.id)); });
+  /* フォロー中は日付順（本体タイムラインと同仕様、v82） */
+  if(feedScope==="p:follow"){ up.sort(byDate); return up.slice(0,60); }
   var pend=[], favs=[], wants=[], ints=[], oshi=[], scored=[], rest=[];
   up.forEach(function(ev){
     if(ev._pending) pend.push(ev);
