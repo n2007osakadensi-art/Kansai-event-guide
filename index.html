@@ -214,7 +214,7 @@
   /* Image viewer (lightbox): full-size view + save */
   .zoom-btn{position:absolute;right:8px;bottom:8px;z-index:3;border:0;border-radius:999px;background:rgba(15,15,18,.8);color:#fff;font-size:12.5px;font-weight:700;padding:8px 13px;min-height:36px;cursor:pointer}
   .zoom-btn:active{background:rgba(15,15,18,.96)}
-  .gal-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;height:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .gal-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;height:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x}
   .gal-track::-webkit-scrollbar{display:none}
   .gal-slide{flex:0 0 100%;scroll-snap-align:start;position:relative;height:100%}
   .gal-slide img{width:100%;height:100%;object-fit:contain;display:block;position:relative;cursor:zoom-in}
@@ -719,7 +719,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v66';
+  window.__kgShell='v67';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3826,14 +3826,15 @@ function openModal(ev){
   document.getElementById("modalShare").addEventListener("click", function(){
     var hasId=/^\d+$/.test(String(ev.id));
     var url="https://n2007osakadensi-art.github.io/Kansai-event-guide/?event="+encodeURIComponent(ev.id);
-    var lines=[ev.title, "日時："+dateLabel(ev)+(ev.timeLabel?" "+ev.timeLabel:"")];
-    if(ev.venue) lines.push("会場："+ev.venue);
-    if(ev.price) lines.push("料金："+ev.price);
-    if(ev._perfList && ev._perfList.length) lines.push("出演："+ev._perfList.slice(0,6).join("、")+(ev._perfList.length>6?" ほか":""));
-    if(hasId) lines.push("詳細："+url);
-    if(ev.linkWeb) lines.push("公式："+ev.linkWeb);
+    /* SNS共有は本文に全部入れる（URLを別枠で渡すとSNS側が本文を落としてURLだけになるため）。
+       日程・イベント名・時間・場所を軸に簡潔にし、認証付きアカウントの文字数上限にも収まる長さにする。
+       画像は付けない（付けたい人は自分で添付する前提）。 */
+    var lines=[ev.title, dateLabel(ev)+(ev.timeLabel?" "+ev.timeLabel:"")];
+    if(ev.venue) lines.push(ev.venue);
+    if(ev._perfList && ev._perfList.length) lines.push("出演："+ev._perfList.slice(0,4).join("、")+(ev._perfList.length>4?" ほか":""));
+    if(hasId) lines.push(url);
     var shareText=lines.join("\n");
-    if(navigator.share){ var payload={title:ev.title, text:shareText}; if(hasId) payload.url=url; navigator.share(payload).catch(function(){}); }
+    if(navigator.share){ navigator.share({text:shareText}).catch(function(){}); }
     else if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(shareText).then(function(){ toast("共有文をコピーしました"); }, function(){ toast("コピーできませんでした"); }); }
     else { toast("このブラウザでは共有できません"); }
   });
@@ -3845,8 +3846,10 @@ function openModal(ev){
     else { toast("編集フォームを開けませんでした"); }
   });
   var galIdx=0;
+  var galSuppressClick=false;
   els.modal.querySelectorAll("[data-lbopen]").forEach(function(el){
     el.addEventListener("click", function(){
+      if(galSuppressClick){ galSuppressClick=false; return; }
       var v=el.getAttribute("data-lbopen");
       var url=(v==="cur") ? (imgList[galIdx]||imgList[0]) : imgList[parseInt(v,10)];
       openLightbox(ev, url);
@@ -3854,6 +3857,22 @@ function openModal(ev){
   });
   var galTrack=els.modal.querySelector("#galTrack");
   if(galTrack){
+    /* マウスでも横へ引っ張って切り替えられるように（タッチは標準の横スクロールに任せる） */
+    var galDrag=null;
+    galTrack.addEventListener("pointerdown", function(e){
+      if(e.pointerType!=="mouse") return;
+      galDrag={x:e.clientX, sl:galTrack.scrollLeft, moved:false};
+    });
+    galTrack.addEventListener("pointermove", function(e){
+      if(!galDrag) return;
+      var dx=e.clientX-galDrag.x;
+      if(Math.abs(dx)>8) galDrag.moved=true;
+      if(galDrag.moved) galTrack.scrollLeft=galDrag.sl-dx;
+    });
+    ["pointerup","pointercancel"].forEach(function(t){ galTrack.addEventListener(t, function(){
+      if(galDrag && galDrag.moved) galSuppressClick=true;
+      galDrag=null;
+    }); });
     var galRaf=0;
     galTrack.addEventListener("scroll", function(){
       if(galRaf) return;
