@@ -813,7 +813,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v100';
+  window.__kgShell='v101';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3023,6 +3023,7 @@ function evImgErr(img){
   function fail(){
     if(mode==="ph"){ img.style.display="none"; var nx=img.nextElementSibling; if(nx) nx.style.display="flex"; }
     else if(mode==="card"){ img.style.display="none"; var ph=img.nextElementSibling; if(ph) ph.classList.remove("hidden"); }
+    else if(mode==="lb"){ try{ closeLightbox(); }catch(e){} }
     else { img.remove(); }
   }
   if(!id){ fail(); return; }
@@ -4237,7 +4238,10 @@ function openModal(ev){
     el.addEventListener("click", function(){
       if(galSuppressClick){ galSuppressClick=false; return; }
       var v=el.getAttribute("data-lbopen");
-      var url=(v==="cur") ? (imgList[galIdx]||imgList[0]) : imgList[parseInt(v,10)];
+      var pos=(v==="cur") ? galIdx : (parseInt(v,10)||0);
+      lbPos=pos;
+      var slideImg=els.modal.querySelector('img[data-lbopen="'+pos+'"]');
+      var url=(slideImg && (slideImg.currentSrc||slideImg.src)) || imgList[pos] || imgList[0];
       openLightbox(ev, url);
     });
   });
@@ -4333,6 +4337,7 @@ var lbOpen=false;
    切り替えていたため、拡大した瞬間に画像の位置が跳んでいた。
    transform 方式では、タップした点が指の下に残るよう中心を合わせて拡大する */
 var lbScale=1, lbTx=0, lbTy=0;
+var lbPos=0;
 var LB_MIN=1, LB_MAX=6;
 function lbApply(anim){
   lbImg.classList.toggle("lb-anim", !!anim);
@@ -4369,6 +4374,13 @@ function openLightbox(ev, url){
   var src=url||(ev?ev.imageUrl:"");
   if(!ev || !src) return;
   lbReset(false);
+  /* 拡大表示にも画像の保険を効かせる（v101）: ギャラリーで差し替え済みの
+     URLが渡ってくるのが通常経路。ここでも失敗したら元URLへ差し替え、
+     それも駄目ならライトボックスを閉じる */
+  delete lbImg.dataset.fbTried; delete lbImg.dataset.fbWait;
+  lbImg.setAttribute("data-fbk", String(ev.id)+":"+(lbPos||0));
+  lbImg.setAttribute("data-fbmode", "lb");
+  lbImg.onerror=function(){ evImgErr(lbImg); };
   lbImg.src=src;
   lbImg.alt=ev.title+" のフライヤー画像";
   lbTitle.textContent=ev.title||"";
@@ -4468,7 +4480,7 @@ function zoomFromCard(e){
   var zb=e.target.closest("[data-zoom]"); if(!zb) return false;
   e.stopPropagation();
   var ev=allEvents.find(function(x){ return String(x.id)===zb.getAttribute("data-zoom"); });
-  if(ev) openLightbox(ev);
+  if(ev){ lbPos=0; openLightbox(ev); }
   return true;
 }
 
@@ -6053,6 +6065,28 @@ function load(force){
   });
   });
 }
+/* シート分割（月別タブ）への段階対応（v101）: 読み込み元は
+   assets/sheet-sources.json で差し替え可能にする。既定は現行の単一構成
+   （events_lite / events_details / 全件 events）。月別タブが並行で用意されたら
+   sources に {"lite":"events_lite_2026-11","details":"events_details_2026-11"}
+   の形で足すだけで、読み側は全ソースを id でマージして読む（後のソースが優先）。
+   1ソース読めなくても残りのソースで表示を続け、全滅した時だけ全件タブへ落とす。
+   設定が読めない・無い場合は現行の単一構成で動く（従来動作を壊さない） */
+var sheetSourcesCache=null;
+function loadSheetSourcesConfig(done){
+  if(sheetSourcesCache){ done(sheetSourcesCache); return; }
+  var settled=false;
+  function fin(list){ if(settled) return; settled=true; sheetSourcesCache=list; done(list); }
+  var DEFAULT_SOURCES=[{lite:"events_lite", details:"events_details", full:"events"}];
+  try{
+    var ctl=("AbortController" in window)?new AbortController():null;
+    var tm=ctl?setTimeout(function(){ ctl.abort(); },6000):null;
+    fetch("assets/sheet-sources.json", ctl?{signal:ctl.signal}:undefined).then(function(r){ if(tm)clearTimeout(tm); if(!r.ok) throw new Error("sheet-sources"); return r.json(); }).then(function(j){
+      var list=(j && Array.isArray(j.sources))? j.sources.filter(function(s){ return s && s.lite; }) : [];
+      fin(list.length? list : DEFAULT_SOURCES);
+    }).catch(function(){ if(tm)clearTimeout(tm); fin(DEFAULT_SOURCES); });
+  }catch(e){ fin(DEFAULT_SOURCES); }
+}
 function startNetworkLoad(background){
   /* 初回読み込み軽量化（2026-11-23、仕様 lite-first-loading-spec）：
      events_lite（軽量・19列）を先に取得して一覧を出し、events_details
@@ -6068,35 +6102,56 @@ function startNetworkLoad(background){
     if(background){ els.updatedAt.textContent += "（最新を取得できませんでした）"; }
     else { showError(err); }
   }
-  function fallbackFull(err){
-    loadSheetRace("events", function(fullEvents){
+  function fallbackFull(err, fullTab){
+    loadSheetRace(fullTab||"events", function(fullEvents){
       detailsState="merged";
       clearTimers();
       if(applyDataSafe(fullEvents)){ evCachePut(fullEvents, false); }
       else { showError(err); }
     }, function(e2){ finishFail(e2||err); });
   }
-  loadSheetRace("events_lite", function(liteEvents){
-    if(!background){
-      detailsState="pending";
-      clearTimers();
-      if(!applyDataSafe(liteEvents)){ fallbackFull(new Error("一覧の表示に失敗しました")); return; }
-      evCachePut(liteEvents, true);
-    }
-    loadSheetRace("events_details", function(detEvents){
-      var merged=mergeDetails(liteEvents, detEvents);
-      detailsState="merged";
-      clearTimers();
-      if(applyDataSafe(merged)){ evCachePut(merged, false); }
-      else if(!background){ showError(new Error("詳細を結合した表示に失敗しました")); }
-    }, function(err){
-      detailsState="failed";
-      clearTimers();
-      if(!background){ els.updatedAt.textContent += "（詳細情報を取得できませんでした）"; }
-      if(allEvents.length) render();
+  loadSheetSourcesConfig(function(sources){
+    /* 全ソースの lite を並行取得し id でマージする（月別タブ段階対応・v101）。
+       1ソースでも成功すれば表示を続け、全滅の時だけ全件タブへ落とす */
+    var liteResults=new Array(sources.length), liteDone=0, liteOk=0;
+    sources.forEach(function(src, si){
+      loadSheetRace(src.lite, function(evs){ liteResults[si]=evs||[]; liteOk++; stepLite(); }, function(){ liteResults[si]=null; stepLite(); });
     });
-  }, function(err){
-    fallbackFull(err);
+    function stepLite(){
+      if(++liteDone<sources.length) return;
+      if(!liteOk){ fallbackFull(new Error("一覧を取得できませんでした"), sources[0].full); return; }
+      var byId={}, order=[];
+      liteResults.forEach(function(list){ (list||[]).forEach(function(ev){ if(!ev || ev.id==null) return; var k=String(ev.id); if(!(k in byId)) order.push(k); byId[k]=ev; }); });
+      var liteEvents=order.map(function(k){ return byId[k]; });
+      if(!background){
+        detailsState="pending";
+        clearTimers();
+        if(!applyDataSafe(liteEvents)){ fallbackFull(new Error("一覧の表示に失敗しました"), sources[0].full); return; }
+        evCachePut(liteEvents, true);
+      }
+      var detResults=new Array(sources.length), detDone=0, detOk=0;
+      sources.forEach(function(src, si){
+        if(!src.details){ detResults[si]=[]; stepDet(); return; }
+        loadSheetRace(src.details, function(evs){ detResults[si]=evs||[]; detOk++; stepDet(); }, function(){ detResults[si]=null; stepDet(); });
+      });
+      function stepDet(){
+        if(++detDone<sources.length) return;
+        if(!detOk){
+          detailsState="failed";
+          clearTimers();
+          if(!background){ els.updatedAt.textContent += "（詳細情報を取得できませんでした）"; }
+          if(allEvents.length) render();
+          return;
+        }
+        var allDet=[];
+        detResults.forEach(function(l){ if(l) allDet=allDet.concat(l); });
+        var merged=mergeDetails(liteEvents, allDet);
+        detailsState="merged";
+        clearTimers();
+        if(applyDataSafe(merged)){ evCachePut(merged, false); }
+        else if(!background){ showError(new Error("詳細を結合した表示に失敗しました")); }
+      }
+    }
   });
 }
 /* 1タブ分の取得レース：JSONP（responseHandler: 形式）を主経路に、6秒で

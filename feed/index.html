@@ -886,20 +886,59 @@ window.KGAccountBridge = {
 };
 
 /* ---------- 起動 ---------- */
+/* シート分割（月別タブ）への段階対応（v101・本体と共通）:
+   読み込み元は ../assets/sheet-sources.json で差し替え可能。既定は現行の
+   単一構成。月別タブが用意されたら sources に足すだけで、全ソースを
+   id でマージして読む。1ソース失敗しても残りで表示を続ける */
+var feedSourcesCache=null;
+function loadFeedSourcesConfig(done){
+  if(feedSourcesCache){ done(feedSourcesCache); return; }
+  var settled=false;
+  function fin(list){ if(settled) return; settled=true; feedSourcesCache=list; done(list); }
+  var DEFAULT_SOURCES=[{lite:"events_lite", details:"events_details"}];
+  try{
+    var ctl=("AbortController" in window)?new AbortController():null;
+    var tm=ctl?setTimeout(function(){ ctl.abort(); },6000):null;
+    fetch("../assets/sheet-sources.json", ctl?{signal:ctl.signal}:undefined).then(function(r){ if(tm)clearTimeout(tm); if(!r.ok) throw new Error("sheet-sources"); return r.json(); }).then(function(j){
+      var list=(j && Array.isArray(j.sources))? j.sources.filter(function(s){ return s && s.lite; }) : [];
+      fin(list.length? list : DEFAULT_SOURCES);
+    }).catch(function(){ if(tm)clearTimeout(tm); fin(DEFAULT_SOURCES); });
+  }catch(e){ fin(DEFAULT_SOURCES); }
+}
 function start(){
   renderScopeBar();
   showState('<div class="spinner" aria-hidden="true"></div><div>読み込み中…</div>');
-  loadSheetRace("events_lite", LITE_FIELDS, function(events){
-    sheetEvents=events;
-    allEvents=mergePendingEvents(sheetEvents);
-    renderFeed(false);
-    loadSheetRace("events_details", DETAIL_FIELDS, function(det){
-      sheetEvents=mergeDetails(sheetEvents, det);
+  loadFeedSourcesConfig(function(sources){
+    var liteResults=new Array(sources.length), liteDone=0, liteOk=0;
+    sources.forEach(function(src, si){
+      loadSheetRace(src.lite, LITE_FIELDS, function(events){ liteResults[si]=events||[]; liteOk++; stepLite(); }, function(){ liteResults[si]=null; stepLite(); });
+    });
+    function stepLite(){
+      if(++liteDone<sources.length) return;
+      if(!liteOk){
+        showState('<div>読み込めませんでした。再読み込みしてください。</div><div><button type="button" class="reload-btn" onclick="location.reload()">再読み込み</button></div>');
+        return;
+      }
+      var byId={}, order=[];
+      liteResults.forEach(function(list){ (list||[]).forEach(function(ev){ if(!ev || ev.id==null) return; var k=String(ev.id); if(!(k in byId)) order.push(k); byId[k]=ev; }); });
+      sheetEvents=order.map(function(k){ return byId[k]; });
       allEvents=mergePendingEvents(sheetEvents);
-      renderFeed(true);
-    }, function(){ /* 詳細が取れなくても lite だけで表示を続ける */ });
-  }, function(){
-    showState('<div>読み込めませんでした。再読み込みしてください。</div><div><button type="button" class="reload-btn" onclick="location.reload()">再読み込み</button></div>');
+      renderFeed(false);
+      var detResults=new Array(sources.length), detDone=0, detOk=0;
+      sources.forEach(function(src, si){
+        if(!src.details){ detResults[si]=[]; stepDet(); return; }
+        loadSheetRace(src.details, DETAIL_FIELDS, function(det){ detResults[si]=det||[]; detOk++; stepDet(); }, function(){ detResults[si]=null; stepDet(); });
+      });
+      function stepDet(){
+        if(++detDone<sources.length) return;
+        if(!detOk) return; /* 詳細が取れなくても lite だけで表示を続ける */
+        var allDet=[];
+        detResults.forEach(function(l){ if(l) allDet=allDet.concat(l); });
+        sheetEvents=mergeDetails(sheetEvents, allDet);
+        allEvents=mergePendingEvents(sheetEvents);
+        renderFeed(true);
+      }
+    }
   });
 }
 /* 本体側で お気に入り等 が変わったら並びを追随させる */
