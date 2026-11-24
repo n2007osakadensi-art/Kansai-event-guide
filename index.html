@@ -242,6 +242,48 @@
   .close-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
   .mini-acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
   .mini-acts-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:22px 0 2px}
+  /* マイリスト（v66）: リストビューのタブ・メンバー表示・編集UI */
+  .lists-bar{margin:10px 0 2px}
+  .lists-title{font-size:17px;margin:0}
+  .lists-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0;overscroll-behavior-x:contain}
+  .lists-tabs::-webkit-scrollbar{display:none}
+  .lists-tab{flex:0 0 auto;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 14px;font-weight:700;font-size:13.5px;min-height:40px;white-space:nowrap;cursor:pointer;font-family:inherit}
+  .lists-tab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .lists-tab.add{border-style:dashed;color:var(--muted)}
+  .lists-cnt{font-size:12px;font-weight:600;opacity:.75;margin-left:2px}
+  .lists-meta{margin-top:6px;font-size:13px;color:var(--muted)}
+  .lists-artists{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .lists-artists-label{font-size:13px;color:var(--muted)}
+  .lists-artist{border:1px solid var(--oshi);background:transparent;color:var(--oshi);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:700;min-height:36px;cursor:pointer;font-family:inherit}
+  .lists-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .lists-edit{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .lists-name-input{flex:1;min-width:150px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:16px;font-family:inherit}
+  .lists-del-btn{background:#b92b37;color:#fff;border:0;border-radius:9px;padding:9px 14px;font-weight:700;min-height:44px;cursor:pointer;font-family:inherit}
+  .lists-empty-note{font-size:14px;line-height:1.7;color:var(--muted);margin:8px 0 0}
+  /* リスト選択シート（v66）: 詳細モーダル等の上に重ねる小さなシート */
+  .lp-backdrop{position:fixed;inset:0;background:rgba(10,10,12,.55);z-index:94}
+  .lp-sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:min(560px,100vw);max-height:72vh;background:var(--surface);border:1px solid var(--line);border-radius:16px 16px 0 0;z-index:95;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.3)}
+  .lp-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .lp-head h2{font-size:16px;margin:0;flex:1}
+  .lp-body{overflow-y:auto;padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+  .lp-target{font-size:13.5px;color:var(--muted);margin:0 0 10px;line-height:1.5}
+  .lp-none{font-size:14px;color:var(--muted);margin:0 0 10px}
+  .lp-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:11px 12px;margin:0 0 8px;font-size:14.5px;font-weight:600;min-height:48px;cursor:pointer;font-family:inherit}
+  .lp-row .lp-cnt{font-size:12px;color:var(--muted);font-weight:600}
+  .lp-row .lp-check{margin-left:auto;font-weight:800;color:var(--accent);font-size:13px;white-space:nowrap}
+  .lp-row .lp-add{margin-left:auto;font-weight:700;color:var(--muted);font-size:13px;white-space:nowrap}
+  .lp-new{display:flex;gap:8px;margin-top:6px}
+  .lp-new .btn-accent{flex:0 0 auto}
+  /* タイムラインのスコープ切替（v66） */
+  .tl-scope{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 2px;scrollbar-width:none;overscroll-behavior-x:contain}
+  .tl-scope::-webkit-scrollbar{display:none}
+  .tl-scope button{flex:0 0 auto;border:1.5px solid rgba(244,242,236,.4);background:transparent;color:#f4f2ec;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;min-height:36px;white-space:nowrap;cursor:pointer;font-family:inherit}
+  .tl-scope button.on{background:#f4f2ec;color:#0e0f12;border-color:#f4f2ec}
+  /* 好み画面「最初のページ」切替（v66） */
+  .pf-startview{margin-top:12px}
+  .pf-sv-label{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
+  .pf-sv-scope{margin:0}
+  .pf-sv-note{font-size:12.5px;color:var(--muted);margin:6px 0 0}
   .mini-btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 10px;font-weight:700;font-size:12.5px;min-height:36px;cursor:pointer;font-family:inherit;white-space:nowrap}
   .mini-btn.on{background:var(--heart);border-color:var(--heart);color:#fff}
   .mini-btn.want.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -677,7 +719,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v65';
+  window.__kgShell='v66';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -718,7 +760,7 @@
      退避して初期状態で起動できるようにする（本体は消さず kg_quarantine_ に残す） */
   (function(){
     var checks={
-      'kg_trial_fav_events_v1':'arr','kg_trial_fav_performers_v1':'arr',
+      'kg_trial_fav_events_v1':'arr','kg_trial_fav_performers_v1':'arr','kg_trial_lists_v1':'arr',
       'kg_trial_prefs_v1':'obj','kg_trial_learn_v1':'obj',
       'kg_filter_profiles_v1':'arr','kg_member_session_v2':'obj'
     };
@@ -852,6 +894,7 @@
       <button class="view-tab" role="tab" data-view="venues" aria-selected="false" type="button">会場DB</button>
       <button class="view-tab" role="tab" data-view="fav" aria-selected="false" type="button">♥ お気に入り<span class="cnt" id="favCnt"></span></button>
       <button class="view-tab" role="tab" data-view="oshi" aria-selected="false" type="button">★ 推しが出る<span class="cnt" id="oshiCnt"></span></button>
+      <button class="view-tab" role="tab" data-view="lists" aria-selected="false" type="button">リスト<span class="cnt" id="listsCnt"></span></button>
       <button class="view-tab" role="tab" data-view="plan" aria-selected="false" type="button">回しプラン</button>
       <button class="view-tab" role="tab" data-view="prefs" aria-selected="false" type="button">好み</button>
     </div>
@@ -930,6 +973,7 @@
       <h2 class="reco-title">あなたへのおすすめ<span>好みと閲覧傾向から選んでいます</span></h2>
       <div class="grid" id="recoGrid"></div>
     </section>
+    <div id="listsBar" class="lists-bar hidden"></div>
     <p class="result-line" id="resultLine"><strong>5,150件</strong> のイベント（全7,803件中） ・ 終了した2,653件は非表示中</p>
     <div class="active-filters hidden" id="activeFilters"></div>
     <button class="rf-btn" id="routeFitBtn" type="button">今から回せる現場を探す</button>
@@ -1096,6 +1140,7 @@
     <button class="tl-post" id="tlPostBtn" type="button">＋ 投稿する</button>
     <button class="sg-close" id="tlClose" type="button">✕ 閉じる</button>
   </div>
+  <div class="tl-scope hidden" id="tlScope" role="group" aria-label="タイムラインに流すリストの切り替え"></div>
   <div class="tl-stage" id="tlStage"></div>
   <div class="tl-feed hidden" id="tlFeed"></div>
   <div class="sg-nav" id="tlNav">
@@ -1108,6 +1153,11 @@
     <span class="sg-ticker-label">UPCOMING</span>
     <div class="sg-ticker-view"><div class="sg-ticker-track" id="tlTicker"></div></div>
   </div>
+</div>
+<div class="lp-backdrop hidden" id="lpBackdrop"></div>
+<div class="lp-sheet hidden" id="lpSheet" role="dialog" aria-modal="true" aria-label="リストに追加">
+  <div class="lp-head"><h2 id="lpTitle">リストに追加</h2><button class="fh-close" type="button" id="lpClose" aria-label="閉じる">✕</button></div>
+  <div class="lp-body" id="lpBody"></div>
 </div>
 <button class="top-btn" id="topBtn" type="button" aria-label="ページの先頭に戻る">↑</button>
 <!-- 絞り込みシートは sticky な操作バーの外（body直下）に置く：fixed配置と背面固定を祖先要素の影響から切り離す -->
@@ -1842,7 +1892,7 @@ var dirCatFilter="すべて", dirEventsOnly=false;
 var venueGenres=new Set(), venueGenreSubs=new Set(), venueGenreGroups=new Set(), venueGenreClosed={}, venueSugDismissed="";
 try{ showEnded = localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
 var els={};
-["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo"].forEach(function(id){ els[id]=document.getElementById(id); });
+["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope"].forEach(function(id){ els[id]=document.getElementById(id); });
 
 var toastTimer=null;
 function toast(msg){
@@ -2294,7 +2344,12 @@ function contentPass(ev, opts){
   return true;
 }
 function filtered(){
+  /* リストビューでは基礎集合を「選択中リストのイベント集合」に差し替え、
+     その上で既存の検索・絞り込み（contentPass）を通す（v66） */
+  var listSet=null;
+  if(view==="lists"){ var al0=activeList(); listSet=al0?listEventIdSet(al0):new Set(); }
   var list=allEvents.filter(function(ev){
+    if(listSet && !listSet.has(String(ev.id))) return false;
     if(view==="fav" && !favEvents.has(String(ev.id))) return false;
     if(view==="oshi" && !hasOshi(ev)) return false;
     if(view==="christmas"){
@@ -2825,6 +2880,8 @@ function loadEventImages(){
     eventImagesLoading=fetch("assets/event-images.json", ctl?{signal:ctl.signal}:undefined).then(function(r){ if(tm)clearTimeout(tm); if(!r.ok) throw new Error("event-images"); return r.json(); }).then(function(j){
       if(j && typeof j==="object" && !Array.isArray(j)) eventImages=j;
       eventImagesLoaded=true; eventImagesLoading=null;
+      /* 深いリンク等で読み込み前に詳細が開いていたら、ギャラリー付きで開き直す */
+      if(currentEv && eventImageList(currentEv).length>=2 && !els.modal.querySelector("#galTrack")) openModal(currentEv);
     }).catch(function(){ if(tm)clearTimeout(tm); eventImagesLoaded=true; eventImagesLoading=null; });
     return eventImagesLoading;
   }catch(e){ eventImagesLoaded=true; return Promise.resolve(); }
@@ -3173,7 +3230,8 @@ function renderDetailInner(){
     head='<div class="detail-head"><span class="cat-chip" style="background:var(--oshi)">アーティスト</span>'
       +'<div style="display:flex;align-items:center;gap:12px;margin-top:8px">'+(aprof0&&aprof0.av?'<img class="artist-avatar" src="'+esc(aprof0.av)+'" alt="" onerror="this.style.display=\'none\'">':"")+'<h2 style="margin:0">'+esc(name)+'</h2></div>'
       +'<p>開催予定 '+upcoming.length+'件 ／ 全 '+evs.length+'件の出演イベントを掲載データから集計しています。</p>'
-      +'<div style="margin-top:10px"><button class="modal-fav'+(isOshi?" on":"")+'" type="button" id="detailOshiBtn" style="border-color:var(--oshi);color:'+(isOshi?"#fff":"var(--oshi)")+';'+(isOshi?"background:var(--oshi)":"")+'">'+(isOshi?"★ 推し登録中":"☆ 推しに登録")+'</button></div>';
+      +'<div style="margin-top:10px"><button class="modal-fav'+(isOshi?" on":"")+'" type="button" id="detailOshiBtn" style="border-color:var(--oshi);color:'+(isOshi?"#fff":"var(--oshi)")+';'+(isOshi?"background:var(--oshi)":"")+'">'+(isOshi?"★ 推し登録中":"☆ 推しに登録")+'</button></div>'
+      +'<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailListBtn">リストに追加</button></div>';
     var aprof=artistProfileFor(name);
     var resolvedCat=artistCategoryOf(name);
     if(resolvedCat || readingByName[name]) head+='<p style="margin-top:10px">'+(resolvedCat?'カテゴリ：'+esc(resolvedCat):"")+(readingByName[name]?' ／ 読み：'+esc(readingByName[name]):"")+'</p>';
@@ -3266,6 +3324,8 @@ function renderDetailInner(){
   wireCardImages(els.detailBody);
   var peb=document.getElementById("detailProfEditBtn");
   if(peb) peb.addEventListener("click", function(){ if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name); });
+  var dlb=document.getElementById("detailListBtn");
+  if(dlb) dlb.addEventListener("click", function(){ openListPicker("artist", name); });
   var ob=document.getElementById("detailOshiBtn");
   if(ob) ob.addEventListener("click", function(){
     if(favPerfs.has(name)){ favPerfs.delete(name); toast("推しから外しました："+name); } else { favPerfs.add(name); toast("推しに登録しました："+name); }
@@ -3280,6 +3340,7 @@ function renderCountsOnly(){
   var oshiCount = allEvents.filter(hasOshi).length;
   /* 詳細（出演者）結合前の件数は不完全なため数として出さない（v53） */
   els.oshiCnt.textContent = favPerfs.size? ((detailsState==="merged"||detailsState==="failed") ? "("+oshiCount+")" : "（読み込み中）"):"";
+  if(els.listsCnt) els.listsCnt.textContent = myLists.length? "("+myLists.length+")":"";
   if(els.xmasCnt){
     var xn=xmasBaseList().length;
     els.xmasCnt.textContent = xn? "("+xn+")":"";
@@ -3465,6 +3526,11 @@ function renderInner(){
   if(isDetail){ renderDetail(); return; }
   if(isPrefs){ renderPrefsView(); return; }
   if(isRoute){ renderRouteFit(); return; }
+  if(els.listsBar){
+    var isListsView = view==="lists";
+    els.listsBar.classList.toggle("hidden", !isListsView);
+    if(isListsView) renderListsBar();
+  }
   renderHomeExtras();
   var list=filtered();
   currentList=list;
@@ -3476,6 +3542,7 @@ function renderInner(){
   var endedHidden = showEnded ? 0 : allEvents.filter(function(ev){ return isEnded(ev); }).length;
   els.resultLine.innerHTML = "<strong>"+list.length.toLocaleString()+"件</strong> のイベント（全"+allEvents.length.toLocaleString()+"件中）"
     + (view==="fav" ? "（お気に入り）" : view==="oshi" ? "（推しが出演）" : view==="expo" ? "（アフター万博特集）" : view==="christmas" ? "（クリスマス特集"+(xmasSub!=="all" ? "・"+esc((XMAS_SUBS.filter(function(s){ return s.k===xmasSub; })[0]||{}).label||"") : "")+"）" : "")
+    + (view==="lists" ? "（リスト"+(activeList()?"："+esc(activeList().name):"")+"）" : "")
     + (exactTarget ? " ・ 候補で選択中：「"+esc(exactTarget.value)+"」"+(exactTarget.kind==="eventTitle" ? "（タイトルに含む全件）" : "のみ表示") : (query.trim() ? " ・ 検索：「"+esc(query.trim())+"」"+(currentTicketUrlQuery()!=null ? "（チケットURLで検索中）" : "") : ""))
     + (activeCat!=="すべて" ? " ・ カテゴリ："+esc(activeCat) : "")
     + (activeFilterCount()>0 ? " ・ 絞り込み "+activeFilterCount()+"条件" : "")
@@ -3490,7 +3557,11 @@ function renderInner(){
   var empty = list.length===0;
   els.emptyState.hidden = !empty;
   if(empty){
-    if(view==="fav"){ els.emptyTitle.textContent="お気に入りはまだありません"; els.emptyText.textContent="カード右上の ♡ をタップすると、ここに集まります。"; }
+    if(view==="lists"){
+      if(!myLists.length){ els.emptyTitle.textContent="リストがまだありません"; els.emptyText.textContent="上の「＋ 新規リスト」から作るか、イベント詳細の「＋ リスト」、アーティストページの「リストに追加」から入れられます。"; }
+      else { els.emptyTitle.textContent="このリストに合うイベントがありません"; els.emptyText.textContent="検索・絞り込みの条件を外すか、イベント詳細の「＋ リスト」やアーティストページの「リストに追加」から追加してください。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
+    }
+    else if(view==="fav"){ els.emptyTitle.textContent="お気に入りはまだありません"; els.emptyText.textContent="カード右上の ♡ をタップすると、ここに集まります。"; }
     else if(view==="oshi"){ els.emptyTitle.textContent="推しが出演するイベントがありません"; els.emptyText.textContent="イベント詳細で出演者名をタップすると推しに登録でき、ここにその出演イベントが表示されます。"; }
     else if(view==="christmas"){ els.emptyTitle.textContent="この種類のクリスマスイベントはまだありません"; els.emptyText.textContent="種類チップを「すべて」に戻すか、検索・絞り込みを外してお試しください。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
     else if(view==="expo"){ els.emptyTitle.textContent="アフター万博特集のイベントはまだありません"; els.emptyText.textContent="検索・絞り込みを外すか、「終了したイベントも表示」をONにしてお試しください。"; }
@@ -3681,6 +3752,7 @@ function openModal(ev){
   var isFav=favEvents.has(String(ev.id));
   var isWant=wantEvents.has(String(ev.id));
   var isInt=intEvents.has(String(ev.id));
+  var inListsCount=myLists.filter(function(l){ return listHasEvent(l, String(ev.id)); }).length;
   var desc=parseDesc(ev.description);
   var descHTML="";
   if(desc){
@@ -3738,6 +3810,7 @@ function openModal(ev){
     + '<button class="mini-btn want'+(isWant?" on":"")+'" type="button" id="modalWant">'+(isWant?"✓ 行きたい":"行きたい")+'</button>'
     + '<button class="mini-btn interest'+(isInt?" on":"")+'" type="button" id="modalInt">'+(isInt?"✓ 気になる":"気になる")+'</button>'
     + '<button class="mini-btn" type="button" id="modalShare">共有</button>'
+    + '<button class="mini-btn" type="button" id="modalList">'+(inListsCount? "✓ リスト（"+inListsCount+"）" : "＋ リスト")+'</button>'
     + '</div>'
     + relatedEventsHTML(ev)
     + '<div class="modal-edit-row"><button class="modal-edit-btn" type="button" id="modalEdit">このイベントの修正を送る</button></div>'
@@ -3764,6 +3837,7 @@ function openModal(ev){
     else if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(shareText).then(function(){ toast("共有文をコピーしました"); }, function(){ toast("コピーできませんでした"); }); }
     else { toast("このブラウザでは共有できません"); }
   });
+  document.getElementById("modalList").addEventListener("click", function(){ openListPicker("event", String(ev.id)); });
   document.getElementById("modalEdit").addEventListener("click", function(){
     var id=String(ev.id);
     closeModal();
@@ -3990,13 +4064,252 @@ function toggleInt(id){
   saveSet(LS_INT, intEvents);
 }
 
+/* ---------- マイリスト（v66） ----------
+   推しやイベントをまとめる端末内のリスト（グループ）。保存はこの端末のみ
+   （kg_trial_lists_v1）。リストのイベント集合 = 直接入れたイベント ＋
+   リスト内のアーティスト（推し）が出演するイベント（重複は1件）。
+   リストビューでは基礎集合をこの集合に差し替えて、既存の検索・絞り込みを
+   そのまま効かせる（filtered() 側で view==="lists" のときに判定） */
+var LS_LISTS="kg_trial_lists_v1";
+function loadMyLists(){
+  try{
+    var a=JSON.parse(localStorage.getItem(LS_LISTS)||"[]");
+    if(!Array.isArray(a)) return [];
+    return a.filter(function(x){ return x && typeof x==="object" && typeof x.id==="string" && x.id && typeof x.name==="string"; }).map(function(x){
+      return { id:x.id, name:x.name,
+        events:Array.isArray(x.events)?x.events.map(String):[],
+        artists:Array.isArray(x.artists)?x.artists.map(String):[],
+        createdAt:Number(x.createdAt)||0 };
+    });
+  }catch(e){ return []; }
+}
+function saveMyLists(){ try{ localStorage.setItem(LS_LISTS, JSON.stringify(myLists)); }catch(e){ console.warn("端末内への保存に失敗しました",e); } }
+var myLists=loadMyLists();
+var activeListId=null; /* リストビューで選択中のリストid（未選択なら先頭を使う） */
+var listsEdit=null;    /* リストバーの編集状態 {mode:"new"|"rename"|"delask"} */
+var tlScopeListId=null; /* タイムラインのスコープ（null=すべて）。保存しない */
+function findList(id){ return myLists.find(function(l){ return l.id===id; })||null; }
+function activeList(){
+  var l=activeListId?findList(activeListId):null;
+  if(!l && myLists.length){ l=myLists[0]; activeListId=l.id; }
+  if(!myLists.length) activeListId=null;
+  return l;
+}
+function createList(name){
+  var l={ id:"l"+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36),
+    name:String(name||"").trim()||"無題のリスト", events:[], artists:[], createdAt:Date.now() };
+  myLists.push(l); saveMyLists();
+  return l;
+}
+function listEventIdSet(l){
+  var set=new Set();
+  if(!l) return set;
+  l.events.forEach(function(id){ set.add(String(id)); });
+  if(l.artists.length){
+    var arts=new Set(l.artists);
+    allEvents.forEach(function(ev){
+      if(ev._perfList && ev._perfList.some(function(p){ return arts.has(p); })) set.add(String(ev.id));
+    });
+  }
+  return set;
+}
+function listCounts(l){
+  var set=listEventIdSet(l), directSet=new Set((l?l.events:[]).map(String));
+  var direct=0, via=0;
+  set.forEach(function(id){ if(directSet.has(id)) direct++; else via++; });
+  return {direct:direct, via:via, total:set.size};
+}
+function listHasEvent(l, id){ return !!l && l.events.indexOf(String(id))>=0; }
+function listHasArtist(l, name){ return !!l && l.artists.indexOf(name)>=0; }
+function toggleListEvent(l, id){
+  id=String(id); var i=l.events.indexOf(id);
+  if(i>=0) l.events.splice(i,1); else l.events.push(id);
+  saveMyLists();
+}
+function toggleListArtist(l, name){
+  var i=l.artists.indexOf(name);
+  if(i>=0) l.artists.splice(i,1); else l.artists.push(name);
+  saveMyLists();
+}
+function listsEditHTML(){
+  if(!listsEdit) return "";
+  if(listsEdit.mode==="new"){
+    return '<div class="lists-edit"><input class="lists-name-input" id="listsNameInput" type="text" maxlength="60" placeholder="リスト名（例：週末のおでかけ）" value="">'
+      + '<button type="button" class="btn-accent" data-lists-create="1">作る</button>'
+      + '<button type="button" class="btn-ghost" data-lists-cancel="1">やめる</button></div>';
+  }
+  if(listsEdit.mode==="rename"){
+    var l=activeList();
+    return '<div class="lists-edit"><input class="lists-name-input" id="listsNameInput" type="text" maxlength="60" value="'+esc(l?l.name:"")+'">'
+      + '<button type="button" class="btn-accent" data-lists-renamed="1">変更する</button>'
+      + '<button type="button" class="btn-ghost" data-lists-cancel="1">やめる</button></div>';
+  }
+  if(listsEdit.mode==="delask"){
+    var l2=activeList();
+    return '<div class="lists-edit"><span style="font-size:14px">「'+esc(l2?l2.name:"")+'」を削除しますか？（イベントや推し自体は消えません）</span>'
+      + '<button type="button" class="lists-del-btn" data-lists-deleted="1">削除する</button>'
+      + '<button type="button" class="btn-ghost" data-lists-cancel="1">やめる</button></div>';
+  }
+  return "";
+}
+function renderListsBar(){
+  var bar=els.listsBar; if(!bar) return;
+  if(!myLists.length){
+    bar.innerHTML='<h2 class="lists-title">マイリスト</h2>'
+      + '<p class="lists-empty-note">まだリストがありません。気になるイベントや推しをまとめる「リスト」を作ると、ここで切り替えて見られます。<br>作り方：下のボタンで新規作成するか、イベント詳細の「＋ リスト」、アーティストページの「リストに追加」から入れられます。</p>'
+      + '<div class="lists-actions"><button type="button" class="btn-accent" data-lists-new="1">＋ 新規リスト</button></div>'
+      + listsEditHTML();
+    return;
+  }
+  var l=activeList(); if(!l) return;
+  var c=listCounts(l);
+  var tabs=myLists.map(function(x){
+    var xc=listCounts(x);
+    return '<button type="button" role="tab" aria-selected="'+(x.id===l.id)+'" class="lists-tab'+(x.id===l.id?" on":"")+'" data-lists-tab="'+esc(x.id)+'">'+esc(x.name)+'<span class="lists-cnt">'+xc.total+'件</span></button>';
+  }).join("");
+  bar.innerHTML='<div class="lists-tabs" role="tablist" aria-label="マイリストの切り替え">'+tabs
+    + '<button type="button" class="lists-tab add" data-lists-new="1">＋ 新規リスト</button></div>'
+    + '<div class="lists-meta">直接 '+c.direct+'件 ・ 推し経由 '+c.via+'件（全'+c.total+'件）　検索・絞り込みはこのリストの中に効きます</div>'
+    + (l.artists.length ? '<div class="lists-artists"><span class="lists-artists-label">このリストの推し：</span>'
+        + l.artists.map(function(a){ return '<button type="button" class="lists-artist" data-lists-artist="'+esc(a)+'">★ '+esc(a)+'</button>'; }).join("") + '</div>' : "")
+    + '<div class="lists-actions"><button type="button" class="btn-ghost" data-lists-rename="1">名前を変更</button><button type="button" class="btn-ghost" data-lists-delete="1">このリストを削除</button></div>'
+    + listsEditHTML();
+}
+function renderListsBarFocus(){
+  renderListsBar();
+  var inp=document.getElementById("listsNameInput");
+  if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length, inp.value.length); }catch(e){} }
+}
+function confirmListName(mode){
+  var inp=document.getElementById("listsNameInput");
+  var name=inp?inp.value.trim():"";
+  if(mode==="rename"){
+    var al=activeList(); if(!al) return;
+    if(name) al.name=name;
+    saveMyLists(); listsEdit=null;
+    toast("リスト名を変更しました");
+    render();
+  } else {
+    var l=createList(name);
+    activeListId=l.id; listsEdit=null;
+    toast("リスト「"+l.name+"」を作りました");
+    render();
+  }
+}
+function doDeleteList(){
+  var al=activeList(); if(!al) return;
+  myLists=myLists.filter(function(x){ return x.id!==al.id; });
+  saveMyLists(); listsEdit=null;
+  activeListId=myLists.length?myLists[0].id:null;
+  toast("リスト「"+al.name+"」を削除しました");
+  render();
+}
+/* ---------- リスト選択シート（イベント詳細・アーティスト詳細 共通） ---------- */
+var lpCtx=null;      /* {kind:"event"|"artist", key:eventId|artistName} */
+var lpFromModal=false;
+function openListPicker(kind, key){
+  lpCtx={kind:kind, key:key};
+  lpFromModal=!!(els.overlay && els.overlay.classList.contains("open"));
+  renderListPicker();
+  if(els.lpBackdrop) els.lpBackdrop.classList.remove("hidden");
+  if(els.lpSheet) els.lpSheet.classList.remove("hidden");
+  if(!lpFromModal) document.body.style.overflow="hidden";
+}
+function closeListPicker(){
+  var wasModal=lpFromModal, ev=currentEv;
+  lpCtx=null; lpFromModal=false;
+  if(els.lpBackdrop) els.lpBackdrop.classList.add("hidden");
+  if(els.lpSheet) els.lpSheet.classList.add("hidden");
+  if(!wasModal) document.body.style.overflow="";
+  /* 詳細モーダルから開いた場合は、ピルの表示（リスト件数）を更新するため開き直す */
+  if(wasModal && ev && els.overlay.classList.contains("open")){ openModal(ev); render(); }
+}
+function renderListPicker(){
+  var body=els.lpBody; if(!body || !lpCtx) return;
+  var targetName="";
+  if(lpCtx.kind==="event"){
+    var ev=allEvents.find(function(x){ return String(x.id)===String(lpCtx.key); });
+    targetName=ev?ev.title:"";
+    if(els.lpTitle) els.lpTitle.textContent="イベントをリストへ";
+  } else {
+    targetName=lpCtx.key;
+    if(els.lpTitle) els.lpTitle.textContent="アーティストをリストへ";
+  }
+  var rows=myLists.map(function(l){
+    var on = lpCtx.kind==="event" ? listHasEvent(l, lpCtx.key) : listHasArtist(l, lpCtx.key);
+    var c=listCounts(l);
+    return '<button type="button" class="lp-row" data-lp-toggle="'+esc(l.id)+'" aria-pressed="'+on+'"><span>'+esc(l.name)+'</span><span class="lp-cnt">'+c.total+'件</span>'
+      + (on ? '<span class="lp-check">✓ 入っています</span>' : '<span class="lp-add">＋ 追加</span>') + '</button>';
+  }).join("");
+  body.innerHTML=(targetName ? '<p class="lp-target">'+esc(targetName)+'</p>' : "")
+    + (rows || '<p class="lp-none">まだリストがありません。下の欄から作って追加できます。</p>')
+    + '<div class="lp-new"><input class="lists-name-input" id="lpNewName" type="text" maxlength="60" placeholder="新しいリスト名">'
+    + '<button type="button" class="btn-accent" id="lpCreate">作って追加</button></div>';
+  var cr=document.getElementById("lpCreate");
+  if(cr) cr.addEventListener("click", function(){
+    if(!lpCtx) return;
+    var inp=document.getElementById("lpNewName");
+    var l=createList(inp?inp.value:"");
+    if(lpCtx.kind==="event") toggleListEvent(l, lpCtx.key); else toggleListArtist(l, lpCtx.key);
+    renderListPicker(); renderCountsOnly();
+    toast("リスト「"+l.name+"」に追加しました");
+  });
+}
+(function initLists(){
+  var bar=els.listsBar;
+  if(bar){
+    bar.addEventListener("click", function(e){
+      var t=e.target.closest("[data-lists-tab]");
+      if(t){ activeListId=t.getAttribute("data-lists-tab"); listsEdit=null; render(); return; }
+      if(e.target.closest("[data-lists-new]")){ listsEdit={mode:"new"}; renderListsBarFocus(); return; }
+      if(e.target.closest("[data-lists-rename]")){ listsEdit={mode:"rename"}; renderListsBarFocus(); return; }
+      if(e.target.closest("[data-lists-delete]")){ listsEdit={mode:"delask"}; renderListsBar(); return; }
+      if(e.target.closest("[data-lists-cancel]")){ listsEdit=null; renderListsBar(); return; }
+      if(e.target.closest("[data-lists-create]")){ confirmListName("new"); return; }
+      if(e.target.closest("[data-lists-renamed]")){ confirmListName("rename"); return; }
+      if(e.target.closest("[data-lists-deleted]")){ doDeleteList(); return; }
+      var a=e.target.closest("[data-lists-artist]");
+      if(a){ openDirDetail("artist", a.getAttribute("data-lists-artist")); return; }
+    });
+    bar.addEventListener("keydown", function(e){
+      if(e.key==="Enter" && e.target.id==="listsNameInput"){
+        e.preventDefault();
+        confirmListName(listsEdit && listsEdit.mode==="rename" ? "rename" : "new");
+      }
+    });
+  }
+  if(els.lpBody){
+    els.lpBody.addEventListener("click", function(e){
+      var b=e.target.closest("[data-lp-toggle]");
+      if(!b || !lpCtx) return;
+      var l=findList(b.getAttribute("data-lp-toggle"));
+      if(!l) return;
+      if(lpCtx.kind==="event"){
+        var wasIn=listHasEvent(l, lpCtx.key);
+        toggleListEvent(l, lpCtx.key);
+        toast(wasIn ? "リスト「"+l.name+"」から外しました" : "リスト「"+l.name+"」に追加しました");
+      } else {
+        var wasInA=listHasArtist(l, lpCtx.key);
+        toggleListArtist(l, lpCtx.key);
+        toast(wasInA ? "リスト「"+l.name+"」から外しました" : "リスト「"+l.name+"」に追加しました");
+      }
+      renderListPicker(); renderCountsOnly();
+    });
+  }
+  if(els.lpClose) els.lpClose.addEventListener("click", closeListPicker);
+  if(els.lpBackdrop) els.lpBackdrop.addEventListener("click", closeListPicker);
+  document.addEventListener("keydown", function(e){
+    if(e.key==="Escape" && lpCtx){ e.stopPropagation(); closeListPicker(); }
+  }, true);
+})();
+
 /* ---------- 好み（初回アンケート＋おすすめ・公開版と同仕様） ----------
    保存はこの試作ページ専用キー（kg_trial_prefs_v1／kg_trial_learn_v1）のみ。
    公開版のキー（keg-public-prefs-v1 等）には一切触れない。
    おすすめはスコア式で、適用先はホームの棚「あなたへのおすすめ」と
    並び替え「おすすめ順」だけ。一覧の並び順・絞り込みの初期値には干渉しない */
 var LS_PREFS="kg_trial_prefs_v1", LS_LEARN="kg_trial_learn_v1";
-function emptyPrefs(){ return {onboarded:false, cats:[], artists:[], prefs:[], areas:[], free:false, weekend:false, collab:false, dismissed:[], recoOff:false, featOff:false, tlMode:"slide"}; }
+function emptyPrefs(){ return {onboarded:false, cats:[], artists:[], prefs:[], areas:[], free:false, weekend:false, collab:false, dismissed:[], recoOff:false, featOff:false, tlMode:"slide", startView:"list"}; }
 function loadPrefs(){
   try{
     var o=JSON.parse(localStorage.getItem(LS_PREFS)||"null");
@@ -4008,6 +4321,8 @@ function loadPrefs(){
       p.recoOff=!!o.recoOff; p.featOff=!!o.featOff;
       /* タイムラインの表示方法（v57）: "slide"（サイネージ型）／"feed"（縦スクロール）。端末内に保持 */
       p.tlMode = o.tlMode==="feed" ? "feed" : "slide";
+      /* 最初のページ（v66）: "list"（通常のイベント一覧）／"feed"（タイムラインを自動で開く）。既定は通常 */
+      p.startView = o.startView==="feed" ? "feed" : "list";
       return p;
     }
   }catch(e){}
@@ -4365,7 +4680,12 @@ function renderPrefsView(){
     + '<div class="pf-sec"><h3>表示の設定</h3><div class="pf-flags">'
     + '<button type="button" class="pf-flag'+(!prefs.recoOff?" on":"")+'" data-pf-disp="reco" aria-pressed="'+(!prefs.recoOff)+'"><span class="pf-flag-text"><span class="pf-flag-main">あなたへのおすすめを表示</span><span class="pf-flag-sub">トップページの初期表示のときだけ出ます</span></span><span class="pf-switch" aria-hidden="true"></span></button>'
     + '<button type="button" class="pf-flag'+(!prefs.featOff?" on":"")+'" data-pf-disp="feat" aria-pressed="'+(!prefs.featOff)+'"><span class="pf-flag-text"><span class="pf-flag-main">特集バナーを表示</span><span class="pf-flag-sub">トップページの特集バナーです。オフでも上のタブから特集を開けます</span></span><span class="pf-switch" aria-hidden="true"></span></button>'
-    + '</div></div>'
+    + '</div>'
+    + '<div class="pf-startview"><span class="pf-sv-label">最初のページ</span><div class="cal-scope pf-sv-scope" role="group" aria-label="最初のページの切り替え">'
+    + '<button type="button" data-pf-start="list" class="'+(prefs.startView!=="feed"?"on":"")+'" aria-pressed="'+(prefs.startView!=="feed")+'">通常（イベント一覧）</button>'
+    + '<button type="button" data-pf-start="feed" class="'+(prefs.startView==="feed"?"on":"")+'" aria-pressed="'+(prefs.startView==="feed")+'">フィード（タイムライン）</button>'
+    + '</div><p class="pf-sv-note">フィードにすると、サイトを開いたときにタイムラインが自動で表示されます（閉じれば通常の画面に戻ります）。</p></div>'
+    + '</div>'
     + '<div class="pf-actions"><button type="button" class="btn-accent" id="pfRedo">'+(prefs.onboarded?"アンケートを最初からやり直す":"アンケートに答える")+'</button>'
     + '<button type="button" class="btn-ghost" id="pfReset">好みをリセット</button></div>'
     + '<p class="pf-note">タップするとその場で保存されます（この端末内のみ・外部送信なし）。</p>';
@@ -4377,6 +4697,7 @@ document.getElementById("prefsBody").addEventListener("click", function(e){
   var ar=e.target.closest("[data-pf-area]"); if(ar){ toggleInArr(prefs.areas, ar.getAttribute("data-pf-area")); savePrefs(); renderPrefsView(); return; }
   var f=e.target.closest("[data-pf-flag]"); if(f){ var k=f.getAttribute("data-pf-flag"); prefs[k]=!prefs[k]; savePrefs(); renderPrefsView(); return; }
   var dsp=e.target.closest("[data-pf-disp]"); if(dsp){ var dk=dsp.getAttribute("data-pf-disp"); if(dk==="reco") prefs.recoOff=!prefs.recoOff; else if(dk==="feat") prefs.featOff=!prefs.featOff; savePrefs(); renderPrefsView(); render(); return; }
+  var svw=e.target.closest("[data-pf-start]"); if(svw){ prefs.startView = svw.getAttribute("data-pf-start")==="feed" ? "feed" : "list"; savePrefs(); renderPrefsView(); toast(prefs.startView==="feed" ? "最初のページをフィードにしました" : "最初のページを通常（イベント一覧）にしました"); return; }
   if(e.target.closest("#pfRedo")){ obOpen(); return; }
   if(e.target.closest("#pfReset")){
     prefs.cats=[]; prefs.artists=[]; prefs.prefs=[]; prefs.areas=[]; prefs.free=false; prefs.weekend=false; prefs.collab=false;
@@ -4803,6 +5124,22 @@ function applyDataSafe(events){
   try{ applyData(events); return true; }
   catch(e){ kgRenderError('applyData', e); return false; }
 }
+/* 最初のページ設定（v66）: prefs.startView==="feed" の端末では、データ読み込み
+   完了後にタイムラインを自動で1回だけ開く。アンケート自動表示の条件が立つ
+   端末では入口の順序（ログイン→アンケート）を壊さないため開かない
+   （アンケート側の既存ガードはそのまま。CTAは通常画面側に残る）。
+   ディープリンクで詳細が開いている場合も重ねない */
+var startFeedDone=false;
+function maybeOpenStartFeed(){
+  if(startFeedDone) return; startFeedDone=true;
+  if(!prefs || prefs.startView!=="feed") return;
+  if(!prefs.onboarded && !kgAdminOn() && !kgHasLocalSession()) return;
+  setTimeout(function(){
+    if(tlState.open) return;
+    if(els.overlay && els.overlay.classList.contains("open")) return;
+    openTimeline();
+  }, 600);
+}
 function applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite){
   /* 反映待ち（v57）: シート由来データは lastSheetEvents にそのまま保持し、
      表示用 allEvents にはこの端末の送信分を重ねたものを使う。
@@ -4827,6 +5164,7 @@ function applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite){
     setTimeout(function(){ if(!prefs.onboarded && !kgAdminOn() && !kgHasLocalSession()) obOpen(); }, 900);
   }
   if(detailsState!=="pending") tryDeepLink();
+  maybeOpenStartFeed();
   loadProfiles();
   loadEventImages();
   if(window.__kgBootMarkOk) window.__kgBootMarkOk();
@@ -4951,7 +5289,7 @@ function evCachePut(events, lite){
    端末では、推し・お気に入り・アンケート回答・ログイン状態が毎回消えてしまう。
    対象キーは保存のたびに IndexedDB へ控えを取り、起動時に localStorage 側に
    無いものを控えから復元する（どんな端末でも安定して使えることへの対策） */
-var MIRROR_KEYS=["kg_trial_fav_events_v1","kg_trial_fav_performers_v1","kg_trial_prefs_v1","kg_trial_learn_v1","kg_trial_show_ended","kg_filter_profiles_v1","kg_member_session_v2","kg_member_selected_v2","kg_member_selected_v1","kg_member_code_v1","kg_account_selected_user_v1","kg_admin_mode_v1","kg_admin_hash_v1","kg_guest_mode_v1"];
+var MIRROR_KEYS=["kg_trial_fav_events_v1","kg_trial_fav_performers_v1","kg_trial_lists_v1","kg_trial_prefs_v1","kg_trial_learn_v1","kg_trial_show_ended","kg_filter_profiles_v1","kg_member_session_v2","kg_member_selected_v2","kg_member_selected_v1","kg_member_code_v1","kg_account_selected_user_v1","kg_admin_mode_v1","kg_admin_hash_v1","kg_guest_mode_v1"];
 var MIRROR_PREFIXES=["kg_account_pending_v1_"];
 var MIRROR_IDB_KEY="local-mirror-v1";
 var mirrorRestoring=false, mirrorTimer=null;
@@ -5004,6 +5342,7 @@ function restoreLocalMirror(){
 }
 function resyncLocalState(){
   favEvents=loadSet(LS_FAV); favPerfs=loadSet(LS_OSHI);
+  myLists=loadMyLists();
   prefs=loadPrefs(); learn=loadLearn();
   try{ showEnded=localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
 }
@@ -5998,6 +6337,12 @@ function tlByDate(a,b){
 }
 function buildTimelineItems(){
   var up=allEvents.filter(function(ev){ return !isEnded(ev); });
+  /* リストのスコープが選ばれているときは、そのリストのイベント集合だけを流す（v66） */
+  if(tlScopeListId){
+    var sl=findList(tlScopeListId);
+    var lset=sl?listEventIdSet(sl):new Set();
+    up=up.filter(function(ev){ return lset.has(String(ev.id)); });
+  }
   var mine=[], favs=[], oshi=[], scored=[], rest=[];
   up.forEach(function(ev){
     if(ev._pending) mine.push(ev);
@@ -6108,8 +6453,19 @@ function tlUpdateClock(){
   var now=new Date();
   el.textContent=fmtDateFull(todayStr())+" "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
 }
+function renderTlScope(){
+  var el=tlEl("tlScope"); if(!el) return;
+  if(!myLists.length){ el.classList.add("hidden"); el.innerHTML=""; tlScopeListId=null; return; }
+  if(tlScopeListId && !findList(tlScopeListId)) tlScopeListId=null;
+  el.classList.remove("hidden");
+  el.innerHTML='<button type="button" data-tlscope="" class="'+(tlScopeListId?"":"on")+'">すべて</button>'
+    + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("");
+}
 function openTimeline(){
   if(!allEvents.length){ toast("データの読み込みが終わってから開始できます"); return; }
+  /* スコープは開くたび「すべて」から始める（v66） */
+  tlScopeListId=null;
+  renderTlScope();
   tlState.items=buildTimelineItems();
   if(!tlState.items.length){ toast("表示できるイベントがありません"); return; }
   var ov=tlEl("tlOverlay"); if(!ov) return;
@@ -6159,6 +6515,26 @@ window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
   var ms=tlEl("tlModeSlide"), mf=tlEl("tlModeFeed");
   if(ms) ms.addEventListener("click", function(){ tlSetMode("slide"); });
   if(mf) mf.addEventListener("click", function(){ tlSetMode("feed"); });
+  var scopeEl=tlEl("tlScope");
+  if(scopeEl) scopeEl.addEventListener("click", function(e){
+    var b=e.target.closest("[data-tlscope]"); if(!b) return;
+    var v=b.getAttribute("data-tlscope");
+    tlScopeListId = v ? v : null;
+    tlState.items=buildTimelineItems();
+    tlState.idx=0;
+    renderTlScope();
+    tlBuildTicker();
+    tlApplyMode();
+    if(!tlState.items.length){
+      if(tlState.timer) clearTimeout(tlState.timer);
+      if(prefs.tlMode!=="feed"){
+        var st=tlEl("tlStage");
+        if(st) st.innerHTML='<section class="tl-slide"><div class="tl-end"><h2>このリストには表示できるイベントがありません</h2><p>リストにイベントや推しを追加すると、ここに流れます。</p></div></section>';
+        var cnt=tlEl("tlCount"); if(cnt) cnt.textContent="0 / 0";
+      }
+      toast("このリストには表示できるイベントがありません");
+    }
+  });
   var post=tlEl("tlPostBtn");
   if(post) post.addEventListener("click", tlOpenPost);
   var stage=tlEl("tlStage");
@@ -6273,6 +6649,7 @@ window.addEventListener("storage",function(e){
   if(all||e.key===LS_LEARN)learn=loadLearn();
   if(all||e.key==="kg_trial_show_ended"){showEnded=localStorage.getItem("kg_trial_show_ended")==="1";syncEndedUI();}
   if(all||e.key===LS_PENDING){ if(lastSheetEvents){ allEvents=mergePendingEvents(lastSheetEvents); if(allEvents.length) render(); } }
+  if(all||e.key===LS_LISTS){ myLists=loadMyLists(); if(allEvents.length && view==="lists") render(); else if(allEvents.length) renderCountsOnly(); }
   if(all||e.key==="kg_filter_profiles_v1")window.dispatchEvent(new Event("kg:profiles-refresh"));
   if(all||e.key===LS_FAV||e.key===LS_OSHI||e.key===LS_PREFS||e.key===LS_LEARN||e.key==="kg_trial_show_ended")if(allEvents.length)render();
 });

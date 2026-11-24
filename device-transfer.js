@@ -12,6 +12,7 @@
     favorites:'kg_trial_fav_events_v1',
     want:'kg_trial_want_events_v1',
     interest:'kg_trial_interest_events_v1',
+    lists:'kg_trial_lists_v1',
     performers:'kg_trial_fav_performers_v1',
     profiles:'kg_filter_profiles_v1',
     preferences:'kg_trial_prefs_v1',
@@ -89,6 +90,20 @@
     });
     return out;
   }
+  function safeLists(value){
+    if(value==null) return [];
+    if(!Array.isArray(value)||value.length>200) throw new Error('マイリストの形式または件数が上限を超えています。');
+    var out=[],seen=new Set();
+    value.forEach(function(row){
+      if(!row||typeof row!=='object'||Array.isArray(row)||typeof row.id!=='string'||!row.id||row.id.length>100||typeof row.name!=='string'||!row.name.trim()||row.name.length>60){
+        throw new Error('マイリストに読み取れない項目があります。');
+      }
+      if(seen.has(row.id)) throw new Error('マイリストのIDが重複しています。');
+      seen.add(row.id);
+      out.push({id:row.id,name:row.name.trim(),events:stringArray(row.events||[],'マイリストのイベント',50000),artists:stringArray(row.artists||[],'マイリストの推し',5000),createdAt:Number.isFinite(Number(row.createdAt))?Number(row.createdAt):0});
+    });
+    return out;
+  }
   function readCurrent(){
     var eventIds=parseStored(KEYS.favorites,[]),performers=parseStored(KEYS.performers,[]);
     var profiles=parseStored(KEYS.profiles,[]),preferences=parseStored(KEYS.preferences,DEFAULT_PREFS);
@@ -97,6 +112,7 @@
       favorites:stringArray(eventIds,'お気に入り',50000),
       want:stringArray(parseStored(KEYS.want,[]),'行きたい',50000),
       interest:stringArray(parseStored(KEYS.interest,[]),'気になる',50000),
+      lists:safeLists(parseStored(KEYS.lists,[])),
       performers:stringArray(performers,'推し',50000),
       filterProfiles:safeProfiles(profiles),
       preferences:safePrefs(preferences),
@@ -117,6 +133,7 @@
       favorites:stringArray(d.favorites,'お気に入り',50000),
       want:Array.isArray(d.want)?stringArray(d.want,'行きたい',50000):[],
       interest:Array.isArray(d.interest)?stringArray(d.interest,'気になる',50000):[],
+      lists:Array.isArray(d.lists)?safeLists(d.lists):[],
       performers:stringArray(d.performers,'推し',50000),
       filterProfiles:safeProfiles(d.filterProfiles),
       preferences:safePrefs(d.preferences),
@@ -153,11 +170,22 @@
     });
     return out;
   }
+  function mergeLists(a,b){
+    var out=(a||[]).map(function(x){return deepClone(x);});
+    (b||[]).forEach(function(row){
+      var i=out.findIndex(function(x){return x.id===row.id;});
+      if(i>=0){ out[i].events=union(out[i].events,row.events); out[i].artists=union(out[i].artists,row.artists); out[i].name=row.name; }
+      else out.push(deepClone(row));
+    });
+    if(out.length>200) throw new Error('統合後のマイリストが200件を超えます。不要なリストを削除するか、「置き換える」を選んでください。');
+    return out;
+  }
   function mergeData(a,b){
     return {
       favorites:union(a.favorites,b.favorites),
       want:union(a.want||[],b.want||[]),
       interest:union(a.interest||[],b.interest||[]),
+      lists:mergeLists(a.lists,b.lists),
       performers:union(a.performers,b.performers),
       filterProfiles:mergeProfiles(a.filterProfiles,b.filterProfiles),
       preferences:mergePrefs(a.preferences,b.preferences),
@@ -169,13 +197,14 @@
     return 'お気に入り '+d.favorites.length+'件・推し '+d.performers.length+'件・保存条件 '+d.filterProfiles.length+'件';
   }
   function countSummary(d){
-    return 'お気に入り '+d.favorites.length+'件、行きたい '+(d.want||[]).length+'件、気になる '+(d.interest||[]).length+'件、推し '+d.performers.length+'件、保存した絞り込み '+d.filterProfiles.length+'件、好み設定 '+(d.preferences.onboarded?'あり':'なし');
+    return 'お気に入り '+d.favorites.length+'件、行きたい '+(d.want||[]).length+'件、気になる '+(d.interest||[]).length+'件、マイリスト '+(d.lists||[]).length+'件、推し '+d.performers.length+'件、保存した絞り込み '+d.filterProfiles.length+'件、好み設定 '+(d.preferences.onboarded?'あり':'なし');
   }
   function writeData(d){
     var values={};
     values[KEYS.favorites]=JSON.stringify(d.favorites);
     values[KEYS.want]=JSON.stringify(d.want||[]);
     values[KEYS.interest]=JSON.stringify(d.interest||[]);
+    values[KEYS.lists]=JSON.stringify(d.lists||[]);
     values[KEYS.performers]=JSON.stringify(d.performers);
     values[KEYS.profiles]=JSON.stringify(d.filterProfiles);
     values[KEYS.preferences]=JSON.stringify(d.preferences);
