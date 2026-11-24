@@ -1,0 +1,670 @@
+<!DOCTYPE html><html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#b92b37">
+<link rel="manifest" href="./feed.webmanifest">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="イベントフィード">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+<title>関西イベント フィード</title>
+<style>
+  :root{
+    --accent:#c62828; --heart:#d81b60; --oshi:#6a1b9a; --gold:#b7791f;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;overflow:hidden;background:#000;color:#fff;font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;line-height:1.55}
+  a{color:inherit}
+  button{font:inherit;cursor:pointer}
+
+  /* ---------- 上部バー ---------- */
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:50;background:linear-gradient(rgba(0,0,0,.62),rgba(0,0,0,.28) 70%,rgba(0,0,0,0));padding-top:env(safe-area-inset-top)}
+  .topbar-in{max-width:560px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 14px 18px}
+  .topbar h1{margin:0;font-size:15px;font-weight:800;letter-spacing:.02em;text-shadow:0 1px 6px rgba(0,0,0,.6);white-space:nowrap}
+  .topbar .spacer{flex:1}
+  .topbar .count{font-size:12px;color:rgba(255,255,255,.85);text-shadow:0 1px 4px rgba(0,0,0,.6);white-space:nowrap}
+  .topbar .guide-link{display:inline-flex;align-items:center;min-height:36px;padding:6px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(20,20,20,.38);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap}
+  .topbar .guide-link:active{transform:scale(.97)}
+
+  /* ---------- フィード本体 ---------- */
+  .feed{height:100vh;height:100dvh;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-width:none}
+  .feed::-webkit-scrollbar{display:none}
+  @media (min-width:600px){
+    .feed{max-width:560px;margin:0 auto;box-shadow:0 0 0 1px #262626}
+  }
+  .card{position:relative;height:100vh;height:100dvh;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;background:#111}
+  .card .fallback{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:88px 26px 150px;gap:14px}
+  .card .fb-cat{display:inline-block;font-size:13px;font-weight:800;letter-spacing:.14em;padding:5px 14px;border-radius:999px;background:rgba(0,0,0,.32);color:#fff}
+  .card .fb-title{font-size:30px;font-weight:800;line-height:1.4;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.35);display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+  .card .fb-date{font-size:15px;font-weight:700;color:rgba(255,255,255,.92)}
+  .card img.media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .card .overlay{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:72px 16px calc(18px + env(safe-area-inset-bottom));background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.52) 46%,rgba(0,0,0,.85));color:#fff}
+  .badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);color:#fff;white-space:nowrap}
+  .badge.pend{background:var(--accent)}
+  .badge.fav{background:var(--heart)}
+  .badge.want{background:var(--accent)}
+  .badge.int{background:var(--gold)}
+  .badge.oshi{background:var(--oshi)}
+  .badge.now{background:rgba(255,255,255,.92);color:#111}
+  .ev-title{margin:0 0 6px;font-size:22px;font-weight:800;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+  .ev-date{font-size:15px;font-weight:700;margin-bottom:4px}
+  .ev-meta{font-size:14px;color:rgba(255,255,255,.94);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .detail-btn{display:inline-flex;align-items:center;justify-content:center;margin-top:12px;min-height:48px;padding:12px 24px;border-radius:999px;background:var(--accent);color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+  .detail-btn:active{transform:scale(.98)}
+  .card.end{display:flex;align-items:center;justify-content:center;background:#141414}
+  .end-in{text-align:center;padding:32px 26px;max-width:420px}
+  .end-in h2{font-size:20px;margin:0 0 10px}
+  .end-in p{font-size:14px;color:rgba(255,255,255,.8);margin:0 0 8px}
+  .ghost-btn{display:inline-flex;align-items:center;justify-content:center;margin-top:12px;margin-left:8px;min-height:48px;padding:12px 20px;border-radius:999px;background:transparent;border:1px solid rgba(255,255,255,.45);color:#fff;font-size:14px;font-weight:700}
+  .ghost-btn:active{transform:scale(.98)}
+
+  /* ---------- 状態表示（読み込み中・エラー・0件） ---------- */
+  .state{height:100vh;height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:14px;font-size:15px;color:rgba(255,255,255,.92)}
+  .state .reload-btn{min-height:48px;padding:12px 26px;border-radius:999px;border:0;background:var(--accent);color:#fff;font-size:15px;font-weight:800}
+  .state a{color:#fff;font-weight:700}
+  .spinner{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin 0.9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <h1>関西イベント フィード</h1>
+  <span class="spacer"></span>
+  <span class="count" id="count"></span>
+  <a class="guide-link" href="../">ガイドを開く</a>
+</div></header>
+
+<main class="feed" id="feed" style="display:none"></main>
+<div class="state" id="state"><div class="spinner" aria-hidden="true"></div><div>読み込み中…</div></div>
+<noscript><div class="state"><div>このページは JavaScript が必要です。<br><a href="../">ガイドを開く</a></div></div></noscript>
+<script>
+(function(){
+"use strict";
+/* ================================================================
+   関西イベント フィード（フィードだけを切り出した独立PWAページ）
+   データは本体と同じ Google シート gviz（events_lite + events_details）。
+   並び順は本体タイムラインと同じ思想：端末内の利用状況だけから決める
+   （人気順・広告は入れない）。本体 index.html の実装を必要最小限に再実装。
+   ================================================================ */
+var SHEET_BASE = "https://docs.google.com/spreadsheets/d/1oUuy1PvoQgNa5f1HoXqMHgLUfdPW_ctVNxyHih0cNbw/gviz/tq";
+function sheetFetchUrl(name){ return SHEET_BASE + "?tqx=out:json&sheet=" + name; }
+function sheetJsonpBase(name){ return SHEET_BASE + "?sheet=" + name + "&tqx=out%3Ajson%3BresponseHandler%3A"; }
+var LITE_FIELDS = ["id","title","date","dateEnd","timeLabel","startMin","endMin","venue","area","prefecture","category","categories","price","imageUrl","venueSpaceNote","isFree","priceClass","views","impressions"];
+var DETAIL_FIELDS = ["id","performers","description","linkWeb","linkTicket","linkX","linkInstagram","organizerName"];
+
+var CAT_COLORS = {
+  "アイドル":"#d81b60","メンズアイドル":"#3949ab","ユニドル":"#5b50c6","音楽":"#00897b","DJ":"#263238",
+  "アニクラ":"#7b1fa2","バンド":"#37474f","ガールズバンド":"#ec407a","ダンス":"#e65100","ダンスボーカル":"#6a1b9a",
+  "歌い手":"#00838f","踊り手":"#558b2f","食フェス":"#c62828","バル":"#ad1457","マルシェ":"#2e7d32",
+  "ハンドメイド":"#6d4c41","学祭":"#1565c0","文化祭":"#0277bd","お笑い":"#9e7d00","地域まつり":"#d84315",
+  "イルミネーション":"#283593","展示・展覧会":"#4e342e","体験・ワークショップ":"#00695c","コスプレ":"#8e24aa",
+  "舞台・その他":"#546e7a","スポーツ":"#1b5e20","ファッションショー":"#c2185b","撮影会":"#5d4037"
+};
+function catColor(cat){
+  if(!cat) return "#607d8b";
+  if(CAT_COLORS[cat]) return CAT_COLORS[cat];
+  var h=0; for(var i=0;i<cat.length;i++){ h=(h*31+cat.charCodeAt(i))>>>0; }
+  return "hsl("+(h%360)+",58%,38%)";
+}
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+
+/* ---------- gviz parsing（本体 parseGvizObject の再実装・fields 引数化） ---------- */
+function cellText(cell){
+  if(!cell) return "";
+  if(cell.f!=null && cell.f!=="") return String(cell.f);
+  if(cell.v==null) return "";
+  return String(cell.v);
+}
+function normalizeDate(raw){
+  if(raw==null) return "";
+  var s=String(raw).trim(); if(!s) return "";
+  var m=s.match(/Date\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if(m){ return m[1]+"-"+String(+m[2]+1).padStart(2,"0")+"-"+String(+m[3]).padStart(2,"0"); }
+  m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(m){ return m[1]+"-"+String(+m[2]).padStart(2,"0")+"-"+String(+m[3]).padStart(2,"0"); }
+  m=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if(m){ return m[3]+"-"+String(+m[1]).padStart(2,"0")+"-"+String(+m[2]).padStart(2,"0"); }
+  var d=new Date(s);
+  if(!isNaN(d.getTime())){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  return s;
+}
+function parseSheetBool(v){
+  if(v==null) return null;
+  var s=String(v).trim().toLowerCase();
+  if(s==="") return false;
+  if(s==="true"||s==="1"||s==="yes"||s==="○"||s==="はい") return true;
+  if(s==="false"||s==="0"||s==="no"||s==="×"||s==="いいえ") return false;
+  return null;
+}
+function rawCellValue(cell){
+  if(!cell) return "";
+  if(cell.v!=null && typeof cell.v==="string" && cell.v.indexOf("Date(")===0) return cell.v;
+  return cellText(cell);
+}
+function parseGviz(text, fields){
+  var start=text.indexOf("{"), end=text.lastIndexOf("}");
+  if(start<0||end<start) throw new Error("想定外の応答形式でした");
+  return parseGvizObject(JSON.parse(text.slice(start,end+1)), fields);
+}
+function parseGvizObject(json, FIELDS){
+  if(!json||typeof json!=="object") throw new Error("想定外の応答形式でした");
+  if(json.status==="error") throw new Error("シート側でエラーが返されました");
+  var table=json.table; if(!table||!table.rows) throw new Error("イベント表が見つかりませんでした");
+  var cols=table.cols||[];
+  var labels=cols.map(function(c){ return (c&&c.label?String(c.label):"").trim(); });
+  var rows=table.rows.slice();
+  var headers=labels;
+  var labelsEmpty = labels.every(function(l){ return !l; }) || labels.filter(Boolean).length < 3;
+  if(labelsEmpty && rows.length){
+    headers = (rows[0].c||[]).map(function(cell){ return cellText(cell).trim(); });
+    rows = rows.slice(1);
+  }
+  var idx={};
+  headers.forEach(function(h,i){ if(h && idx[h]==null) idx[h]=i; });
+  FIELDS.forEach(function(f){ if(idx[f]==null){
+    for(var k in idx){ if(k.toLowerCase()===f.toLowerCase()){ idx[f]=idx[k]; break; } }
+  }});
+  var hasIsFreeCol = idx["isFree"]!=null;
+  var hasPriceClassCol = idx["priceClass"]!=null;
+  var events=[];
+  rows.forEach(function(r){
+    var c=r.c||[]; var ev={};
+    FIELDS.forEach(function(f){
+      var i=idx[f]; var val = (i==null)? "" : rawCellValue(c[i]);
+      ev[f]= (val==null? "" : String(val).trim());
+    });
+    var vsIdx = idx["venueSpaceNote"]!=null ? idx["venueSpaceNote"] : (idx["venueSupp"]!=null ? idx["venueSupp"] : idx["会場補足"]);
+    ev.sheetVs = vsIdx==null ? "" : String(rawCellValue(c[vsIdx])||"").trim();
+    ev._freeSheet = hasIsFreeCol ? parseSheetBool(ev.isFree) : null;
+    var pcRaw = hasPriceClassCol ? String(ev.priceClass||"").trim().toLowerCase() : null;
+    ev._pcSheet = pcRaw==null ? null : ((pcRaw==="paid"||pcRaw==="free"||pcRaw==="drink"||pcRaw==="partial") ? pcRaw : "");
+    if(!ev.title && !ev.id) return;
+    ev.date = normalizeDate(ev.date);
+    ev.dateEnd = ev.dateEnd ? normalizeDate(ev.dateEnd) : "";
+    if(ev.dateEnd && ev.dateEnd===ev.date) ev.dateEnd="";
+    var sm=parseInt(ev.startMin,10); ev.startMin = isNaN(sm)? null : sm;
+    var em=parseInt(ev.endMin,10); ev.endMin = isNaN(em)? null : em;
+    ev._perfList = splitPerfs(ev.performers||"");
+    events.push(ev);
+  });
+  events.sort(function(a,b){
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin;
+    return as-bs;
+  });
+  return events;
+}
+var PERF_SPLIT_PROTECT=["ジョニー・デッパ","と、いうわけで"];
+function splitPerfs(s){
+  if(!s) return [];
+  var work=String(s), holders=[];
+  PERF_SPLIT_PROTECT.forEach(function(name,i){
+    if(work.indexOf(name)>=0){ holders[i]=name; work=work.split(name).join("\u0001"+i+"\u0002"); }
+  });
+  return work.split(/[、,，\n\/|／｜]/).map(function(x){return x.trim();}).filter(Boolean).map(function(x){
+    return x.replace(/\u0001(\d)\u0002/g, function(m,d){ return holders[+d]||m; });
+  });
+}
+
+/* ---------- date / price helpers（本体と同仕様） ---------- */
+var WD=["日","月","火","水","木","金","土"];
+function fmtDate(ds){
+  var m=String(ds||"").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return ds||"日付未定";
+  var d=new Date(+m[1],+m[2]-1,+m[3]);
+  return (+m[2])+"月"+(+m[3])+"日（"+WD[d.getDay()]+"）";
+}
+function fmtDateFull(ds){
+  var m=String(ds||"").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return ds||"日付未定";
+  var d=new Date(+m[1],+m[2]-1,+m[3]);
+  return m[1]+"年"+(+m[2])+"月"+(+m[3])+"日（"+WD[d.getDay()]+"）";
+}
+function dateLabel(ev){
+  if(ev.dateEnd && String(ev.date||"").slice(0,4)!==String(ev.dateEnd).slice(0,4)){
+    return fmtDateFull(ev.date)+" 〜 "+fmtDateFull(ev.dateEnd);
+  }
+  var s=fmtDate(ev.date);
+  if(ev.dateEnd) s+=" 〜 "+fmtDate(ev.dateEnd);
+  return s;
+}
+function todayStr(){
+  var d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function addDays(ds,n){
+  var m=String(ds||"").match(/^(\d{4})-(\d{2})-(\d{2})/); if(!m) return ds;
+  var d=new Date(+m[1],+m[2]-1,+m[3]+n);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function effectiveEnd(ev){ return ev.dateEnd ? ev.dateEnd : ev.date; }
+function isEnded(ev){ var e=effectiveEnd(ev); return !!e && e < todayStr(); }
+function isOngoing(ev){ var t=todayStr(); return ev.date && ev.date<=t && effectiveEnd(ev)>=t; }
+function evCategories(ev){
+  var set=[];
+  if(ev.category) set.push(ev.category);
+  if(ev.categories){ String(ev.categories).split(/[、,，\/|／｜]/).forEach(function(x){ x=x.trim(); if(x&&set.indexOf(x)<0) set.push(x); }); }
+  return set;
+}
+function normPriceText(s){ return String(s||"").replace(/\s+/g,""); }
+function textPriceClassOf(ev){
+  var t=normPriceText(ev.price);
+  if(!t) return null;
+  if(/要確認|未定|未記載/.test(t) && !/無料/.test(t)) return null;
+  var amounts=[]; var re=/¥(\d[\d,]*)|(\d[\d,]*)円/g; var m;
+  while((m=re.exec(t))!==null){
+    var v=parseInt(String(m[1]!=null?m[1]:m[2]).replace(/,/g,""),10);
+    if(isNaN(v)) continue;
+    var before=t.slice(Math.max(0,m.index-14),m.index);
+    amounts.push({v:v, drink:/ドリンク|[12]D$|1ドリンク/.test(before)||/ドリンク代/.test(before)});
+  }
+  var paidAmounts=amounts.filter(function(a){ return a.v>0 && !a.drink; });
+  var hasFree=/無料/.test(t);
+  if(hasFree && paidAmounts.length>0) return "partial";
+  if(hasFree){
+    var onlyDrink = amounts.length>0 && amounts.every(function(a){ return a.v===0 || a.drink; });
+    if(onlyDrink && amounts.some(function(a){ return a.drink && a.v>0; })) return "drink";
+    return "free";
+  }
+  if(amounts.length>0 && amounts.every(function(a){ return a.drink; }) && amounts.some(function(a){ return a.v>0; })) return "drink";
+  if(paidAmounts.length>0) return "paid";
+  return null;
+}
+function priceClassOf(ev){
+  if(ev && ev._pcSheet!=null) return ev._pcSheet ? ev._pcSheet : null;
+  var tc=textPriceClassOf(ev);
+  if(tc==="partial") return "paid";
+  return tc;
+}
+function isFreeEvent(ev){
+  if(ev && ev._freeSheet!=null) return ev._freeSheet===true;
+  var tc=textPriceClassOf(ev);
+  return tc==="free" || tc==="drink";
+}
+/* 祝日判定（本体と同一の決定的計算） */
+var _holCache={};
+function jpHolidaySet(year){
+  if(_holCache[year]) return _holCache[year];
+  var set={};
+  function ds(m,d){ return year+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0"); }
+  function add(m,d){ set[ds(m,d)]=1; }
+  add(1,1); add(2,11); add(2,23); add(4,29); add(5,3); add(5,4); add(5,5); add(8,11); add(11,3); add(11,23);
+  function nthMon(m,n){ var d=new Date(year,m-1,1); var off=(8-d.getDay())%7; return 1+off+(n-1)*7; }
+  add(1,nthMon(1,2)); add(7,nthMon(7,3)); add(9,nthMon(9,3)); add(10,nthMon(10,2));
+  var yb=year-1980;
+  add(3, Math.floor(20.8431+0.242194*yb)-Math.floor(yb/4));
+  add(9, Math.floor(23.2488+0.242194*yb)-Math.floor(yb/4));
+  Object.keys(set).slice().forEach(function(k){
+    var mm=k.match(/^(\d{4})-(\d{2})-(\d{2})/); var d=new Date(+mm[1],+mm[2]-1,+mm[3]);
+    if(d.getDay()===0){ var nx=addDays(k,1), guard=0; while(set[nx] && guard++<5) nx=addDays(nx,1); set[nx]=1; }
+  });
+  Object.keys(set).slice().forEach(function(k){
+    var mid=addDays(k,1);
+    if(!set[mid] && set[addDays(k,2)]){
+      var mm=mid.match(/^(\d{4})-(\d{2})-(\d{2})/); var dd=new Date(+mm[1],+mm[2]-1,+mm[3]);
+      if(dd.getDay()!==0) set[mid]=1;
+    }
+  });
+  _holCache[year]=set; return set;
+}
+function isHoliday(ds){ var m=String(ds||"").match(/^(\d{4})/); if(!m) return false; return !!jpHolidaySet(+m[1])[ds]; }
+function evOverlapsWeekendOrHoliday(ev){
+  if(!ev.date) return false;
+  var ds=ev.date, end=effectiveEnd(ev), guard=0;
+  while(ds<=end && guard++<400){
+    var m=ds.match(/^(\d{4})-(\d{2})-(\d{2})/); if(!m) break;
+    var dow=new Date(+m[1],+m[2]-1,+m[3]).getDay();
+    if(dow===0 || dow===6 || isHoliday(ds)) return true;
+    ds=addDays(ds,1);
+  }
+  return false;
+}
+function isCollabCafe(ev){ return /コラボカフェ|コラボレーションカフェ/.test((ev.title||"")+" "+(ev.description||"")); }
+
+/* ---------- 端末内状態（本体と同じ localStorage キーを読む） ---------- */
+var LS_FAV="kg_trial_fav_events_v1", LS_OSHI="kg_trial_fav_performers_v1", LS_WANT="kg_trial_want_events_v1", LS_INT="kg_trial_interest_events_v1";
+var LS_PREFS="kg_trial_prefs_v1", LS_LEARN="kg_trial_learn_v1", LS_PENDING="kg_trial_pending_events_v1";
+function loadSet(key){ try{ var a=JSON.parse(localStorage.getItem(key)||"[]"); return new Set(Array.isArray(a)?a.map(String):[]); }catch(e){ return new Set(); } }
+var favEvents=loadSet(LS_FAV), favPerfs=loadSet(LS_OSHI), wantEvents=loadSet(LS_WANT), intEvents=loadSet(LS_INT);
+function loadPrefsLite(){
+  var p={cats:[],artists:[],prefs:[],areas:[],free:false,weekend:false,collab:false};
+  try{
+    var o=JSON.parse(localStorage.getItem(LS_PREFS)||"null");
+    if(o && typeof o==="object"){
+      ["cats","artists","prefs","areas"].forEach(function(k){ if(Array.isArray(o[k])) p[k]=o[k].map(String); });
+      p.free=!!o.free; p.weekend=!!o.weekend; p.collab=!!o.collab;
+    }
+  }catch(e){}
+  return p;
+}
+var prefs=loadPrefsLite();
+function loadLearn(){
+  try{
+    var o=JSON.parse(localStorage.getItem(LS_LEARN)||"null");
+    if(o && typeof o==="object") return {cats:o.cats||{}, artists:o.artists||{}, areas:o.areas||{}};
+  }catch(e){}
+  return {cats:{}, artists:{}, areas:{}};
+}
+var learn=loadLearn();
+function hasOshi(ev){ return (ev._perfList||[]).some(function(p){ return favPerfs.has(p); }); }
+
+/* ---------- 学習スコア（本体 scoreEventFor と同じ式） ---------- */
+function scoreEventFor(ev, pv){
+  var s=0;
+  var cats=evCategories(ev);
+  if(cats.some(function(c){ return pv.cats.indexOf(c)>=0; })) s+=4;
+  if((ev._perfList||[]).some(function(p){ return pv.artists.indexOf(p)>=0; })) s+=6;
+  if(pv.prefs.indexOf(ev.prefecture)>=0 || (ev.area && pv.areas.indexOf(ev.area)>=0)) s+=3;
+  if(pv.free && isFreeEvent(ev)) s+=2.5;
+  if(pv.weekend && evOverlapsWeekendOrHoliday(ev)) s+=2;
+  if(pv.collab && isCollabCafe(ev)) s+=4;
+  if(ev.date){
+    var dd=Math.round((new Date(ev.date+"T00:00:00")-new Date(todayStr()+"T00:00:00"))/86400000);
+    if(dd<=0) s+=3; else s+=Math.max(0, 3-dd*0.12);
+  }
+  var lw=0;
+  cats.forEach(function(c){ lw+=Math.min(learn.cats[c]||0,12)*0.25; });
+  (ev._perfList||[]).forEach(function(p){ lw+=Math.min(learn.artists[p]||0,12)*0.3; });
+  if(ev.prefecture) lw+=Math.min(learn.areas[ev.prefecture]||0,12)*0.2;
+  if(ev.area) lw+=Math.min(learn.areas[ev.area]||0,12)*0.2;
+  s+=Math.min(lw,6);
+  return s;
+}
+function scoreEvent(ev){ return scoreEventFor(ev, prefs); }
+
+/* ---------- 反映待ち（本体 mergePendingEvents の再実装） ---------- */
+var PENDING_TTL_MS=30*24*3600*1000;
+function loadPendings(){
+  try{ var o=JSON.parse(localStorage.getItem(LS_PENDING)||"[]"); return Array.isArray(o)?o:[]; }catch(e){ return []; }
+}
+function savePendings(list){ try{ localStorage.setItem(LS_PENDING, JSON.stringify(list)); }catch(e){} }
+function pendingEventObject(p){
+  var f=p.ev||{};
+  var ev={
+    id:"pend"+(p.ts||0), title:f.title||"", date:f.date||"", dateEnd:(f.dateEnd&&f.dateEnd!==f.date)?f.dateEnd:"",
+    timeLabel:f.timeLabel||"", startMin:(typeof f.startMin==="number")?f.startMin:null, endMin:(typeof f.endMin==="number")?f.endMin:null,
+    venue:f.venue||"", sheetVs:f.venueSpaceNote||"", area:f.area||"", prefecture:f.prefecture||"",
+    category:f.category||"", categories:f.categories||"", price:f.price||"", performers:f.performers||"",
+    description:f.description||"", linkWeb:f.linkWeb||"", linkTicket:f.linkTicket||"", linkX:f.linkX||"",
+    linkInstagram:f.linkInstagram||"", organizerName:f.organizerName||"", imageUrl:f.imageUrl||"",
+    isFree:f.isFree?"TRUE":"", priceClass:f.priceClass||"",
+    _freeSheet:!!f.isFree, _pcSheet:(f.priceClass==="paid"||f.priceClass==="free"||f.priceClass==="drink"||f.priceClass==="partial")?f.priceClass:"",
+    _views:null, _impressions:null, _pending:true
+  };
+  ev._perfList=splitPerfs(ev.performers);
+  return ev;
+}
+function pendingOverlayObject(base, p){
+  var ev=pendingEventObject(p);
+  var out={};
+  Object.keys(base).forEach(function(k){ out[k]=base[k]; });
+  ["title","date","dateEnd","timeLabel","startMin","endMin","venue","sheetVs","area","prefecture","category","categories","price","performers","description","linkWeb","linkTicket","linkX","linkInstagram","organizerName","imageUrl","_freeSheet","_pcSheet"].forEach(function(k){ out[k]=ev[k]; });
+  out.id=base.id;
+  out._perfList=ev._perfList;
+  out._pending=true;
+  return out;
+}
+function pendingReflectedIn(sheetEv, f){
+  return !!sheetEv && sheetEv.title===(f.title||"") && sheetEv.date===(f.date||"") && (sheetEv.venue||"")===(f.venue||"") && (sheetEv.timeLabel||"")===(f.timeLabel||"");
+}
+function mergePendingEvents(sheetEvents){
+  var list=loadPendings();
+  if(!list.length) return sheetEvents;
+  var now=Date.now(), kept=[], out=null, pruned=false;
+  list.forEach(function(p){
+    if(!p || !p.ev || !p.ts || (now-p.ts)>PENDING_TTL_MS){ pruned=true; return; }
+    if(p.kind==="edit" && p.targetId){
+      var base=null;
+      for(var i=0;i<sheetEvents.length;i++){ if(String(sheetEvents[i].id)===String(p.targetId)){ base=sheetEvents[i]; break; } }
+      if(!base){ pruned=true; return; }
+      if(pendingReflectedIn(base, p.ev)){ pruned=true; return; }
+      kept.push(p);
+      if(!out) out=sheetEvents.slice();
+      for(var j=0;j<out.length;j++){ if(String(out[j].id)===String(p.targetId)){ out[j]=pendingOverlayObject(base, p); break; } }
+    } else {
+      var reflected=sheetEvents.some(function(ev){ return pendingReflectedIn(ev, p.ev); });
+      if(reflected){ pruned=true; return; }
+      kept.push(p);
+      if(!out) out=sheetEvents.slice();
+      out.push(pendingEventObject(p));
+    }
+  });
+  if(pruned) savePendings(kept);
+  return out||sheetEvents;
+}
+
+/* ---------- シート取得（本体 loadSheetRace と同じ作法） ---------- */
+function loadViaFetch(sheetName, fields, done, fail){
+  var ctl=("AbortController" in window) ? new AbortController() : null;
+  var timer=ctl ? setTimeout(function(){ ctl.abort(); }, 15000) : null;
+  function clearT(){ if(timer){ clearTimeout(timer); timer=null; } }
+  fetch(sheetFetchUrl(sheetName), {cache:"no-store", signal: ctl?ctl.signal:undefined}).then(function(res){
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    return res.text();
+  }).then(function(text){
+    clearT();
+    if(text.indexOf("setResponse")<0 && text.indexOf('"table"')<0) throw new Error("シートのデータ形式を確認できませんでした");
+    done(parseGviz(text, fields));
+  }).catch(function(e){ clearT(); fail(e); });
+}
+var loadSeq=0;
+var pendingSheetHandler=null;
+function loadViaJsonp(sheetName, fields, done, fail){
+  var cbName="__kgFeedCb"+(++loadSeq);
+  var settled=false;
+  var script=document.createElement("script");
+  var timer=setTimeout(function(){ finish(null, new Error("読み込みがタイムアウトしました")); }, 30000);
+  function finish(events, err){
+    if(settled) return; settled=true;
+    clearTimeout(timer);
+    if(pendingSheetHandler===handler) pendingSheetHandler=null;
+    try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; }
+    if(script.parentNode) script.parentNode.removeChild(script);
+    if(err) fail(err); else done(events);
+  }
+  function handler(resp){
+    try{ finish(parseGvizObject(resp, fields), null); }
+    catch(e){ finish(null, e); }
+  }
+  window[cbName]=handler;
+  pendingSheetHandler=handler;
+  try{
+    window.google = window.google || {};
+    window.google.visualization = window.google.visualization || {};
+    window.google.visualization.Query = window.google.visualization.Query || {};
+    window.google.visualization.Query.setResponse = function(resp){ if(pendingSheetHandler) pendingSheetHandler(resp); };
+  }catch(e){}
+  script.onerror=function(){ finish(null, new Error("データを読み込めませんでした")); };
+  script.async=true;
+  script.src=sheetJsonpBase(sheetName)+cbName+"&_="+Date.now();
+  document.head.appendChild(script);
+}
+function loadSheetRace(sheetName, fields, ok, failAll){
+  var settled=false, jsonpFailed=false, fetchStarted=false, fetchFailed=false, hedgeTimer=null;
+  function done(events){ if(settled) return; settled=true; if(hedgeTimer) clearTimeout(hedgeTimer); ok(events); }
+  function fail(err){ if(settled) return; settled=true; if(hedgeTimer) clearTimeout(hedgeTimer); failAll(err); }
+  function maybeFail(err){
+    if(settled) return;
+    if(jsonpFailed && fetchFailed){
+      loadViaJsonp(sheetName, fields, done, function(e2){ fail(e2||err); });
+    }
+  }
+  function startFetch(){
+    if(fetchStarted || settled) return; fetchStarted=true;
+    loadViaFetch(sheetName, fields, done, function(e){ fetchFailed=true; maybeFail(e); });
+  }
+  loadViaJsonp(sheetName, fields, done, function(e){ jsonpFailed=true; startFetch(); maybeFail(e); });
+  hedgeTimer=setTimeout(startFetch, 6000);
+}
+function mergeDetails(events, detEvents){
+  var map={};
+  (detEvents||[]).forEach(function(d){ if(d && d.id!=null && String(d.id)!=="") map[String(d.id)]=d; });
+  return events.map(function(ev){
+    var d=map[String(ev.id)]; if(!d) return ev;
+    var out={};
+    for(var k in ev) out[k]=ev[k];
+    out.performers=d.performers||""; out.description=d.description||"";
+    out.linkWeb=d.linkWeb||""; out.linkTicket=d.linkTicket||""; out.linkX=d.linkX||""; out.linkInstagram=d.linkInstagram||"";
+    out.organizerName=d.organizerName||"";
+    out._perfList=splitPerfs(out.performers);
+    return out;
+  });
+}
+
+/* ---------- 並び順（本体タイムラインと同じ思想＋行きたい／気になる段） ---------- */
+function byDate(a,b){
+  if(a.date!==b.date) return a.date<b.date?-1:1;
+  var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin;
+  return as-bs;
+}
+function buildFeedItems(events){
+  var up=events.filter(function(ev){ return !isEnded(ev); });
+  var pend=[], favs=[], wants=[], ints=[], oshi=[], scored=[], rest=[];
+  up.forEach(function(ev){
+    if(ev._pending) pend.push(ev);
+    else if(favEvents.has(String(ev.id))) favs.push(ev);
+    else if(wantEvents.has(String(ev.id))) wants.push(ev);
+    else if(intEvents.has(String(ev.id))) ints.push(ev);
+    else if(hasOshi(ev)) oshi.push(ev);
+    else {
+      var s=scoreEvent(ev);
+      if(s>0) scored.push({ev:ev, s:s});
+      else rest.push(ev);
+    }
+  });
+  pend.sort(byDate); favs.sort(byDate); wants.sort(byDate); ints.sort(byDate); oshi.sort(byDate);
+  scored.sort(function(a,b){ if(b.s!==a.s) return b.s-a.s; return byDate(a.ev,b.ev); });
+  rest.sort(byDate);
+  return pend.concat(favs, wants, ints, oshi, scored.map(function(x){ return x.ev; }), rest).slice(0,60);
+}
+
+/* ---------- 描画 ---------- */
+var feedEl=document.getElementById("feed");
+var stateEl=document.getElementById("state");
+var countEl=document.getElementById("count");
+var sheetEvents=null, allEvents=[], feedItems=[], curIdx=0, io=null;
+
+function detailHref(ev){
+  var id=String(ev.id==null?"":ev.id);
+  return /^\d+$/.test(id) ? "../?event="+encodeURIComponent(id) : "../";
+}
+function badgesHTML(ev){
+  var b=[];
+  if(ev._pending) b.push('<span class="badge pend">反映待ち</span>');
+  if(favEvents.has(String(ev.id))) b.push('<span class="badge fav">♥ お気に入り</span>');
+  if(wantEvents.has(String(ev.id))) b.push('<span class="badge want">行きたい</span>');
+  if(intEvents.has(String(ev.id))) b.push('<span class="badge int">気になる</span>');
+  if(hasOshi(ev)) b.push('<span class="badge oshi">★ 推し出演</span>');
+  if(isOngoing(ev)) b.push('<span class="badge now">開催中</span>');
+  else if(ev.date===todayStr()) b.push('<span class="badge now">本日開催</span>');
+  else if(ev.date===addDays(todayStr(),1)) b.push('<span class="badge now">明日開催</span>');
+  return b.length? '<div class="badges">'+b.join("")+'</div>' : "";
+}
+function cardHTML(ev, idx){
+  var hasImg=!!ev.imageUrl;
+  var perfs=ev._perfList||[];
+  var perfLine=perfs.length? perfs.slice(0,4).join("、")+(perfs.length>4?" ほか":"") : "";
+  var fb='<div class="fallback" style="background:'+catColor(ev.category)+'">'
+    + '<span class="fb-cat">'+esc(ev.category||"イベント")+'</span>'
+    + '<div class="fb-title">'+esc(ev.title)+'</div>'
+    + '<div class="fb-date">'+esc(dateLabel(ev))+(ev.timeLabel?' '+esc(ev.timeLabel):"")+'</div>'
+    + '</div>';
+  var media=hasImg? '<img class="media" src="'+esc(ev.imageUrl)+'" alt="" '+(idx<2?"":'loading="lazy" ')+'onerror="this.remove()">' : "";
+  var overlay='<div class="overlay">'
+    + badgesHTML(ev)
+    + (hasImg? '<h2 class="ev-title">'+esc(ev.title)+'</h2>'
+      + '<div class="ev-date">'+esc(dateLabel(ev))+(ev.timeLabel?'　'+esc(ev.timeLabel):"")+'</div>' : "")
+    + (ev.venue? '<div class="ev-meta">'+esc(ev.venue)+'</div>' : "")
+    + (ev.price? '<div class="ev-meta">'+esc(ev.price)+'</div>' : "")
+    + (perfLine? '<div class="ev-meta">'+esc(perfLine)+'</div>' : "")
+    + '<a class="detail-btn" href="'+detailHref(ev)+'">詳細を見る</a>'
+    + '</div>';
+  return '<section class="card" data-idx="'+idx+'" aria-label="'+esc(ev.title)+'">'+fb+media+overlay+'</section>';
+}
+function endCardHTML(){
+  return '<section class="card end"><div class="end-in">'
+    + '<h2>ここまでがフィードです</h2>'
+    + '<p>あなたの推し・お気に入り・行きたい・気になる・好みから選んだイベントを表示しました。</p>'
+    + '<p><a class="detail-btn" href="../">ガイドを開く</a><button type="button" class="ghost-btn" id="feedAgain">最初から見る</button></p>'
+    + '</div></section>';
+}
+function updateCount(){
+  countEl.textContent = feedItems.length? ((curIdx+1)+" / "+feedItems.length) : "";
+}
+function observeCards(){
+  if(io) io.disconnect();
+  if(!("IntersectionObserver" in window)) return;
+  io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        var i=parseInt(en.target.getAttribute("data-idx"),10);
+        if(!isNaN(i)){ curIdx=i; updateCount(); }
+      }
+    });
+  }, {root: feedEl, threshold: 0.6});
+  var cards=feedEl.querySelectorAll(".card[data-idx]");
+  for(var i=0;i<cards.length;i++) io.observe(cards[i]);
+}
+function showState(html){
+  feedEl.style.display="none";
+  stateEl.style.display="flex";
+  stateEl.innerHTML=html;
+}
+function renderFeed(keepIdx){
+  feedItems=buildFeedItems(allEvents);
+  if(!feedItems.length){
+    showState('<div>表示できるイベントがありませんでした。</div><div><a href="../">ガイドを開く</a></div>');
+    countEl.textContent="";
+    return;
+  }
+  stateEl.style.display="none";
+  feedEl.style.display="";
+  feedEl.innerHTML=feedItems.map(function(ev, i){ return cardHTML(ev, i); }).join("")+endCardHTML();
+  var target=keepIdx? Math.min(curIdx, feedItems.length-1) : 0;
+  curIdx=target;
+  feedEl.scrollTop=target*feedEl.clientHeight;
+  updateCount();
+  observeCards();
+  var again=document.getElementById("feedAgain");
+  if(again) again.addEventListener("click", function(){ feedEl.scrollTo({top:0, behavior:"smooth"}); });
+}
+
+/* ---------- 起動 ---------- */
+function start(){
+  showState('<div class="spinner" aria-hidden="true"></div><div>読み込み中…</div>');
+  loadSheetRace("events_lite", LITE_FIELDS, function(events){
+    sheetEvents=events;
+    allEvents=mergePendingEvents(sheetEvents);
+    renderFeed(false);
+    loadSheetRace("events_details", DETAIL_FIELDS, function(det){
+      sheetEvents=mergeDetails(sheetEvents, det);
+      allEvents=mergePendingEvents(sheetEvents);
+      renderFeed(true);
+    }, function(){ /* 詳細が取れなくても lite だけで表示を続ける */ });
+  }, function(){
+    showState('<div>読み込めませんでした。再読み込みしてください。</div><div><button type="button" class="reload-btn" onclick="location.reload()">再読み込み</button></div>');
+  });
+}
+/* 本体側で お気に入り等 が変わったら並びを追随させる */
+window.addEventListener("storage", function(e){
+  if(!sheetEvents) return;
+  if(e.key===LS_FAV||e.key===LS_OSHI||e.key===LS_WANT||e.key===LS_INT||e.key===LS_LEARN||e.key===LS_PREFS||e.key===LS_PENDING){
+    favEvents=loadSet(LS_FAV); favPerfs=loadSet(LS_OSHI); wantEvents=loadSet(LS_WANT); intEvents=loadSet(LS_INT);
+    prefs=loadPrefsLite(); learn=loadLearn();
+    allEvents=mergePendingEvents(sheetEvents);
+    renderFeed(true);
+  }
+});
+if("serviceWorker" in navigator){
+  try{ navigator.serviceWorker.register("../pwa-worker.js", {updateViaCache:"none"}).catch(function(){}); }catch(e){}
+}
+start();
+})();
+</script>
+</body></html>
