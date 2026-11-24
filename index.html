@@ -768,6 +768,7 @@
   .tl-mode button{border:0;background:transparent;color:#f4f2ec;font-weight:800;font-size:13px;padding:8px 14px;min-height:40px;cursor:pointer}
   .tl-mode button.on{background:#f2c14e;color:#17181c}
   .tl-post{flex:none;border:0;background:var(--accent);color:#fff;border-radius:999px;padding:9px 18px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer}
+  .tl-login{flex:none;border:1.5px solid rgba(255,255,255,.55);background:transparent;color:#f4f2ec;border-radius:999px;padding:9px 16px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer}
   .tl-stage{flex:1;min-height:0;overflow:hidden;padding:clamp(14px,3vh,32px) clamp(14px,4vw,56px);display:flex;position:relative;cursor:pointer;touch-action:none;-webkit-user-select:none;user-select:none}
   .tl-slide{flex:1;min-height:0;display:flex;flex-direction:column;max-width:860px;margin:0 auto;width:100%;animation:sgfade .45s ease}
   @media (prefers-reduced-motion: reduce){.tl-slide{animation:none}}
@@ -807,7 +808,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v96';
+  window.__kgShell='v97';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1236,6 +1237,7 @@
       <button type="button" id="tlModeFeed">フィード</button>
     </div>
     <button class="tl-post" id="tlPostBtn" type="button">＋ 投稿する</button>
+    <button class="tl-login hidden" id="tlLoginBtn" type="button">ログイン</button>
     <button class="sg-close" id="tlClose" type="button">✕ 閉じる</button>
   </div>
   <div class="tl-scope hidden" id="tlScope" role="group" aria-label="タイムラインに流すリストの切り替え"></div>
@@ -7256,6 +7258,7 @@ function openTimeline(){
   renderTlScope();
   tlState.items=buildTimelineItems();
   if(!tlState.items.length){ toast("表示できるイベントがありません"); return; }
+  refreshTlLogin();
   var ov=tlEl("tlOverlay"); if(!ov) return;
   ov.classList.add("open");
   tlState.open=true;
@@ -7492,11 +7495,31 @@ function psInfoHTML(kind, name, prof, upcoming){
 window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
   build:buildTimelineItems,
   state:function(){ return {open:tlState.open, idx:tlState.idx, count:tlState.items.length, mode:prefs.tlMode, ids:tlState.items.map(function(ev){ return String(ev.id); })}; }};
+/* タイムライン内のログインボタン: 未ログインの時だけ出す（初回用）。
+   ログイン済み・管理者モードでは隠す。アカウントダイアログは最前面に出るため、
+   タイムラインを開いたままその場でログインできる */
+function refreshTlLogin(){
+  var btn=tlEl("tlLoginBtn"); if(!btn) return;
+  var hb=document.getElementById("kg-account-open");
+  var label=hb?hb.textContent:"";
+  var logged=(typeof kgAdminOn==="function" && kgAdminOn()) || /管理者モード|ログイン中/.test(label);
+  btn.classList.toggle("hidden", !!logged);
+  var dlg=document.getElementById("kg-account-dialog");
+  if(dlg && !dlg.dataset.kgTlHook){
+    dlg.dataset.kgTlHook="1";
+    dlg.addEventListener("close", function(){ setTimeout(refreshTlLogin, 300); });
+  }
+}
 (function initTimeline(){
   var startBtn=tlEl("tlStartBtn");
   if(startBtn) startBtn.addEventListener("click", openTimeline);
   var closeBtn=tlEl("tlClose");
   if(closeBtn) closeBtn.addEventListener("click", closeTimeline);
+  var loginBtn=tlEl("tlLoginBtn");
+  if(loginBtn) loginBtn.addEventListener("click", function(){
+    var b=document.getElementById("kg-account-open");
+    if(b) b.click();
+  });
   var prev=tlEl("tlPrev"), next=tlEl("tlNext");
   if(prev) prev.addEventListener("click", function(){ tlGo(tlState.idx-1); });
   if(next) next.addEventListener("click", function(){ tlGo(tlState.idx+1); });
