@@ -577,7 +577,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v54';
+  window.__kgShell='v55';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2175,10 +2175,13 @@ function filtered(){
   var dkey=function(ev){ return ev.date||"9999-12-31"; };
   var erank=function(ev){ return isEnded(ev)?1:0; };
   var todayS=todayStr();
-  /* 日付順（近い順）では開催中（開始日が今日以前で未終了）の並びキーを今日に
-     そろえる（v54）。開始日昇順のままだと数か月前から開催中の長期展示が先頭を
-     占め、今日・明日の単日イベントが後ろに埋もれるため。同キー内はこの後の
-     startMin 比較で時刻順になる。未来のイベントは開始日昇順のまま */
+  /* 日付順（近い順）の並びキー k = max(開始日, 今日)（v54で導入、v55で同キー内の
+     順序を改修）。開始日昇順のままだと数か月前から開催中の長期展示が先頭を占め、
+     今日・明日の単日イベントが後ろに埋もれるため開催中のキーは今日にそろえる。
+     v55: 同じキー内では「その日に始まるイベント」を先、「前から続いている開催中
+     （開始日 < k）」を後にする。開催中が数百件あると開始時刻順だけでは長期開催が
+     今日の単日イベントを埋没させたため。始まる側は開始時刻順、続く側は終了日が
+     近い順→開始時刻順に並べる。未来のイベントは開始日昇順のまま */
   var okey=function(ev){ return isOngoing(ev)?todayS:dkey(ev); };
   list.sort(function(a,b){
     var ea=erank(a), eb=erank(b);
@@ -2205,9 +2208,26 @@ function filtered(){
       if(ea!==eb) return ea-eb;
       if(dkey(a)!==dkey(b)) return dkey(a)<dkey(b)?1:-1;
     } else {
+      /* 日付順（近い順）v55: 終了済みは最後（従来通り日付降順）。それ以外は
+         キー k=max(開始日, 今日) 昇順 → 同キー内は「その日に始まる（開始日=k）」
+         を先、「前から続く開催中（開始日<k）」を後 → 始まる側は開始時刻昇順
+         （時刻なしは後ろ）、続く側は終了日昇順（近い順）→開始時刻昇順 */
       if(ea!==eb) return ea-eb;
-      if(ea===1 && dkey(a)!==dkey(b)) return dkey(a)<dkey(b)?1:-1;
-      if(okey(a)!==okey(b)) return okey(a)<okey(b)?-1:1;
+      if(ea===1){
+        if(dkey(a)!==dkey(b)) return dkey(a)<dkey(b)?1:-1;
+        /* 終了済み同士で同日の場合はこの後の開始時刻比較に任せる */
+      } else {
+        var ka=okey(a), kb=okey(b);
+        if(ka!==kb) return ka<kb?-1:1;
+        var sa=(dkey(a)===ka)?0:1, sb=(dkey(b)===kb)?0:1;
+        if(sa!==sb) return sa-sb;
+        var sta=a.startMin==null?99999:a.startMin, stb=b.startMin==null?99999:b.startMin;
+        if(sa===1){
+          var enda=effectiveEnd(a)||"9999-12-31", endb=effectiveEnd(b)||"9999-12-31";
+          if(enda!==endb) return enda<endb?-1:1;
+        }
+        return sta-stb;
+      }
     }
     var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin;
     return as-bs;
