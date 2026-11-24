@@ -807,7 +807,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v93';
+  window.__kgShell='v94';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2917,25 +2917,40 @@ function groupsOfMember(name){
    旧方式は「名前ごとに全イベントを走査」していたため、アーティスト数が増えるほど
    指数的に重くなっていた。索引には直接の出演名に加え、別名の正式名・所属グループの
    メンバー名・OSK特例までを展開して入れる（詳細ページの集計と一致させるため） */
-var perfIndex=null, perfIndexSrc=null, perfIndexProf=null;
+var perfIndex=null, perfIndexSrc=null, perfIndexProf=null, memberPerfIndex=null;
 function buildPerfIndex(){
   if(perfIndex && perfIndexSrc===allEvents && perfIndexProf===artistProfiles) return perfIndex;
   var profKey={};
   Object.keys(artistProfiles).forEach(function(k){ profKey[artistProfiles[k]]=k; });
-  var map={};
+  var map={}, mmap={};
   function addTo(n, ev, seen){ if(!n || seen[n]) return; seen[n]=1; (map[n]||(map[n]=[])).push(ev); }
   allEvents.forEach(function(ev){
-    var seen={};
+    var seen={}, mseen={};
     (ev._perfList||[]).forEach(function(p){
       addTo(p, ev, seen);
       var tp=artistProfileFor(p);
       if(tp && profKey[tp]) addTo(profKey[tp], ev, seen);
-      groupMembers(p).forEach(function(mn){ addTo(mn, ev, seen); });
+      /* 所属グループの公演は、本人の予定とは分けて持つ（v94）。
+         旧仕様はグループの全公演を各メンバーの索引にも入れており、出演予定の
+         無いメンバーのページに無関係な公演が大量表示されていた。 */
+      if(tp && tp.m && tp.m.length){
+        tp.m.forEach(function(mb){
+          var mn=(mb && mb.n) ? String(mb.n).trim() : "";
+          if(!mn || mn===p || mseen[mn]) return;
+          mseen[mn]=1;
+          (mmap[mn]||(mmap[mn]=[])).push({ev:ev, group:profKey[tp]||p});
+        });
+      }
     });
     if(isOskRelated(ev, OSK_BASE)) addTo(OSK_BASE, ev, seen);
   });
-  perfIndex=map; perfIndexSrc=allEvents; perfIndexProf=artistProfiles;
+  perfIndex=map; memberPerfIndex=mmap; perfIndexSrc=allEvents; perfIndexProf=artistProfiles;
   return perfIndex;
+}
+/* 本人ではなく所属グループ名義の公演（グループ名つきで別枠表示する） */
+function memberEventsOf(name){
+  buildPerfIndex();
+  return (memberPerfIndex && memberPerfIndex[name]) || [];
 }
 function artistEvents(name){
   var idx=buildPerfIndex();
@@ -3512,6 +3527,23 @@ function renderDetailInner(){
     + (shownUpcoming.length? '<div class="grid">'+shownUpcoming.map(cardHTML).join("")+'</div>' : '<div class="state"><h2>開催予定のイベントはありません</h2><p>新しい公演が掲載されるとここに表示されます。</p></div>');
   if(shownPast.length){
     body+='<h3 style="margin:22px 0 10px;font-size:16px">終了したイベント（'+shownPast.length+'件）</h3><div class="grid">'+shownPast.map(cardHTML).join("")+'</div>';
+  }
+  if(kind==="artist"){
+    /* 本人名義でない、所属グループ名義の公演は別枠で明示する（本人の予定に混ぜない） */
+    var inh=memberEventsOf(name).filter(function(x){ return !evs.some(function(e){ return e.id===x.ev.id; }); });
+    if(inh.length){
+      var byG={}; inh.forEach(function(x){ (byG[x.group]=byG[x.group]||[]).push(x.ev); });
+      Object.keys(byG).forEach(function(g){
+        var gs=byG[g];
+        var gup=gs.filter(function(e){ return !isEnded(e); });
+        var gpast=gs.length-gup.length;
+        gup.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
+        body+='<h3 style="margin:22px 0 10px;font-size:16px">所属グループ「'+esc(g)+'」の公演（'+gs.length+'件）</h3>'
+          +'<p class="prof-note">'+esc(name)+'本人の出演として掲載されている公演ではありません。所属グループの公演です。</p>'
+          +(gup.length? '<div class="grid">'+gup.map(cardHTML).join("")+'</div>' : '<p>開催予定の公演はありません。</p>')
+          +(gpast? '<p style="margin-top:8px">終了した公演 '+gpast+'件</p>' : "");
+      });
+    }
   }
   els.detailBody.innerHTML=body;
   wireCardImages(els.detailBody);
@@ -6088,6 +6120,7 @@ function loadSheetProfiles(){
   function step(){
     if(--pending>0 || !changed) return;
     indexVenueProfiles();
+    perfIndex=null; artistProfCache={};
     artistCatCache={};
     allEvents.forEach(function(ev){ ev._hay=null; });
     if(allEvents.length) render();
@@ -7359,6 +7392,19 @@ function renderProfSheet(){
     if(past.length){
       h+='<p class="ps-sec">終了したイベント（'+past.length+'件）</p>'+past.slice(0,20).map(function(ev, j){ return psRowHTML(ev, upcoming.length+j); }).join("");
       if(past.length>20) h+='<p>ほか '+(past.length-20)+'件</p>';
+    }
+    if(kind==="artist"){
+      var directIds={}; profSheetState.all.forEach(function(e){ directIds[String(e.id)]=1; });
+      var inh2=memberEventsOf(name).filter(function(x){ return !directIds[String(x.ev.id)]; });
+      if(inh2.length){
+        var byG2={}; inh2.forEach(function(x){ (byG2[x.group]=byG2[x.group]||[]).push(x.ev); });
+        Object.keys(byG2).forEach(function(g){
+          var gs2=byG2[g].slice().sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; return 0; });
+          h+='<p class="ps-sec">所属グループ「'+esc(g)+'」の公演（'+gs2.length+'件）</p>';
+          gs2.slice(0,20).forEach(function(ev){ profSheetState.all.push(ev); h+=psRowHTML(ev, profSheetState.all.length-1); });
+          if(gs2.length>20) h+='<p>ほか '+(gs2.length-20)+'件</p>';
+        });
+      }
     }
   } else {
     h+=psInfoHTML(kind, name, prof, upcoming);
