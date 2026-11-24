@@ -379,6 +379,9 @@ var LS_FOLLOWS="kg_trial_follows_v1";
 function loadFeedFollows(){ try{ var o=JSON.parse(localStorage.getItem(LS_FOLLOWS)||"null"); if(o && Array.isArray(o.venues) && Array.isArray(o.organizers)) return {venues:o.venues.map(String), organizers:o.organizers.map(String)}; }catch(e){} return {venues:[], organizers:[]}; }
 var feedFollows=loadFeedFollows();
 var feedScope=""; try{ feedScope=localStorage.getItem(LS_FEED_SCOPE)||""; }catch(e){}
+var LS_FEED_FSORT="kg_feed_fsort_v1";
+var feedFSort="date"; try{ feedFSort=localStorage.getItem(LS_FEED_FSORT)==="new" ? "new" : "date"; }catch(e){}
+function feedIdNum(ev){ var n=parseInt(ev.id,10); return isNaN(n)? Number.MAX_SAFE_INTEGER : n; }
 function setFeedScope(v){ feedScope=v||""; try{ localStorage.setItem(LS_FEED_SCOPE, feedScope); }catch(e){} }
 function findFeedList(id){ var f=null; myLists.forEach(function(l){ if(String(l.id)===String(id)) f=l; }); return f; }
 function inAnyList(id){ id=String(id); return myLists.some(function(l){ return (l.events||[]).map(String).indexOf(id)>=0; }); }
@@ -607,8 +610,12 @@ function buildFeedItems(events){
   var up=events.filter(function(ev){ return !isEnded(ev); });
   var ss=feedScopeSet();
   if(ss) up=up.filter(function(ev){ return ss.has(String(ev.id)); });
-  /* フォロー中は日付順（本体タイムラインと同仕様、v82） */
-  if(feedScope==="p:follow"){ up.sort(byDate); return up.slice(0,60); }
+  /* フォロー中は日付順／新着順の切り替え（本体タイムラインと同仕様、v82/v83） */
+  if(feedScope==="p:follow"){
+    if(feedFSort==="new") up.sort(function(a,b){ return feedIdNum(b)-feedIdNum(a); });
+    else up.sort(byDate);
+    return up.slice(0,60);
+  }
   var pend=[], favs=[], wants=[], ints=[], oshi=[], scored=[], rest=[];
   up.forEach(function(ev){
     if(ev._pending) pend.push(ev);
@@ -744,9 +751,18 @@ function renderScopeBar(){
   if(feedScope && feedScope.indexOf("p:")!==0 && !findFeedList(feedScope)) setFeedScope("");
   var chip=function(v, label){ return '<button type="button" data-scope="'+esc(v)+'" class="'+(feedScope===v?"on":"")+'">'+esc(label)+'</button>'; };
   scopeBarEl.innerHTML=chip("", "すべて")+chip("p:fav", "お気に入り")+chip("p:want", "行きたい")+chip("p:int", "気になる")+chip("p:follow", "フォロー中")
-    + myLists.map(function(l){ return chip(String(l.id), l.name||"無題のリスト"); }).join("");
+    + myLists.map(function(l){ return chip(String(l.id), l.name||"無題のリスト"); }).join("")
+    + (feedScope==="p:follow" ? '<button type="button" data-fsort="1">並び：'+(feedFSort==="new"?"新着順":"開催日順")+'</button>' : "");
 }
 scopeBarEl.addEventListener("click", function(e){
+  var sb=(e.target && e.target.closest)? e.target.closest("[data-fsort]") : null;
+  if(sb){
+    feedFSort = feedFSort==="new" ? "date" : "new";
+    try{ localStorage.setItem(LS_FEED_FSORT, feedFSort); }catch(err){}
+    renderScopeBar();
+    renderFeed(false);
+    return;
+  }
   var b=(e.target && e.target.closest)? e.target.closest("[data-scope]") : null;
   if(!b) return;
   setFeedScope(b.getAttribute("data-scope")||"");

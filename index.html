@@ -287,6 +287,16 @@
   .prof-stats .ps b{display:block;font-size:17px;line-height:1.25}
   .prof-stats .ps span{font-size:11.5px;color:var(--muted);font-weight:700}
   .prof-note{font-size:12.5px;color:var(--muted);margin-top:8px}
+  /* おすすめフォロー（v83）: SNSの「おすすめアカウント」風の行 */
+  .follow-list{display:flex;flex-direction:column;gap:8px}
+  .follow-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer}
+  .follow-row .fava{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:0 0 auto}
+  .follow-row .fava-ph{width:40px;height:40px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px}
+  .follow-row .fmain{flex:1;min-width:0}
+  .follow-row .fname{display:block;font-weight:800;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .follow-row .fmeta{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .follow-row .fbtn{flex:0 0 auto;border:1.5px solid var(--accent);color:var(--accent);background:transparent;border-radius:999px;padding:7px 14px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;min-height:38px}
+  .follow-row .fbtn.on{background:var(--accent);color:#fff}
   /* 好み画面「最初のページ」切替（v66） */
   .pf-startview{margin-top:12px}
   .pf-sv-label{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
@@ -745,7 +755,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v82';
+  window.__kgShell='v83';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1003,6 +1013,10 @@
       <h2 class="reco-title">関心ランキング<span>あなたの印・閲覧と、みんなの閲覧数から集計しています</span></h2>
       <div class="rank-list" id="rankList"></div>
     </section>
+    <section class="rank-shelf hidden" id="followShelf" aria-label="おすすめフォロー">
+      <h2 class="reco-title">おすすめフォロー<span>あなたの推し・印から、端末内で選んでいます</span></h2>
+      <div class="follow-list" id="followList"></div>
+    </section>
     <div id="listsBar" class="lists-bar hidden"></div>
     <p class="result-line" id="resultLine"><strong>5,150件</strong> のイベント（全7,803件中） ・ 終了した2,653件は非表示中</p>
     <div class="active-filters hidden" id="activeFilters"></div>
@@ -1172,6 +1186,7 @@
     <button class="sg-close" id="tlClose" type="button">✕ 閉じる</button>
   </div>
   <div class="tl-scope hidden" id="tlScope" role="group" aria-label="タイムラインに流すリストの切り替え"></div>
+  <div class="tl-scope hidden" id="tlSort" role="group" aria-label="フォロー中の並び替え"></div>
   <div class="tl-stage" id="tlStage"></div>
   <div class="tl-feed hidden" id="tlFeed"></div>
   <div class="sg-nav" id="tlNav">
@@ -1926,7 +1941,7 @@ var dirCatFilter="すべて", dirEventsOnly=false;
 var venueGenres=new Set(), venueGenreSubs=new Set(), venueGenreGroups=new Set(), venueGenreClosed={}, venueSugDismissed="";
 try{ showEnded = localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
 var els={};
-["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope","rankShelf","rankList"].forEach(function(id){ els[id]=document.getElementById(id); });
+["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope","rankShelf","rankList","followShelf","followList","tlSort"].forEach(function(id){ els[id]=document.getElementById(id); });
 
 var toastTimer=null;
 function toast(msg){
@@ -3379,7 +3394,7 @@ function renderDetailInner(){
     } else {
       head+='<div class="link-row"><a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
     }
-    head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailFollowBtn" style="border-color:var(--accent);color:'+(followHas("venue",name)?"#fff":"var(--accent)")+';'+(followHas("venue",name)?"background:var(--accent)":"")+'">'+(followHas("venue",name)?"フォロー中":"フォローする")+'</button></div>';
+    head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailFollowBtn" style="border-color:var(--accent);color:'+(venueFollowed(name)?"#fff":"var(--accent)")+';'+(venueFollowed(name)?"background:var(--accent)":"")+'">'+(venueFollowed(name)?"フォロー中":"フォローする")+'</button></div>';
     head+='<p class="prof-note">フォローすると、この会場のイベントがタイムラインの「フォロー中」に流れます。</p>';
     head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailListBtn">リストに追加</button></div>';
     head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailProfEditBtn">プロフィールの追加・修正を送る</button></div>';
@@ -3404,9 +3419,14 @@ function renderDetailInner(){
   if(dlb) dlb.addEventListener("click", function(){ openListPicker(kind, name); });
   var flb=document.getElementById("detailFollowBtn");
   if(flb) flb.addEventListener("click", function(){
-    var arr=(kind==="venue")? follows.venues : follows.organizers;
-    var fi=arr.indexOf(name);
-    if(fi>=0){ arr.splice(fi,1); toast("フォローを外しました："+name); } else { arr.push(name); toast("フォローしました："+name); }
+    if(kind==="venue"){
+      var vi=-1; follows.venues.forEach(function(f,i){ if(sameVenueFacility(f, name)) vi=i; });
+      if(vi>=0){ follows.venues.splice(vi,1); toast("フォローを外しました："+name); } else { follows.venues.push(name); toast("フォローしました："+name); }
+    } else {
+      var arr=follows.organizers;
+      var fi=arr.indexOf(name);
+      if(fi>=0){ arr.splice(fi,1); toast("フォローを外しました："+name); } else { arr.push(name); toast("フォローしました："+name); }
+    }
     saveFollows(); renderDetail();
   });
   var ob=document.getElementById("detailOshiBtn");
@@ -4246,6 +4266,8 @@ function loadFollows(){ try{ var o=JSON.parse(localStorage.getItem(LS_FOLLOWS)||
 function saveFollows(){ try{ localStorage.setItem(LS_FOLLOWS, JSON.stringify(follows)); }catch(e){} }
 var follows=loadFollows();
 function followHas(kind, name){ var arr=(kind==="venue")? follows.venues : follows.organizers; return arr.indexOf(name)>=0; }
+/* 会場フォローは表記ゆれを許容して判定する（イベント側の会場名で登録される場合があるため） */
+function venueFollowed(v){ return follows.venues.some(function(f){ return sameVenueFacility(v, f); }); }
 function followEventSet(){
   var set=new Set();
   allEvents.forEach(function(ev){
@@ -4259,6 +4281,51 @@ function followEventSet(){
   });
   return set;
 }
+/* おすすめフォロー（v83）: 端末内の推し・印だけから候補を作る（外部の人気・広告は使わない）。
+   アーティスト=推しとの共演／印イベントへの出演、会場・主催=推し・印イベントの開催実績で数える */
+function buildFollowSuggestions(){
+  var up=allEvents.filter(function(ev){ return !isEnded(ev); });
+  var marked=new Set(); favEvents.forEach(function(x){ marked.add(String(x)); }); wantEvents.forEach(function(x){ marked.add(String(x)); }); intEvents.forEach(function(x){ marked.add(String(x)); });
+  var aScore={}, aWhy={}, aUp={}, vScore={}, vUp={}, oScore={}, oUp={};
+  up.forEach(function(ev){
+    var perfs=ev._perfList||[];
+    perfs.forEach(function(p){ aUp[p]=(aUp[p]||0)+1; });
+    var v=(ev.venue||"").trim(); if(v) vUp[v]=(vUp[v]||0)+1;
+    var o=(ev.organizerName||"").trim(); if(o) oUp[o]=(oUp[o]||0)+1;
+    var oshiNames=perfs.filter(function(p){ return favPerfs.has(p); });
+    if(oshiNames.length){
+      perfs.forEach(function(p){
+        if(favPerfs.has(p)) return;
+        aScore[p]=(aScore[p]||0)+2;
+        if(!aWhy[p]) aWhy[p]="推しの"+oshiNames[0]+"と共演";
+      });
+      if(v) vScore[v]=(vScore[v]||0)+1;
+      if(o) oScore[o]=(oScore[o]||0)+1;
+    }
+    if(marked.has(String(ev.id))){
+      perfs.forEach(function(p){ if(!favPerfs.has(p) && !aScore[p]) aScore[p]=(aScore[p]||0)+1; });
+      if(v) vScore[v]=(vScore[v]||0)+2;
+      if(o) oScore[o]=(oScore[o]||0)+2;
+    }
+  });
+  var out=[];
+  Object.keys(aScore).forEach(function(p){ if(aScore[p]>0 && !favPerfs.has(p)) out.push({kind:"artist", name:p, score:aScore[p], why:aWhy[p]||"印をつけたイベントに出演", upcoming:aUp[p]||0}); });
+  Object.keys(vScore).forEach(function(v){ if(vScore[v]>0 && !venueFollowed(v)) out.push({kind:"venue", name:v, score:vScore[v], why:"推し・印のイベントの会場", upcoming:vUp[v]||0}); });
+  Object.keys(oScore).forEach(function(o){ if(oScore[o]>0 && !followHas("organizer", o)) out.push({kind:"organizer", name:o, score:oScore[o], why:"推し・印のイベントの主催", upcoming:oUp[o]||0}); });
+  out.sort(function(a,b){ if(b.score!==a.score) return b.score-a.score; return (b.upcoming||0)-(a.upcoming||0); });
+  return out.slice(0,10);
+}
+function followRowHTML(s){
+  var av="";
+  if(s.kind==="artist"){ var pr=artistProfileFor(s.name); if(pr && pr.av) av='<img class="fava" src="'+esc(pr.av)+'" alt="" loading="lazy" onerror="this.remove()">'; }
+  if(!av) av='<span class="fava-ph" style="background:'+(s.kind==="venue"?"var(--gold)":s.kind==="organizer"?"var(--accent)":"var(--oshi)")+'">'+esc(String(s.name).slice(0,1))+'</span>';
+  var kindLabel= s.kind==="artist" ? "アーティスト" : s.kind==="venue" ? "会場" : "主催";
+  var btnLabel= s.kind==="artist" ? "推しに登録" : "フォローする";
+  return '<div class="follow-row" data-frow="'+esc(s.kind)+'" data-fname="'+esc(s.name)+'">'+av
+    +'<span class="fmain"><span class="fname">'+esc(s.name)+'</span><span class="fmeta">'+kindLabel+' ・ 開催予定 '+s.upcoming+'件'+(s.why?' ・ '+esc(s.why):"")+'</span></span>'
+    +'<button type="button" class="fbtn" data-ffollow="'+esc(s.kind)+'" data-fname="'+esc(s.name)+'">'+btnLabel+'</button></div>';
+}
+
 /* プロフィール風の数字3点（掲載イベント／開催予定／3つ目は種別ごと） */
 function profStatsHTML(kind, evs, upcoming){
   var third, thirdLabel;
@@ -5141,6 +5208,14 @@ function renderHomeExtras(){
       els.rankList.innerHTML=ranked.map(function(r,i){ return rankRowHTML(r.ev, i+1, r.why); }).join("");
     }
   }
+  if(els.followShelf){
+    /* おすすめフォローもトップページの初期表示だけ（おすすめ棚と同じ条件・同じオフ設定） */
+    var showFollow = isHome && activeCat==="すべて" && selCats.size===0 && !prefs.recoOff;
+    var sugs = showFollow ? buildFollowSuggestions() : [];
+    showFollow = showFollow && sugs.length>=3;
+    els.followShelf.classList.toggle("hidden", !showFollow);
+    if(showFollow) els.followList.innerHTML=sugs.map(followRowHTML).join("");
+  }
 }
 if(els.prefsCta){
   /* CTAは好み画面ではなく、アンケート本体を直接開く */
@@ -5159,6 +5234,18 @@ if(els.rankList) els.rankList.addEventListener("click", function(e){
   var row=e.target.closest(".rank-row"); if(!row) return;
   var ev=allEvents.find(function(x){ return String(x.id)===row.getAttribute("data-id"); });
   if(ev) openModal(ev);
+});
+if(els.followList) els.followList.addEventListener("click", function(e){
+  var fb=e.target.closest("[data-ffollow]");
+  if(fb){
+    var k=fb.getAttribute("data-ffollow"), n=fb.getAttribute("data-fname");
+    if(k==="artist"){ if(!favPerfs.has(n)){ favPerfs.add(n); saveSet(LS_OSHI, favPerfs); } fb.textContent="★ 推し登録中"; toast("推しに登録しました："+n); }
+    else if(k==="venue"){ if(!venueFollowed(n)) follows.venues.push(n); saveFollows(); fb.textContent="フォロー中"; toast("フォローしました："+n); }
+    else { if(!followHas("organizer", n)) follows.organizers.push(n); saveFollows(); fb.textContent="フォロー中"; toast("フォローしました："+n); }
+    fb.classList.add("on"); renderCountsOnly(); return;
+  }
+  var row=e.target.closest("[data-frow]");
+  if(row) openDirDetail(row.getAttribute("data-frow"), row.getAttribute("data-fname"));
 });
 
 /* ---------- events wiring ---------- */
@@ -6729,6 +6816,8 @@ function tlByDate(a,b){
   var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin;
   return as-bs;
 }
+/* 新着順（掲載順）用：ガイドの採番が大きいほど新しい。採番のない反映待ちは先頭 */
+function tlIdNum(ev){ var n=parseInt(ev.id,10); return isNaN(n)? Number.MAX_SAFE_INTEGER : n; }
 function buildTimelineItems(){
   var up=allEvents.filter(function(ev){ return !isEnded(ev); });
   /* リストのスコープが選ばれているときは、そのリストのイベント集合だけを流す（v66） */
@@ -6750,7 +6839,11 @@ function buildTimelineItems(){
   /* フォロー中は「フォローした相手の新着」として日付順に並べる（v82）。
      通常の優先バケツ方式だと推し出演が枠を埋め、フォロー会場・主催の
      イベントが60件枠の外に押し出されるため、この範囲だけ日付順にする */
-  if(tlScopePreset==="follow"){ up.sort(tlByDate); return up.slice(0,60); }
+  if(tlScopePreset==="follow"){
+    if(prefs.tlFollowSort==="new") up.sort(function(a,b){ return tlIdNum(b)-tlIdNum(a); });
+    else up.sort(tlByDate);
+    return up.slice(0,60);
+  }
   var mine=[], favs=[], oshi=[], scored=[], rest=[];
   up.forEach(function(ev){
     if(ev._pending) mine.push(ev);
@@ -6870,6 +6963,16 @@ function renderTlScope(){
     + ["fav","want","int"].map(function(p){ return '<button type="button" data-tlscope="p:'+p+'" class="'+(tlScopePreset===p?"on":"")+'">'+esc(presetLabel(p))+'</button>'; }).join("")
     + '<button type="button" data-tlscope="p:follow" class="'+(tlScopePreset==="follow"?"on":"")+'">フォロー中</button>'
     + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("");
+  renderTlSort();
+}
+function renderTlSort(){
+  var el=tlEl("tlSort"); if(!el) return;
+  var show = tlScopePreset==="follow";
+  el.classList.toggle("hidden", !show);
+  if(!show){ el.innerHTML=""; return; }
+  var cur = prefs.tlFollowSort==="new" ? "new" : "date";
+  el.innerHTML='<button type="button" data-tlsort="date" class="'+(cur==="date"?"on":"")+'">開催日順</button>'
+    + '<button type="button" data-tlsort="new" class="'+(cur==="new"?"on":"")+'">新着順</button>';
 }
 function openTimeline(){
   if(!allEvents.length){ toast("データの読み込みが終わってから開始できます"); return; }
@@ -6945,6 +7048,16 @@ window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
       }
       toast("この範囲には表示できるイベントがありません");
     }
+  });
+  var sortEl=tlEl("tlSort");
+  if(sortEl) sortEl.addEventListener("click", function(e){
+    var b=e.target.closest("[data-tlsort]"); if(!b) return;
+    prefs.tlFollowSort=b.getAttribute("data-tlsort"); savePrefs();
+    tlState.items=buildTimelineItems();
+    tlState.idx=0;
+    renderTlScope();
+    tlBuildTicker();
+    tlApplyMode();
   });
   var post=tlEl("tlPostBtn");
   if(post) post.addEventListener("click", tlOpenPost);
