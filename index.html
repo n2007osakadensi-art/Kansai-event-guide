@@ -807,7 +807,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v94';
+  window.__kgShell='v95';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2950,7 +2950,11 @@ function buildPerfIndex(){
 /* 本人ではなく所属グループ名義の公演（グループ名つきで別枠表示する） */
 function memberEventsOf(name){
   buildPerfIndex();
-  return (memberPerfIndex && memberPerfIndex[name]) || [];
+  if(memberPerfIndex && memberPerfIndex[name]) return memberPerfIndex[name];
+  /* 出演者名が「名前（グループ名）」形式で載っている人は、括弧を外した名前でも引く
+     （例: 森島みなみ（KOBerrieS♪）→ 森島みなみ。v94 の実地確認で発覚） */
+  var clean=stripVenueSuffix(name);
+  return (memberPerfIndex && clean && clean!==name && memberPerfIndex[clean]) || [];
 }
 function artistEvents(name){
   var idx=buildPerfIndex();
