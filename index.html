@@ -211,6 +211,10 @@
   .prof-venue .prof-cover{background:linear-gradient(120deg,var(--gold),var(--accent))}
   .detail-head .artist-avatar{width:72px;height:72px;border:3px solid var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.18)}
   .prof-ava-ph{width:72px;height:72px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:30px;border:3px solid var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+  /* タイムラインのカードからプロフィールへ（v89） */
+  .tl-profs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .tl-prof{border:1px solid rgba(244,242,236,.45);color:#f4f2ec;border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;background:rgba(255,255,255,.10)}
+  .tl-backbar{display:inline-block;border:1.5px solid var(--accent);color:var(--accent);background:var(--surface);border-radius:999px;padding:8px 16px;font-weight:800;font-size:14px;min-height:42px;cursor:pointer;font-family:inherit;margin-bottom:12px}
   .overlay.open{display:flex}
   @media(min-width:700px){.overlay{align-items:center;padding:20px}}
   .modal{background:var(--surface);color:var(--ink);width:100%;max-height:92dvh;overflow-y:auto;border-radius:18px 18px 0 0;padding:0 0 28px}
@@ -764,7 +768,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v88';
+  window.__kgShell='v89';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3294,8 +3298,8 @@ function renderDirInner(){
   renderVenueSuggest(shown);
 }
 function openDirDetail(kind, name){
-  /* プロフィールページへ遷移するときはタイムラインを閉じる（フィード文脈を離れる操作） */
-  if(typeof tlState!=="undefined" && tlState.open) closeTimeline();
+  /* タイムラインから来た場合はタイムラインを保持する（プロフィールから戻れる。v89） */
+  if(typeof tlState!=="undefined" && tlState.open) tlSuspend();
   if(els.overlay.classList.contains("open")) closeModal();
   detailCtx={kind:kind, name:name}; teamFilter="すべて";
   view = kind==="artist" ? "artistDetail" : kind==="venue" ? "venueDetail" : "organizerDetail";
@@ -3418,6 +3422,7 @@ function renderDetailInner(){
     shownUpcoming=upcoming.filter(tf); shownPast=past.filter(tf);
   }
   var body=head;
+  if(typeof tlState!=="undefined" && tlState.suspended) body='<button type="button" class="tl-backbar" id="tlBackBtn">← タイムラインに戻る</button>'+body;
   body+='<h3 style="margin:18px 0 10px;font-size:16px">開催予定・開催中（'+shownUpcoming.length+'件）</h3>'
     + (shownUpcoming.length? '<div class="grid">'+shownUpcoming.map(cardHTML).join("")+'</div>' : '<div class="state"><h2>開催予定のイベントはありません</h2><p>新しい公演が掲載されるとここに表示されます。</p></div>');
   if(shownPast.length){
@@ -3425,6 +3430,8 @@ function renderDetailInner(){
   }
   els.detailBody.innerHTML=body;
   wireCardImages(els.detailBody);
+  var tbb=document.getElementById("tlBackBtn");
+  if(tbb) tbb.addEventListener("click", function(){ tlResume(); });
   var peb=document.getElementById("detailProfEditBtn");
   if(peb) peb.addEventListener("click", function(){ if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name); });
   var dlb=document.getElementById("detailListBtn");
@@ -5510,6 +5517,8 @@ document.getElementById("emptyState").addEventListener("click", function(e){
 });
 document.querySelectorAll(".view-tab").forEach(function(t){
   t.addEventListener("click", function(){
+    /* タブを手で切り替えたら、保持中のタイムラインは破棄する */
+    if(typeof tlState!=="undefined" && tlState.suspended) tlState.suspended=false;
     var nv=t.getAttribute("data-view");
     /* DBタブを切り替えたらDB検索の入力は残さない（アーティスト⇔会場でも、他の表示から戻ったときも） */
     if(nv!==view && (nv==="artists"||nv==="venues"||view==="artists"||view==="venues")){ dirQuery=""; if(els.dirSearch) els.dirSearch.value=""; }
@@ -6840,7 +6849,7 @@ window.KG_SIGNAGE={build:buildSignageData, slides:buildSignageSlides, open:openS
    表示方法（スライド／フィード）は prefs.tlMode に保持する。
    「投稿する」から編集フォーム（新規登録・修正）をそのまま開ける */
 var TL_INTERVAL=8000;
-var tlState={open:false, idx:0, items:[], timer:null, clockTimer:null};
+var tlState={open:false, idx:0, items:[], timer:null, clockTimer:null, suspended:false, feedScroll:0, baseView:null};
 function tlEl(id){ return document.getElementById(id); }
 function tlByDate(a,b){
   if(a.date!==b.date) return a.date<b.date?-1:1;
@@ -6904,6 +6913,15 @@ function tlMediaHTML(ev){
   if(ev.imageUrl) return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" onerror="this.remove()"></div>';
   return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'</div>';
 }
+/* カードからアーティスト／会場／主催のプロフィールへ入る導線（v89） */
+function tlProfLinksHTML(ev){
+  var out="";
+  if(ev.venue) out+='<span class="tl-prof" data-tl-prof="venue" data-tl-name="'+esc(ev.venue)+'">会場：'+esc(ev.venue)+'</span>';
+  (ev._perfList||[]).slice(0,3).forEach(function(p){ out+='<span class="tl-prof" data-tl-prof="artist" data-tl-name="'+esc(p)+'">'+esc(p)+'</span>'; });
+  var org=(ev.organizerName||"").trim();
+  if(org) out+='<span class="tl-prof" data-tl-prof="organizer" data-tl-name="'+esc(org)+'">主催：'+esc(org)+'</span>';
+  return out? '<div class="tl-profs">'+out+'</div>' : "";
+}
 function tlBodyHTML(ev, titleTag){
   return '<div class="tl-body">'
     + '<div class="tl-date">'+esc(dateLabel(ev))+(ev.timeLabel?' '+esc(ev.timeLabel):"")+'</div>'
@@ -6911,6 +6929,7 @@ function tlBodyHTML(ev, titleTag){
     + (ev.venue? '<p class="tl-venue">'+esc(ev.venue)+'</p>' : "")
     + (ev._perfList.length? '<p class="tl-perfs">'+esc(ev._perfList.join("、"))+'</p>' : "")
     + tlChipsHTML(ev)
+    + tlProfLinksHTML(ev)
     + '</div>';
 }
 function tlSlideHTML(ev){
@@ -7007,6 +7026,7 @@ function renderTlSort(){
 }
 function openTimeline(){
   if(!allEvents.length){ toast("データの読み込みが終わってから開始できます"); return; }
+  tlState.suspended=false; tlState.baseView=view;
   /* スコープは開くたび「すべて」から始める（v66） */
   tlScopeListId=null; tlScopePreset=null;
   renderTlScope();
@@ -7045,6 +7065,35 @@ function tlOpenDetail(ev){
   if(tlState.timer) clearTimeout(tlState.timer);
   els.overlay.classList.add("tl-above");
   openModal(ev);
+}
+/* プロフィールへ移るときはタイムラインを保持して隠す（v89）。戻るボタンで同じ位置に復帰する */
+function tlSuspend(){
+  if(!tlState.open) return;
+  if(tlState.timer) clearTimeout(tlState.timer);
+  if(tlState.clockTimer) clearInterval(tlState.clockTimer);
+  var feed=tlEl("tlFeed"); tlState.feedScroll = feed? feed.scrollTop : 0;
+  var ov=tlEl("tlOverlay"); if(ov) ov.classList.remove("open");
+  tlState.open=false; tlState.suspended=true;
+  document.body.style.overflow="";
+}
+function tlResume(){
+  if(!tlState.suspended) return;
+  tlState.suspended=false;
+  var ov=tlEl("tlOverlay"); if(!ov) return;
+  view=tlState.baseView||"all";
+  render();
+  ov.classList.add("open");
+  tlState.open=true;
+  document.body.style.overflow="hidden";
+  tlBuildTicker(); tlUpdateClock();
+  if(tlState.clockTimer) clearInterval(tlState.clockTimer);
+  tlState.clockTimer=setInterval(tlUpdateClock, 1000);
+  tlApplyMode();
+  if(prefs.tlMode==="feed"){ var feed=tlEl("tlFeed"); if(feed) feed.scrollTop=tlState.feedScroll||0; }
+}
+function tlOpenProfile(kind, name){
+  tlSuspend();
+  openDirDetail(kind, name);
 }
 /* 検証・保守用にタイムラインの算出結果へアクセスできるようにする */
 window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
@@ -7113,6 +7162,8 @@ window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
       if(Math.abs(dx)>48 && Math.abs(dx)>Math.abs(dy)*1.4){ var d1=dx<0?1:-1; tlGo(tlState.idx + d1); tlFlash(d1); return; }
       /* タップ: 終了スライドのボタン類を優先し、それ以外は現在のイベントの詳細へ */
       if(Math.abs(dx)<12 && Math.abs(dy)<12 && dt<600){
+        var prof = e.target && e.target.closest ? e.target.closest("[data-tl-prof]") : null;
+        if(prof){ tlOpenProfile(prof.getAttribute("data-tl-prof"), prof.getAttribute("data-tl-name")); return; }
         var postBtn = e.target && e.target.closest ? e.target.closest("[data-tl-post]") : null;
         if(postBtn){ tlOpenPost(); return; }
         var again = e.target && e.target.closest ? e.target.closest("[data-tl-again]") : null;
@@ -7125,6 +7176,8 @@ window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
   var feed=tlEl("tlFeed");
   if(feed){
     feed.addEventListener("click", function(e){
+      var prof = e.target && e.target.closest ? e.target.closest("[data-tl-prof]") : null;
+      if(prof){ tlOpenProfile(prof.getAttribute("data-tl-prof"), prof.getAttribute("data-tl-name")); return; }
       var postBtn = e.target && e.target.closest ? e.target.closest("[data-tl-post]") : null;
       if(postBtn){ tlOpenPost(); return; }
       var card = e.target && e.target.closest ? e.target.closest("[data-tl-id]") : null;
