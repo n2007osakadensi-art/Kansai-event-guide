@@ -61,6 +61,10 @@
     '<h2 style="margin-top:0">イベントの新規登録・修正</h2>' +
     '<p style="font-size:13px">スペース版ガイドと同じ項目・並びのフォームです。送信内容は受付に届き、確認のうえスペース版ガイドへ登録・反映されます。</p>' +
     '<p id="kg-editor-status" role="status"></p>' +
+    '<div id="kg-editor-gate" style="display:none;border:1.5px solid #b92b37;border-radius:12px;padding:16px;margin:12px 0">' +
+    '<p style="font-weight:800;margin:0 0 8px">ログインが必要です</p>' +
+    '<p style="font-size:13.5px;margin:0 0 12px;line-height:1.6">新規登録・修正の送信は、ログインした方だけが使えます（管理者・主催者・アーティスト運営・閲覧者の役割分けのため）。ログインすると、このままフォームが使えるようになります。</p>' +
+    '<button id="kg-editor-tologin" type="button" style="background:#b92b37;color:#fff;border:0;border-radius:999px;padding:10px 22px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer">ログインする</button></div>' +
     sec('種別') +
     field('種別', '<select id="ke-kind"><option value="new">新規登録</option><option value="edit">修正</option></select>') +
     field('対象イベントID（修正のとき）', '<input id="ke-target" type="text" inputmode="numeric">') +
@@ -559,6 +563,7 @@
       });
       if (dropped.length) payload.preservedUnloadedFields = dropped;
     }
+    if (!kgLoggedIn()) { applyEditorGate(); status('ログインが必要です。ログインしてから送信してください。入力内容は送信されていません。'); return; }
     if (!cfg.endpoint) { status('送信先が未設定です（受付の準備中）。入力内容はまだ送信されていません。'); return; }
     var sendBtn = $('ke-send'); sendBtn.disabled = true;
     status('送信しています…');
@@ -591,10 +596,37 @@
     status('');
     updatePcAuto();
   }
-  function openEditor() { loadDictNames(); resetEditorForm(); if (!dlg.open) dlg.showModal(); }
+  /* ログイン必須ゲート（Kota指示 2026-11-24）: 管理者モード／会員コード／Google のいずれかの
+     ログイン状態でなければ、送信フォームは使えない。判定キーは本体の kgHasLocalSession と同一 */
+  function kgLoggedIn() {
+    try {
+      return localStorage.getItem('kg_admin_mode_v1') === '1'
+        || !!localStorage.getItem('kg_member_session_v2')
+        || !!localStorage.getItem('kg_account_selected_user_v1');
+    } catch (e) { return false; }
+  }
+  function applyEditorGate() {
+    var gate = $('kg-editor-gate'); if (!gate) return;
+    var ok = kgLoggedIn();
+    gate.style.display = ok ? 'none' : 'block';
+    Array.prototype.forEach.call(dlg.children, function (ch) {
+      if (ch === gate || ch.classList.contains('kg-closebar') || ch.tagName === 'H2' || ch.id === 'kg-editor-status') return;
+      ch.style.display = ok ? '' : 'none';
+    });
+    var lb = $('kg-editor-tologin');
+    if (lb && !lb._kgWired) {
+      lb._kgWired = 1;
+      lb.addEventListener('click', function () {
+        try { dlg.close(); } catch (e) {}
+        var b = document.getElementById('kg-account-open');
+        if (b) b.click();
+      });
+    }
+  }
+  function openEditor() { loadDictNames(); resetEditorForm(); applyEditorGate(); if (!dlg.open) dlg.showModal(); }
   /* 詳細モーダルからの導線: 対象イベントがセット済みの状態で開く */
   window.KGEditorOpenWithId = function (id) {
-    loadDictNames(); resetEditorForm();
+    loadDictNames(); resetEditorForm(); applyEditorGate();
     $('ke-kind').value = 'edit';
     $('ke-target').value = String(id == null ? '' : id);
     if (!dlg.open) dlg.showModal();

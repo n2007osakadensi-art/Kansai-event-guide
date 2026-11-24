@@ -88,9 +88,36 @@
       if (sp) sp.textContent = 'メンバー' + (i + 1);
     }
   }
+  /* ログイン必須ゲート（Kota指示 2026-11-24、イベント編集と同一ルール） */
+  function kpLoggedIn() {
+    try {
+      return localStorage.getItem('kg_admin_mode_v1') === '1'
+        || !!localStorage.getItem('kg_member_session_v2')
+        || !!localStorage.getItem('kg_account_selected_user_v1');
+    } catch (e) { return false; }
+  }
   function open(kind, name) {
     var bridge = window.KGEditorBridge;
     if (!bridge) return;
+    if (!kpLoggedIn()) {
+      cur = { kind: kind, name: name };
+      $('kp-title').textContent = 'プロフィールの追加・修正';
+      $('kp-fields').innerHTML = '<div style="border:1.5px solid #b92b37;border-radius:12px;padding:16px;margin-top:10px">'
+        + '<p style="font-weight:800;margin:0 0 8px">ログインが必要です</p>'
+        + '<p style="font-size:13.5px;margin:0 0 12px;line-height:1.6">プロフィールの追加・修正の送信は、ログインした方だけが使えます（管理者・主催者・アーティスト運営・閲覧者の役割分けのため）。</p>'
+        + '<button type="button" id="kp-tologin" style="background:#b92b37;color:#fff;border:0;border-radius:999px;padding:10px 22px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer">ログインする</button></div>';
+      $('kp-status').textContent = '';
+      var sb = $('kp-send'); sb.disabled = true; sb.style.opacity = '.4';
+      var lb = $('kp-tologin');
+      if (lb) lb.addEventListener('click', function () {
+        ov.classList.remove('open');
+        var b = document.getElementById('kg-account-open');
+        if (b) b.click();
+      });
+      ov.classList.add('open');
+      return;
+    }
+    var sb2 = $('kp-send'); sb2.disabled = false; sb2.style.opacity = '';
     cur = { kind: kind, name: name };
     var data = kind === 'artist' ? bridge.getArtistProfile(name) : bridge.getVenueProfile(name);
     var p = data.profile || {};
@@ -168,6 +195,7 @@
   ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
   function val(id) { var el = $(id); return el ? el.value.trim() : ''; }
   $('kp-send').addEventListener('click', async function () {
+    if (!kpLoggedIn()) { $('kp-status').textContent = 'ログインが必要です。ログインしてから送信してください。'; return; }
     var status = function (t) { $('kp-status').textContent = t; };
     var payload;
     if (cur.kind === 'artist') {
