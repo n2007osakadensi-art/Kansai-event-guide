@@ -755,7 +755,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v86';
+  window.__kgShell='v87';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4677,6 +4677,8 @@ function loadPrefs(){
       p.tlMode = o.tlMode==="feed" ? "feed" : "slide";
       /* 最初のページ（v66）: "list"（通常のイベント一覧）／"feed"（タイムラインを自動で開く）。既定は通常 */
       p.startView = o.startView==="feed" ? "feed" : "list";
+      /* フォロー中の並び（v83）: "date"（開催日順）／"new"（新着順）。読み込み側の許可リストに入れないと再読み込みで消える（v87で修正） */
+      p.tlFollowSort = o.tlFollowSort==="new" ? "new" : "date";
       return p;
     }
   }catch(e){}
