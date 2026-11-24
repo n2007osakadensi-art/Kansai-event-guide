@@ -739,7 +739,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v76';
+  window.__kgShell='v77';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2244,6 +2244,7 @@ function searchHay(ev){
     /* グループならメンバー名でも探せるようにする */
     var mems=groupMembers(p); if(mems.length) parts.push(mems.join(" "));
   });
+  var tdw=dictWords(ev.title); if(tdw.length) parts.push(tdw.join(" "));
   var vdw=dictWords(ev.venue); if(vdw.length) parts.push(vdw.join(" "));
   venueVariants(ev.venue).forEach(function(vv){ if(vv!==ev.venue) parts.push(vv); });
   var vp=venueProfileFor(ev.venue);
@@ -2969,6 +2970,7 @@ function loadProfiles(){
     if(res[2]){ Object.keys(res[2]).forEach(function(rd){ var nm=res[2][rd]; if(nm && !readingByName[nm]) readingByName[nm]=rd; }); }
     if(res[3]){ venueSuppById=res[3]; attachVenueSupp(); }
     if(res[4]){ dictByName=res[4]; dictWords.memo={}; buildDictRevMap(); }
+    loadSheetDict();
     if(res[5]){ artistCats=res[5]; }
     artistCatCache={};
     profilesLoaded=true; profilesLoading=null;
@@ -5719,6 +5721,54 @@ function startNetworkLoad(background){
 /* 1タブ分の取得レース：JSONP（responseHandler: 形式）を主経路に、6秒で
    応答がなければ fetch を並行開始し、先に成功した方を採用する。両方失敗
    した場合のみ JSONP をもう一度試す（従来の startNetworkLoad と同じ作法） */
+/* シート「検索辞書」タブの辞書を、同梱辞書へ上乗せする（v77）。
+   このタブにはガイド由来行とクローラー管理行の両方がシート同期で集まる。
+   クローラー管理などで登録した検索ワードがスマホ公開版にも届くようにする
+   （Kota指示：調査クローラー管理などでの検索の特殊な設定はスマホ公開版にも反映）。
+   列は A=正式名 / B=種別 / C=検索ワード（、区切り）。失敗しても同梱辞書で動く */
+var sheetDictLoaded=false;
+function loadSheetDict(){
+  if(sheetDictLoaded) return;
+  sheetDictLoaded=true;
+  var cbName="__kgDictCb"+(++loadSeq);
+  var settled=false;
+  var script=document.createElement("script");
+  var timer=setTimeout(function(){ finish(); }, 30000);
+  function finish(){
+    if(settled) return; settled=true;
+    clearTimeout(timer);
+    try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; }
+    if(script.parentNode) script.parentNode.removeChild(script);
+  }
+  window[cbName]=function(resp){
+    try{
+      var rows=(resp && resp.table && resp.table.rows)||[];
+      var added=0;
+      rows.forEach(function(r, ri){
+        if(ri===0 || !r || !r.c) return;
+        var canon=(r.c[0] && r.c[0].v!=null)? String(r.c[0].v).trim() : "";
+        var cell=(r.c[2] && r.c[2].v!=null)? String(r.c[2].v) : "";
+        if(!canon || !cell) return;
+        var words=cell.split(/[、,]/).map(function(w){ return w.trim(); }).filter(Boolean);
+        if(!words.length) return;
+        var cur=dictByName[canon]||(dictByName[canon]=[]);
+        words.forEach(function(w){ if(cur.indexOf(w)<0){ cur.push(w); added++; } });
+      });
+      if(added){
+        dictWords.memo={};
+        buildDictRevMap();
+        artistCatCache={};
+        allEvents.forEach(function(ev){ ev._hay=null; });
+        if(allEvents.length) render();
+      }
+    }catch(e){}
+    finish();
+  };
+  script.onerror=function(){ finish(); };
+  script.async=true;
+  script.src=sheetJsonpBase("検索辞書")+cbName+"&_="+Date.now();
+  document.head.appendChild(script);
+}
 function loadSheetRace(sheetName, ok, failAll){
   var settled=false, jsonpFailed=false, fetchStarted=false, fetchFailed=false, hedgeTimer=null;
   function done(events){ if(settled) return; settled=true; if(hedgeTimer) clearTimeout(hedgeTimer); ok(events); }
