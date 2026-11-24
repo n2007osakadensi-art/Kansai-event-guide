@@ -214,6 +214,15 @@
   /* Image viewer (lightbox): full-size view + save */
   .zoom-btn{position:absolute;right:8px;bottom:8px;z-index:3;border:0;border-radius:999px;background:rgba(15,15,18,.8);color:#fff;font-size:12.5px;font-weight:700;padding:8px 13px;min-height:36px;cursor:pointer}
   .zoom-btn:active{background:rgba(15,15,18,.96)}
+  .gal-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;height:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .gal-track::-webkit-scrollbar{display:none}
+  .gal-slide{flex:0 0 100%;scroll-snap-align:start;position:relative;height:100%}
+  .gal-slide img{width:100%;height:100%;object-fit:contain;display:block;position:relative;cursor:zoom-in}
+  .gal-ui{position:absolute;left:8px;bottom:8px;z-index:3;display:flex;align-items:center;gap:8px;pointer-events:none}
+  .gal-dots{display:flex;gap:6px;background:rgba(15,15,18,.55);border-radius:999px;padding:6px 9px}
+  .gal-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.45)}
+  .gal-dot.on{background:#fff}
+  .gal-count{background:rgba(15,15,18,.55);color:#fff;font-size:12px;font-weight:700;border-radius:999px;padding:4px 9px}
   .lb{position:fixed;inset:0;z-index:80;background:rgba(8,8,10,.95);display:none;flex-direction:column}
   .lb.open{display:flex}
   .lb-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#fff}
@@ -351,6 +360,17 @@
   .cal-day.sel .c{color:var(--bg)}
   .cal-day.past{opacity:.55}
   .cal-day.dim{border:0;background:transparent;min-height:0}
+  .cal-scope{display:flex;gap:8px;margin:0 0 10px}
+  .cal-scope button{flex:1;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:9px 6px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer;font-family:inherit}
+  .cal-scope button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .cal-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);margin:0 0 10px}
+  .cal-legend .cdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+  .cdot.fav{background:var(--heart)} .cdot.want{background:var(--accent)} .cdot.int{background:#d97706} .cdot.oshi{background:var(--oshi)}
+  .cal-day .dots{display:flex;gap:3px;justify-content:center;min-height:7px}
+  .cal-day .dots i{width:7px;height:7px;border-radius:50%;display:block}
+  .mycal-labels{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
+  .mycal-label{font-size:12px;font-weight:800;color:#fff;border-radius:999px;padding:3px 9px}
+  .mycal-label.fav{background:var(--heart)} .mycal-label.want{background:var(--accent)} .mycal-label.int{background:#d97706} .mycal-label.oshi{background:var(--oshi)}
 
   /* Directory (artists / venues) */
   .dir-search{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:11px 14px;font-size:15px;margin:0 0 12px;min-height:46px}
@@ -657,7 +677,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v64';
+  window.__kgShell='v65';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -939,6 +959,13 @@
       <button type="button" id="calPrev">← 前の月</button>
       <h2 id="calTitle"></h2>
       <button type="button" id="calNext">次の月 →</button>
+    </div>
+    <div class="cal-scope" role="tablist" aria-label="カレンダーの表示範囲">
+      <button type="button" id="calScopeAll" class="on" role="tab" aria-selected="true">全イベント</button>
+      <button type="button" id="calScopeMine" role="tab" aria-selected="false">自分の予定</button>
+    </div>
+    <div class="cal-legend" id="calLegend" hidden>
+      <span><i class="cdot fav"></i>お気に入り</span><span><i class="cdot want"></i>行きたい</span><span><i class="cdot int"></i>気になる</span><span><i class="cdot oshi"></i>推し出演</span>
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <p id="calNote" style="font-size:13px;color:var(--muted);margin-top:12px"></p>
@@ -1809,13 +1836,13 @@ var selCats=new Set(), selVenueGenres=new Set(), maxPrice=null;
 var xmasSub="all";
 var imgOnly=false, ticketOnly=false, ongoingOnly=false;
 var webOnly=false, xOnly=false, igOnly=false, descOnly=false, favOnly=false, oshiOnly=false, wantOnly=false, intOnly=false;
-var calCursor=null, calSel="";
+var calCursor=null, calSel="", calScope="all";
 var dirQuery="", detailCtx=null, teamFilter="すべて";
 var dirCatFilter="すべて", dirEventsOnly=false;
 var venueGenres=new Set(), venueGenreSubs=new Set(), venueGenreGroups=new Set(), venueGenreClosed={}, venueSugDismissed="";
 try{ showEnded = localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
 var els={};
-["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo"].forEach(function(id){ els[id]=document.getElementById(id); });
+["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo"].forEach(function(id){ els[id]=document.getElementById(id); });
 
 var toastTimer=null;
 function toast(msg){
@@ -2533,37 +2560,77 @@ function syncEndedUI(){
 }
 
 /* ---------- calendar ---------- */
+/* マイカレンダー: 「自分の予定」の種別（お気に入り／行きたい／気になる／推し出演） */
+var MYCAL_KINDS=[
+  {key:"fav", label:"♥ お気に入り"},
+  {key:"want", label:"行きたい"},
+  {key:"int", label:"気になる"},
+  {key:"oshi", label:"★ 推し出演"}
+];
+function myCalKinds(ev){
+  var id=String(ev.id), kinds=[];
+  if(favEvents.has(id)) kinds.push("fav");
+  if(wantEvents.has(id)) kinds.push("want");
+  if(intEvents.has(id)) kinds.push("int");
+  if(hasOshi(ev)) kinds.push("oshi");
+  return kinds;
+}
 function renderCalendar(){
   if(!calCursor){ var t=todayStr().split("-"); calCursor={y:+t[0], m:+t[1]-1}; }
   var y=calCursor.y, m=calCursor.m;
+  var mine = calScope==="mine";
   els.calTitle.textContent=y+"年"+(m+1)+"月";
-  var counts={};
+  if(els.calScopeAll){ els.calScopeAll.classList.toggle("on", !mine); els.calScopeAll.setAttribute("aria-selected", mine?"false":"true"); }
+  if(els.calScopeMine){ els.calScopeMine.classList.toggle("on", mine); els.calScopeMine.setAttribute("aria-selected", mine?"true":"false"); }
+  if(els.calLegend) els.calLegend.hidden=!mine;
+  var first=new Date(y,m,1), startDow=first.getDay(), days=new Date(y,m+1,0).getDate();
+  var monthStart=y+"-"+String(m+1).padStart(2,"0")+"-01";
+  var monthEnd=y+"-"+String(m+1).padStart(2,"0")+"-"+String(days).padStart(2,"0");
+  var counts={}, dayKinds={}, myMonthIds={};
   var calSeen={};
   allEvents.forEach(function(ev){
     if(!contentPass(ev,{ignoreEnded:true})) return;
-    if(isLongRun(ev)) return;
     if(!ev.date) return;
     var idk=String(ev.id); if(calSeen[idk]) return; calSeen[idk]=1;
     var end=effectiveEnd(ev), ds=ev.date, guard=0;
-    while(ds<=end && guard++<400){ counts[ds]=(counts[ds]||0)+1; ds=addDays(ds,1); }
+    if(mine){
+      /* 自分の予定: 付けた印があるイベントだけ。長期開催も含める（自分の予定のため） */
+      var kinds=myCalKinds(ev);
+      if(!kinds.length) return;
+      if(ev.date<=monthEnd && end>=monthStart) myMonthIds[idk]=1;
+      while(ds<=end && guard++<400){
+        var dk=dayKinds[ds]||(dayKinds[ds]={});
+        kinds.forEach(function(k){ dk[k]=1; });
+        counts[ds]=(counts[ds]||0)+1;
+        ds=addDays(ds,1);
+      }
+    } else {
+      if(isLongRun(ev)) return;
+      while(ds<=end && guard++<400){ counts[ds]=(counts[ds]||0)+1; ds=addDays(ds,1); }
+    }
   });
-  var first=new Date(y,m,1), startDow=first.getDay(), days=new Date(y,m+1,0).getDate();
   var today=todayStr();
   var html=["日","月","火","水","木","金","土"].map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join("");
   for(var i=0;i<startDow;i++) html+='<div class="cal-day dim"></div>';
   for(var d=1;d<=days;d++){
     var ds=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
     var c=counts[ds]||0;
-    html+='<button type="button" class="cal-day'+(ds===today?" today":"")+(ds===calSel?" sel":"")+(ds<today?" past":"")+'" data-day="'+ds+'"><span class="n">'+d+'</span><span class="c'+(c?"":" zero")+'">'+(c?c+"件":"—")+'</span></button>';
+    var dotsHtml="";
+    if(mine && dayKinds[ds]){
+      var dk2=dayKinds[ds];
+      dotsHtml='<span class="dots">'+MYCAL_KINDS.filter(function(k){ return dk2[k.key]; }).map(function(k){ return '<i class="cdot '+k.key+'"></i>'; }).join("")+'</span>';
+    }
+    html+='<button type="button" class="cal-day'+(ds===today?" today":"")+(ds===calSel?" sel":"")+(ds<today?" past":"")+'" data-day="'+ds+'"><span class="n">'+d+'</span>'+dotsHtml+'<span class="c'+(c?"":" zero")+'">'+(c?c+"件":"—")+'</span></button>';
   }
   els.calGrid.innerHTML=html;
   var anyFilter = activeFilterCount()>0 || activeCat!=="すべて" || query.trim();
-  els.calNote.textContent = anyFilter ? "各日の件数は、現在の検索・絞り込み条件に合うイベントの件数です（長期開催（7日以上）は除く。複数日開催は開催日ごとに数えます）。過去の日は「終了したイベントも表示」の設定に関係なく選べます。" : "日付をタップすると、その日のイベント一覧が表示されます（長期開催（7日以上）は除く。複数日開催は開催日ごとに数えます）。";
+  els.calNote.textContent = mine ? "色の丸は、その日に付けた印の種類です。日付をタップすると、その日の自分の予定だけが表示されます（長期開催も含みます）。" : (anyFilter ? "各日の件数は、現在の検索・絞り込み条件に合うイベントの件数です（長期開催（7日以上）は除く。複数日開催は開催日ごとに数えます）。過去の日は「終了したイベントも表示」の設定に関係なく選べます。" : "日付をタップすると、その日のイベント一覧が表示されます（長期開催（7日以上）は除く。複数日開催は開催日ごとに数えます）。");
   if(calSel){
     var daySeen={}, daySeenTV={};
     var dayEvents=allEvents.filter(function(ev){
       if(!contentPass(ev,{ignoreEnded:true})) return false;
-      if(isLongRun(ev)) return false;
+      if(!mine && isLongRun(ev)) return false;
+      if(mine && !myCalKinds(ev).length) return false;
       if(!(ev.date && ev.date<=calSel && effectiveEnd(ev)>=calSel)) return false;
       /* 同一 id の重複行と、同一タイトル＋会場の重複表示を畳む（v53） */
       var idk=String(ev.id); if(daySeen[idk]) return false; daySeen[idk]=1;
@@ -2571,9 +2638,19 @@ function renderCalendar(){
       return true;
     });
     dayEvents.sort(function(a,b){ var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
-    els.calDayList.innerHTML='<h3 style="margin:16px 0 10px;font-size:16px">'+esc(fmtDateFull(calSel))+' のイベント（'+dayEvents.length+'件）</h3>'
-      + (dayEvents.length? '<div class="grid">'+dayEvents.map(cardHTML).join("")+'</div>' : '<div class="state"><h2>この日のイベントはありません</h2><p>条件を変えるか、別の日をお試しください。</p></div>');
+    if(mine){
+      els.calDayList.innerHTML='<h3 style="margin:16px 0 10px;font-size:16px">'+esc(fmtDateFull(calSel))+' の自分の予定（'+dayEvents.length+'件）</h3>'
+        + (dayEvents.length? '<div class="grid">'+dayEvents.map(function(ev){
+            var labels=myCalKinds(ev).map(function(k){ var def=null; MYCAL_KINDS.forEach(function(x){ if(x.key===k) def=x; }); return '<span class="mycal-label '+k+'">'+(def?def.label:k)+'</span>'; }).join("");
+            return '<div class="mycal-item"><div class="mycal-labels">'+labels+'</div>'+cardHTML(ev)+'</div>';
+          }).join("")+'</div>' : '<div class="state"><h2>この日の自分の予定はありません</h2><p>別の日を選ぶか、イベントの詳細で「お気に入り」「行きたい」「気になる」を付けてみてください。</p></div>');
+    } else {
+      els.calDayList.innerHTML='<h3 style="margin:16px 0 10px;font-size:16px">'+esc(fmtDateFull(calSel))+' のイベント（'+dayEvents.length+'件）</h3>'
+        + (dayEvents.length? '<div class="grid">'+dayEvents.map(cardHTML).join("")+'</div>' : '<div class="state"><h2>この日のイベントはありません</h2><p>条件を変えるか、別の日をお試しください。</p></div>');
+    }
     wireCardImages(els.calDayList);
+  } else if(mine && !Object.keys(myMonthIds).length){
+    els.calDayList.innerHTML='<div class="state"><h2>この月の自分の予定はまだありません</h2><p>イベントの詳細画面で「お気に入り」「行きたい」「気になる」を押すか、出演者を推しに登録すると、その予定がここに表示されます。</p></div>';
   } else {
     els.calDayList.innerHTML="";
   }
@@ -2735,6 +2812,30 @@ function artistProfileFor(name){
 function prefFromAddress(ad){
   var m=String(ad||"").match(/^(大阪府|京都府|兵庫県|奈良県|滋賀県|和歌山県|三重県|福井県|徳島県)/);
   return m?m[1]:"";
+}
+/* 複数画像イベントの全URL（assets/event-images.json = {id:[url,...]}）。
+   無い／読めない場合は空のままにし、表示は従来の imageUrl 1枚にフォールバックする */
+var eventImages={}, eventImagesLoaded=false, eventImagesLoading=null;
+function loadEventImages(){
+  if(eventImagesLoaded) return Promise.resolve();
+  if(eventImagesLoading) return eventImagesLoading;
+  try{
+    var ctl=("AbortController" in window)?new AbortController():null;
+    var tm=ctl?setTimeout(function(){ ctl.abort(); },20000):null;
+    eventImagesLoading=fetch("assets/event-images.json", ctl?{signal:ctl.signal}:undefined).then(function(r){ if(tm)clearTimeout(tm); if(!r.ok) throw new Error("event-images"); return r.json(); }).then(function(j){
+      if(j && typeof j==="object" && !Array.isArray(j)) eventImages=j;
+      eventImagesLoaded=true; eventImagesLoading=null;
+    }).catch(function(){ if(tm)clearTimeout(tm); eventImagesLoaded=true; eventImagesLoading=null; });
+    return eventImagesLoading;
+  }catch(e){ eventImagesLoaded=true; return Promise.resolve(); }
+}
+function eventImageList(ev){
+  var list=eventImages[String(ev.id)];
+  if(Array.isArray(list)){
+    var urls=list.filter(function(u){ return typeof u==="string" && !!u; });
+    if(urls.length) return urls;
+  }
+  return ev.imageUrl?[ev.imageUrl]:[];
 }
 function loadProfiles(){
   if(profilesLoaded) return Promise.resolve();
@@ -3597,13 +3698,24 @@ function openModal(ev){
   if(ev.linkTicket) links+='<a class="link-btn lb-ticket" href="'+esc(ev.linkTicket)+'" target="_blank" rel="noopener">チケット</a>';
   if(ev.linkX) links+='<a class="link-btn lb-x" href="'+esc(ev.linkX)+'" target="_blank" rel="noopener">X</a>';
   if(ev.linkInstagram) links+='<a class="link-btn lb-ig" href="'+esc(ev.linkInstagram)+'" target="_blank" rel="noopener">Instagram</a>';
-  var media = ev.imageUrl
-    ? '<img src="'+esc(ev.imageUrl)+'" alt="'+esc(ev.title)+' のフライヤー画像" onerror="this.remove()"><div class="ph" style="background:'+catColor(ev.category)+';z-index:-1"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div></div>'
-    : '<div class="ph" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>';
-  // fix fallback layering: placeholder behind image
-  if(ev.imageUrl){ media='<div class="ph" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div></div><img src="'+esc(ev.imageUrl)+'" alt="'+esc(ev.title)+' のフライヤー画像" class="lb-openable" data-lbopen="1" style="position:relative" onerror="this.remove()">'; }
+  var imgList=eventImageList(ev);
+  var phHTML='<div class="ph" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div></div>';
+  var media;
+  if(imgList.length>=2){
+    /* 複数画像: 横スワイプのギャラリー（スナップ＋ドット＋カウンタ）。
+       タップでその画像をライトボックスで開く */
+    media='<div class="gal-track" id="galTrack">'
+      + imgList.map(function(u,i){ return '<div class="gal-slide">'+phHTML+'<img src="'+esc(u)+'" alt="'+esc(ev.title)+' のフライヤー画像（'+(i+1)+'枚目）" data-lbopen="'+i+'"'+(i?' loading="lazy"':"")+' onerror="this.remove()">'; }).join("")
+      + '</div>'
+      + '<div class="gal-ui"><span class="gal-dots">'+imgList.map(function(_,i){ return '<span class="gal-dot'+(i===0?" on":"")+'"></span>'; }).join("")+'</span><span class="gal-count" id="galCount">1/'+imgList.length+'</span></div>';
+  } else if(imgList.length===1){
+    // fix fallback layering: placeholder behind image
+    media=phHTML+'<img src="'+esc(imgList[0])+'" alt="'+esc(ev.title)+' のフライヤー画像" class="lb-openable" data-lbopen="0" style="position:relative" onerror="this.remove()">';
+  } else {
+    media='<div class="ph" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>';
+  }
   els.modal.innerHTML =
-    '<div class="modal-media'+(ev.imageUrl?"":" noimg")+'">'+media+(ev.imageUrl?'<button class="zoom-btn" type="button" data-lbopen="1" aria-label="'+esc(ev.title)+' の画像を拡大表示">画像を拡大</button>':"")+'</div><div class="modal-in">'
+    '<div class="modal-media'+(imgList.length?"":" noimg")+'">'+media+(imgList.length?'<button class="zoom-btn" type="button" data-lbopen="cur" aria-label="'+esc(ev.title)+' の画像を拡大表示">画像を拡大</button>':"")+'</div><div class="modal-in">'
     + '<div class="close-row"><span class="cat-chip" style="background:'+catColor(ev.category)+'">'+catIcon(ev.category,13)+esc(ev.category||"イベント")+'</span>'
     + '<button class="close-btn" type="button" id="modalClose" aria-label="閉じる">✕</button></div>'
     + '<h2 id="modalTitle">'+esc(ev.title)+'</h2>'
@@ -3658,9 +3770,30 @@ function openModal(ev){
     if(window.KGEditorOpenWithId){ window.KGEditorOpenWithId(id); }
     else { toast("編集フォームを開けませんでした"); }
   });
+  var galIdx=0;
   els.modal.querySelectorAll("[data-lbopen]").forEach(function(el){
-    el.addEventListener("click", function(){ openLightbox(ev); });
+    el.addEventListener("click", function(){
+      var v=el.getAttribute("data-lbopen");
+      var url=(v==="cur") ? (imgList[galIdx]||imgList[0]) : imgList[parseInt(v,10)];
+      openLightbox(ev, url);
+    });
   });
+  var galTrack=els.modal.querySelector("#galTrack");
+  if(galTrack){
+    var galRaf=0;
+    galTrack.addEventListener("scroll", function(){
+      if(galRaf) return;
+      galRaf=requestAnimationFrame(function(){
+        galRaf=0;
+        var w=galTrack.clientWidth; if(!w) return;
+        var i=Math.round(galTrack.scrollLeft/w);
+        if(i<0) i=0; if(i>imgList.length-1) i=imgList.length-1;
+        galIdx=i;
+        els.modal.querySelectorAll(".gal-dot").forEach(function(d,j){ d.classList.toggle("on", j===i); });
+        var cnt=els.modal.querySelector("#galCount"); if(cnt) cnt.textContent=(i+1)+"/"+imgList.length;
+      });
+    }, {passive:true});
+  }
   els.modal.querySelectorAll("[data-perf]").forEach(function(b){
     b.addEventListener("click", function(){
       var name=b.getAttribute("data-perf");
@@ -3734,13 +3867,14 @@ function lbStagePoint(clientX, clientY){
   var sr=lbStage.getBoundingClientRect();
   return { x: clientX-(sr.left+sr.width/2), y: clientY-(sr.top+sr.height/2) };
 }
-function openLightbox(ev){
-  if(!ev || !ev.imageUrl) return;
+function openLightbox(ev, url){
+  var src=url||(ev?ev.imageUrl:"");
+  if(!ev || !src) return;
   lbReset(false);
-  lbImg.src=ev.imageUrl;
+  lbImg.src=src;
   lbImg.alt=ev.title+" のフライヤー画像";
   lbTitle.textContent=ev.title||"";
-  lbSave.href=ev.imageUrl;
+  lbSave.href=src;
   lbBox.classList.add("open"); lbOpen=true;
   document.body.style.overflow="hidden";
 }
@@ -4694,6 +4828,7 @@ function applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite){
   }
   if(detailsState!=="pending") tryDeepLink();
   loadProfiles();
+  loadEventImages();
   if(window.__kgBootMarkOk) window.__kgBootMarkOk();
 }
 function showError(err){
@@ -5347,6 +5482,8 @@ els.wantOnlyBtn.addEventListener("click", function(){ wantOnly=!wantOnly; render
 els.intOnlyBtn.addEventListener("click", function(){ intOnly=!intOnly; render(); });
 els.oshiOnlyBtn.addEventListener("click", function(){ oshiOnly=!oshiOnly; render(); });
 els.sortSel.addEventListener("change", function(){ sortMode=els.sortSel.value; render(); });
+if(els.calScopeAll) els.calScopeAll.addEventListener("click", function(){ if(calScope!=="all"){ calScope="all"; renderCalendar(); } });
+if(els.calScopeMine) els.calScopeMine.addEventListener("click", function(){ if(calScope!=="mine"){ calScope="mine"; renderCalendar(); } });
 document.getElementById("calPrev").addEventListener("click", function(){ if(!calCursor) return; calCursor.m--; if(calCursor.m<0){ calCursor.m=11; calCursor.y--; } renderCalendar(); });
 document.getElementById("calNext").addEventListener("click", function(){ if(!calCursor) return; calCursor.m++; if(calCursor.m>11){ calCursor.m=0; calCursor.y++; } renderCalendar(); });
 /* カレンダーの左右スワイプで月移動（v56、Kotaの方針：スマホらしいスワイプは合う場所に取り入れる）。
