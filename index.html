@@ -235,6 +235,25 @@
   .ps-row .pt{font-weight:700}
   .ps-row .pv{display:block;color:var(--muted);font-size:12px;font-weight:400}
   .ps-sec{font-size:13px;font-weight:800;color:var(--muted);margin:14px 0 4px}
+  /* 次の出演＋アーティストカレンダー（v93、スペース版との機能寄せ） */
+  .next-ev{display:block;width:100%;margin-top:12px;text-align:left;background:var(--surface2);border:1.5px solid var(--oshi);border-radius:12px;padding:10px 12px;cursor:pointer;font-family:inherit;color:inherit}
+  .next-label{display:inline-block;background:var(--oshi);color:#fff;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;margin-bottom:4px}
+  .next-main{display:block;font-weight:800}
+  .next-sub{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cal-wrap{margin:16px 0 4px;border:1px solid var(--line);border-radius:14px;padding:12px}
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .cal-nav{border:1px solid var(--line);background:var(--surface);border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;color:inherit;font-family:inherit}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal-dow{font-size:11.5px;color:var(--muted);text-align:center;margin-bottom:4px}
+  .cal-cell{min-height:44px;border-radius:9px;border:1px solid transparent;background:transparent;font-family:inherit;font-size:13.5px;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:3px 0}
+  button.cal-cell{cursor:pointer}
+  .cal-cell.has{border-color:var(--oshi);font-weight:800}
+  .cal-cell.has.past{border-color:var(--line);color:var(--muted)}
+  .cal-cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
+  .cal-cell.sel{background:var(--oshi);color:#fff}
+  .cal-cell .cal-n{font-size:10.5px;color:var(--oshi);font-weight:800}
+  .cal-cell.sel .cal-n{color:#fff}
+  .cal-cell.empty{background:transparent}
   .overlay.open{display:flex}
   @media(min-width:700px){.overlay{align-items:center;padding:20px}}
   .modal{background:var(--surface);color:var(--ink);width:100%;max-height:92dvh;overflow-y:auto;border-radius:18px 18px 0 0;padding:0 0 28px}
@@ -788,7 +807,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v92';
+  window.__kgShell='v93';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1971,6 +1990,7 @@ var imgOnly=false, ticketOnly=false, ongoingOnly=false;
 var webOnly=false, xOnly=false, igOnly=false, descOnly=false, favOnly=false, oshiOnly=false, wantOnly=false, intOnly=false;
 var calCursor=null, calSel="", calScope="all";
 var dirQuery="", detailCtx=null, teamFilter="すべて";
+var detailCal={ym:null, day:null};
 var dirCatFilter="すべて", dirEventsOnly=false;
 var venueGenres=new Set(), venueGenreSubs=new Set(), venueGenreGroups=new Set(), venueGenreClosed={}, venueSugDismissed="";
 try{ showEnded = localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
@@ -3091,9 +3111,14 @@ function buildArtists(){
   Object.keys(map).forEach(function(name){
     var evs=idx[name]||[];
     map[name].total=evs.length;
-    var up=0;
-    evs.forEach(function(ev){ if(!isEnded(ev)) up++; });
+    var up=0, nx=null;
+    evs.forEach(function(ev){
+      if(isEnded(ev)) return;
+      up++;
+      if(!nx || ev.date<nx.date || (ev.date===nx.date && (ev.startMin==null?99999:ev.startMin)<(nx.startMin==null?99999:nx.startMin))) nx=ev;
+    });
     map[name].upcoming=up;
+    if(nx) map[name].next={date:nx.date, title:nx.title};
   });
   Object.keys(artistProfiles).forEach(function(k){
     if(!map[k]) map[k]={name:k,total:0,upcoming:0,cat:""};
@@ -3242,6 +3267,7 @@ function renderDirInner(){
     var dirCap = dirArtistSort==="count" ? 300 : 600;
     els.dirList.innerHTML=shownA.slice(0,dirCap).map(function(it){
       var sub = it.cat || (readingByName[it.name]||"");
+      if(it.next) sub=(sub? sub+" ・ " : "")+"次の出演 "+fmtDate(it.next.date)+"「"+it.next.title+"」";
       var oshiBtn = '<button class="oshi-mini'+(favPerfs.has(it.name)?" on":"")+'" type="button" data-oshi-toggle="'+esc(it.name)+'" aria-label="推し登録">'+(favPerfs.has(it.name)?"★":"☆")+'</button>';
       var counts = '<span class="dir-counts"><strong>'+it.upcoming+'件</strong>開催予定（全'+it.total+'件）</span>';
       return '<div class="dir-row">'+(it.profile&&it.profile.av?'<img class="dicon" src="'+esc(it.profile.av)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':"")+'<button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">プロフィール</span>':"")+(favPerfs.has(it.name)?'<span style="color:var(--oshi);font-size:12.5px">★ 推し</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+oshiBtn+counts+'</div>';
@@ -3327,7 +3353,7 @@ function openDirDetail(kind, name){
     return;
   }
   if(els.overlay.classList.contains("open")) closeModal();
-  detailCtx={kind:kind, name:name}; teamFilter="すべて";
+  detailCtx={kind:kind, name:name}; teamFilter="すべて"; detailCal={ym:null, day:null};
   view = kind==="artist" ? "artistDetail" : kind==="venue" ? "venueDetail" : "organizerDetail";
   render();
   window.scrollTo({top:0});
@@ -3335,6 +3361,37 @@ function openDirDetail(kind, name){
 function renderDetail(){
   if(window.__kgMark){ window.__kgMark('detail'); try{ renderDetailInner(); }catch(e){ kgRenderError('detail', e); }finally{ window.__kgUnmark(); } return; }
   try{ renderDetailInner(); }catch(e){ kgRenderError('detail', e); }
+}
+/* アーティストの月カレンダー（v93）: 出演のある日に件数を出し、タップでその日の公演を表示 */
+function artistCalHTML(evs){
+  var byDay={};
+  evs.forEach(function(ev){ (byDay[ev.date]=byDay[ev.date]||[]).push(ev); });
+  if(!detailCal.ym){
+    var nx=null;
+    evs.forEach(function(ev){ if(!isEnded(ev) && (!nx || ev.date<nx)) nx=ev.date; });
+    detailCal.ym=(nx || todayStr()).slice(0,7);
+  }
+  var parts=detailCal.ym.split("-"); var y=Number(parts[0]), mo=Number(parts[1]);
+  var startDow=new Date(y, mo-1, 1).getDay();
+  var dim=new Date(y, mo, 0).getDate();
+  var today=todayStr();
+  var cells="";
+  for(var i=0;i<startDow;i++) cells+='<span class="cal-cell empty"></span>';
+  for(var d=1; d<=dim; d++){
+    var ds=detailCal.ym+"-"+String(d).padStart(2,"0");
+    var list=byDay[ds];
+    if(list) cells+='<button type="button" class="cal-cell has'+(ds<today?" past":"")+(ds===today?" today":"")+(detailCal.day===ds?" sel":"")+'" data-cal-day="'+ds+'">'+d+'<span class="cal-n">'+list.length+'件</span></button>';
+    else cells+='<span class="cal-cell'+(ds===today?" today":"")+'">'+d+'</span>';
+  }
+  var h='<div class="cal-wrap"><div class="cal-head"><button type="button" class="cal-nav" data-cal-nav="-1" aria-label="前の月">‹</button><b>'+y+'年'+mo+'月</b><button type="button" class="cal-nav" data-cal-nav="1" aria-label="次の月">›</button></div>'
+    +'<div class="cal-grid cal-dow"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>'
+    +'<div class="cal-grid">'+cells+'</div>';
+  if(detailCal.day && byDay[detailCal.day]){
+    var dl=byDay[detailCal.day].slice().sort(function(a,b){ var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
+    h+='<h4 style="margin:12px 0 8px">'+esc(fmtDate(detailCal.day))+'の出演（'+dl.length+'件）</h4><div class="grid">'+dl.map(cardHTML).join("")+'</div>';
+  }
+  h+='</div>';
+  return h;
 }
 function renderDetailInner(){
   if(!detailCtx) return;
@@ -3356,6 +3413,7 @@ function renderDetailInner(){
     head='<div class="detail-head prof-artist"><div class="prof-cover"></div><span class="cat-chip" style="background:var(--oshi)">アーティスト</span>'
       +'<div style="display:flex;align-items:center;gap:12px;margin-top:8px">'+(aprof0&&aprof0.av?'<img class="artist-avatar" src="'+esc(aprof0.av)+'" alt="" onerror="this.style.display=\'none\'">':"")+'<h2 style="margin:0">'+esc(name)+'</h2></div>'
       + profStatsHTML("artist", evs, upcoming)
+      + (upcoming.length? '<button type="button" class="next-ev" data-next-ev="'+esc(String(upcoming[0].id))+'"><span class="next-label">次の出演</span><span class="next-main">'+esc(fmtDate(upcoming[0].date))+(upcoming[0].timeLabel?' '+esc(upcoming[0].timeLabel):"")+'「'+esc(upcoming[0].title)+'」</span><span class="next-sub">'+esc(upcoming[0].venue||"")+'</span></button>' : "")
       +'<div style="margin-top:10px"><button class="modal-fav'+(isOshi?" on":"")+'" type="button" id="detailOshiBtn" style="border-color:var(--oshi);color:'+(isOshi?"#fff":"var(--oshi)")+';'+(isOshi?"background:var(--oshi)":"")+'">'+(isOshi?"★ 推し登録中":"☆ 推しに登録")+'</button></div>'
       +'<p class="prof-note">推し登録が、このアーティストのフォローです。タイムラインの「フォロー中」に公演が流れます。</p>'
       +'<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailListBtn">リストに追加</button></div>';
@@ -3449,6 +3507,7 @@ function renderDetailInner(){
   }
   var body=head;
   if(typeof tlState!=="undefined" && tlState.suspended) body='<button type="button" class="tl-backbar" id="tlBackBtn">← タイムラインに戻る</button>'+body;
+  if(kind==="artist") body+=artistCalHTML(evs);
   body+='<h3 style="margin:18px 0 10px;font-size:16px">開催予定・開催中（'+shownUpcoming.length+'件）</h3>'
     + (shownUpcoming.length? '<div class="grid">'+shownUpcoming.map(cardHTML).join("")+'</div>' : '<div class="state"><h2>開催予定のイベントはありません</h2><p>新しい公演が掲載されるとここに表示されます。</p></div>');
   if(shownPast.length){
@@ -3458,6 +3517,10 @@ function renderDetailInner(){
   wireCardImages(els.detailBody);
   var tbb=document.getElementById("tlBackBtn");
   if(tbb) tbb.addEventListener("click", function(){ tlResume(); });
+  els.detailBody.querySelectorAll("[data-cal-nav]").forEach(function(b){ b.addEventListener("click", function(){ var dt=new Date(detailCal.ym+"-01T00:00:00"); dt.setMonth(dt.getMonth()+Number(b.getAttribute("data-cal-nav"))); detailCal.ym=dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0"); detailCal.day=null; renderDetail(); }); });
+  els.detailBody.querySelectorAll("[data-cal-day]").forEach(function(b){ b.addEventListener("click", function(){ detailCal.day=b.getAttribute("data-cal-day"); renderDetail(); }); });
+  var nxb=els.detailBody.querySelector("[data-next-ev]");
+  if(nxb) nxb.addEventListener("click", function(){ var t=allEvents.find(function(x){ return String(x.id)===nxb.getAttribute("data-next-ev"); }); if(t) openModal(t); });
   var peb=document.getElementById("detailProfEditBtn");
   if(peb) peb.addEventListener("click", function(){ if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name); });
   var dlb=document.getElementById("detailListBtn");
@@ -4016,7 +4079,7 @@ function openModal(ev){
     + (links? '<h3 style="margin:20px 0 8px;font-size:15px">チケット・公式リンク</h3><div class="link-row" style="margin-top:0">'+links+'</div>':"")
     + (ev._perfList.length? '<h3 style="margin:20px 0 8px;font-size:15px">出演者</h3><div class="perf-list">'
         + ev._perfList.map(function(p){ var on=favPerfs.has(p); return '<button class="perf'+(on?" on":"")+'" type="button" data-perf="'+esc(p)+'" aria-pressed="'+on+'">'+esc(p)+'</button>'; }).join("")
-        + '</div><p class="perf-hint">出演者名をタップすると、その出演者の公演一覧（プロフィール）へ移動します。推しの登録は公演一覧ページのボタンからできます。</p>' : "")
+        + '</div><p class="perf-hint">出演者名をタップすると、その出演者のプロフィールが開きます（推しの登録もできます）。</p>' : "")
     + '<h3 style="margin:20px 0 8px;font-size:15px">詳細・タイムテーブル</h3>'+descHTML
     + '<div class="mini-acts-row">'
     + '<button class="mini-btn'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
@@ -7425,14 +7488,17 @@ window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
       var dx=e.clientX-sx, dy=e.clientY-sy, dt=Date.now()-stT; sx=null; sy=null;
       if(Math.abs(dx)>48 && Math.abs(dx)>Math.abs(dy)*1.4){ var d1=dx<0?1:-1; tlGo(tlState.idx + d1); tlFlash(d1); return; }
       /* タップ: 終了スライドのボタン類を優先し、それ以外は現在のイベントの詳細へ */
-      if(Math.abs(dx)<12 && Math.abs(dy)<12 && dt<600){
+      if(Math.abs(dx)<12 && Math.abs(dy)<12){
         var prof = e.target && e.target.closest ? e.target.closest("[data-tl-prof]") : null;
-        if(prof){ tlOpenProfile(prof.getAttribute("data-tl-prof"), prof.getAttribute("data-tl-name")); return; }
         var postBtn = e.target && e.target.closest ? e.target.closest("[data-tl-post]") : null;
-        if(postBtn){ tlOpenPost(); return; }
         var again = e.target && e.target.closest ? e.target.closest("[data-tl-again]") : null;
-        if(again){ tlGo(0); return; }
-        if(tlState.idx<tlState.items.length) tlOpenDetail(tlState.items[tlState.idx]);
+        /* チップ等の明確な対象は、長く触れていても受け付ける（自動送りは押下中に止まっている） */
+        if((prof || postBtn || again) && dt<5000){
+          if(prof){ tlOpenProfile(prof.getAttribute("data-tl-prof"), prof.getAttribute("data-tl-name")); return; }
+          if(postBtn){ tlOpenPost(); return; }
+          tlGo(0); return;
+        }
+        if(dt<600 && tlState.idx<tlState.items.length) tlOpenDetail(tlState.items[tlState.idx]);
       }
       /* 触れている間は自動送りを止めておき、何も開かなかった場合だけ再開する（タップ対象のずれ防止、v90） */
       if(tlState.open && !profSheetState.open && !els.overlay.classList.contains("open")) tlSchedule();
