@@ -807,7 +807,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v95';
+  window.__kgShell='v96';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2920,8 +2920,11 @@ function groupsOfMember(name){
 var perfIndex=null, perfIndexSrc=null, perfIndexProf=null, memberPerfIndex=null;
 function buildPerfIndex(){
   if(perfIndex && perfIndexSrc===allEvents && perfIndexProf===artistProfiles) return perfIndex;
-  var profKey={};
-  Object.keys(artistProfiles).forEach(function(k){ profKey[artistProfiles[k]]=k; });
+  /* プロフィール本体→正式名の逆引き。オブジェクトを通常の連想配列のキーにすると
+     全て "[object Object]" に潰れて最後の1件に化けるため、必ず Map で持つ
+     （v95 の実地確認で発覚: グループ名が別の団体名に化けていた） */
+  var profKey=new Map();
+  Object.keys(artistProfiles).forEach(function(k){ profKey.set(artistProfiles[k], k); });
   var map={}, mmap={};
   function addTo(n, ev, seen){ if(!n || seen[n]) return; seen[n]=1; (map[n]||(map[n]=[])).push(ev); }
   allEvents.forEach(function(ev){
@@ -2929,7 +2932,7 @@ function buildPerfIndex(){
     (ev._perfList||[]).forEach(function(p){
       addTo(p, ev, seen);
       var tp=artistProfileFor(p);
-      if(tp && profKey[tp]) addTo(profKey[tp], ev, seen);
+      if(tp && profKey.get(tp)) addTo(profKey.get(tp), ev, seen);
       /* 所属グループの公演は、本人の予定とは分けて持つ（v94）。
          旧仕様はグループの全公演を各メンバーの索引にも入れており、出演予定の
          無いメンバーのページに無関係な公演が大量表示されていた。 */
@@ -2938,7 +2941,7 @@ function buildPerfIndex(){
           var mn=(mb && mb.n) ? String(mb.n).trim() : "";
           if(!mn || mn===p || mseen[mn]) return;
           mseen[mn]=1;
-          (mmap[mn]||(mmap[mn]=[])).push({ev:ev, group:profKey[tp]||p});
+          (mmap[mn]||(mmap[mn]=[])).push({ev:ev, group:profKey.get(tp)||p});
         });
       }
     });
@@ -3143,6 +3146,18 @@ function buildArtists(){
     if(!map[k]) map[k]={name:k,total:0,upcoming:0,cat:""};
     map[k].profile=artistProfiles[k];
   });
+  /* グループのメンバーにも個別ページを持たせる（v96）。本人名義の公演が無い
+     メンバーは索引に載らないため、このままでは一覧から開けなくなる。
+     「名前（グループ名）」形式の表記が既にある人はそちらのページに任せる。 */
+  Object.keys(artistProfiles).forEach(function(k){
+    (artistProfiles[k].m||[]).forEach(function(mb){
+      var mn=(mb && mb.n) ? String(mb.n).trim() : "";
+      if(!mn) return;
+      if(map[mn]){ if(!map[mn].memberOf) map[mn].memberOf=k; return; }
+      var hasSuffixed=Object.keys(map).some(function(n){ return n.indexOf(mn+"（")===0 || n.indexOf(mn+"(")===0; });
+      if(!hasSuffixed) map[mn]={name:mn,total:0,upcoming:0,cat:"",memberOf:k};
+    });
+  });
   Object.keys(map).forEach(function(name){ map[name].cat=artistCategoryOf(name); });
   return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){
     if(b.upcoming!==a.upcoming) return b.upcoming-a.upcoming;
@@ -3287,6 +3302,7 @@ function renderDirInner(){
     els.dirList.innerHTML=shownA.slice(0,dirCap).map(function(it){
       var sub = it.cat || (readingByName[it.name]||"");
       if(it.next) sub=(sub? sub+" ・ " : "")+"次の出演 "+fmtDate(it.next.date)+"「"+it.next.title+"」";
+      if(it.memberOf && !it.total) sub=(sub? sub+" ・ " : "")+it.memberOf+"のメンバー";
       var oshiBtn = '<button class="oshi-mini'+(favPerfs.has(it.name)?" on":"")+'" type="button" data-oshi-toggle="'+esc(it.name)+'" aria-label="推し登録">'+(favPerfs.has(it.name)?"★":"☆")+'</button>';
       var counts = '<span class="dir-counts"><strong>'+it.upcoming+'件</strong>開催予定（全'+it.total+'件）</span>';
       return '<div class="dir-row">'+(it.profile&&it.profile.av?'<img class="dicon" src="'+esc(it.profile.av)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':"")+'<button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">プロフィール</span>':"")+(favPerfs.has(it.name)?'<span style="color:var(--oshi);font-size:12.5px">★ 推し</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+oshiBtn+counts+'</div>';
