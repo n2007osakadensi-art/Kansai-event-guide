@@ -202,6 +202,15 @@
 
   /* Modal */
   .overlay{position:fixed;inset:0;background:rgba(10,10,12,.62);z-index:60;display:none;align-items:flex-end;justify-content:center}
+  /* タイムラインから開いた詳細は、タイムラインの上に重ねる（閉じればフィードに戻る） */
+  .overlay.tl-above{z-index:130}
+  /* SNSプロフィール風ヘッダー（v88）: カバー＋アバター＋名前＋数字 */
+  .prof-cover{height:92px;border-radius:14px;margin:-4px -4px 12px;background:linear-gradient(120deg,var(--accent),var(--gold));background-size:cover;background-position:center}
+  .prof-artist .prof-cover{background:linear-gradient(120deg,var(--oshi),var(--accent))}
+  .prof-org .prof-cover{background:linear-gradient(120deg,var(--accent),#5b4a8a)}
+  .prof-venue .prof-cover{background:linear-gradient(120deg,var(--gold),var(--accent))}
+  .detail-head .artist-avatar{width:72px;height:72px;border:3px solid var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+  .prof-ava-ph{width:72px;height:72px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:30px;border:3px solid var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.18)}
   .overlay.open{display:flex}
   @media(min-width:700px){.overlay{align-items:center;padding:20px}}
   .modal{background:var(--surface);color:var(--ink);width:100%;max-height:92dvh;overflow-y:auto;border-radius:18px 18px 0 0;padding:0 0 28px}
@@ -755,7 +764,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v87';
+  window.__kgShell='v88';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3285,6 +3294,9 @@ function renderDirInner(){
   renderVenueSuggest(shown);
 }
 function openDirDetail(kind, name){
+  /* プロフィールページへ遷移するときはタイムラインを閉じる（フィード文脈を離れる操作） */
+  if(typeof tlState!=="undefined" && tlState.open) closeTimeline();
+  if(els.overlay.classList.contains("open")) closeModal();
   detailCtx={kind:kind, name:name}; teamFilter="すべて";
   view = kind==="artist" ? "artistDetail" : kind==="venue" ? "venueDetail" : "organizerDetail";
   render();
@@ -3311,7 +3323,7 @@ function renderDetailInner(){
   if(kind==="artist"){
     var isOshi=favPerfs.has(name);
     var aprof0=artistProfileFor(name);
-    head='<div class="detail-head"><span class="cat-chip" style="background:var(--oshi)">アーティスト</span>'
+    head='<div class="detail-head prof-artist"><div class="prof-cover"></div><span class="cat-chip" style="background:var(--oshi)">アーティスト</span>'
       +'<div style="display:flex;align-items:center;gap:12px;margin-top:8px">'+(aprof0&&aprof0.av?'<img class="artist-avatar" src="'+esc(aprof0.av)+'" alt="" onerror="this.style.display=\'none\'">':"")+'<h2 style="margin:0">'+esc(name)+'</h2></div>'
       + profStatsHTML("artist", evs, upcoming)
       +'<div style="margin-top:10px"><button class="modal-fav'+(isOshi?" on":"")+'" type="button" id="detailOshiBtn" style="border-color:var(--oshi);color:'+(isOshi?"#fff":"var(--oshi)")+';'+(isOshi?"background:var(--oshi)":"")+'">'+(isOshi?"★ 推し登録中":"☆ 推しに登録")+'</button></div>'
@@ -3350,8 +3362,8 @@ function renderDetailInner(){
     }
     head+='</div>';
   } else if(kind==="organizer"){
-    head='<div class="detail-head"><span class="cat-chip" style="background:var(--accent)">主催</span>'
-      +'<h2>'+esc(name)+'</h2>'
+    head='<div class="detail-head prof-org"><div class="prof-cover"></div><span class="cat-chip" style="background:var(--accent)">主催</span>'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-top:8px"><span class="prof-ava-ph" style="background:var(--accent)">'+esc(String(name).slice(0,1))+'</span><h2 style="margin:0">'+esc(name)+'</h2></div>'
       + profStatsHTML("organizer", evs, upcoming)
       +(upcoming.length? '<p style="margin-top:4px">次の開催：'+esc(fmtDate(upcoming[0].date))+'「'+esc(upcoming[0].title)+'」</p>' : '<p style="margin-top:4px">開催予定のイベントはまだ掲載されていません。</p>')
       +'<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailFollowBtn" style="border-color:var(--accent);color:'+(followHas("organizer",name)?"#fff":"var(--accent)")+';'+(followHas("organizer",name)?"background:var(--accent)":"")+'">'+(followHas("organizer",name)?"フォロー中":"フォローする")+'</button></div>'
@@ -3362,13 +3374,13 @@ function renderDetailInner(){
     var vinfo=buildVenues().filter(function(v){ return v.name===name; })[0]||{};
     var vprof=vinfo.profile||venueProfileFor(name);
     var cats=Object.keys(vinfo.cats||{}).join("、");
-    head='<div class="detail-head"><span class="cat-chip" style="background:var(--gold)">会場</span>'
-      +'<h2>'+esc(name)+'</h2>'
+    head='<div class="detail-head prof-venue"><div class="prof-cover"'+(vprof&&vprof.hi?' style="background-image:url(\''+esc(vprof.hi)+'\')"':"")+'></div><span class="cat-chip" style="background:var(--gold)">会場</span>'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-top:8px"><span class="prof-ava-ph" style="background:var(--gold)">'+esc(String(name).slice(0,1))+'</span><h2 style="margin:0">'+esc(name)+'</h2></div>'
       +'<p>'+esc([vinfo.area,vinfo.prefecture].filter(Boolean).join(" ・ "))+(cats?" ／ 主なカテゴリ："+esc(cats):"")+'</p>'
       + profStatsHTML("venue", evs, upcoming);
     if(vprof){
       if(vprof.sm) head+='<p class="prof-text">'+esc(vprof.sm)+'</p>';
-      if(vprof.hi) head+='<img class="venue-hero" src="'+esc(vprof.hi)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
+      /* 会場画像はプロフィール風カバー（head冒頭）で使うため、ここでは重ねて出さない */
       var vrows="";
       if(vprof.ad) vrows+='<dt>住所</dt><dd>'+esc(vprof.ad)+'</dd>';
       if(vprof.ac) vrows+='<dt>アクセス</dt><dd>'+esc(vprof.ac)+'</dd>';
@@ -4092,7 +4104,14 @@ function openModal(ev){
   });
   els.modal.scrollTop=0;
 }
-function closeModal(){ els.overlay.classList.remove("open"); document.body.style.overflow=""; currentEv=null; }
+function closeModal(){
+  els.overlay.classList.remove("open");
+  els.overlay.classList.remove("tl-above");
+  currentEv=null;
+  /* タイムラインの上に重ねていた場合は、タイムライン側のスクロールロックと自動送りを復帰させる */
+  if(typeof tlState!=="undefined" && tlState.open){ document.body.style.overflow="hidden"; tlSchedule(); }
+  else document.body.style.overflow="";
+}
 els.overlay.addEventListener("click", function(e){ if(e.target===els.overlay) closeModal(); });
 document.addEventListener("keydown", function(e){ if(e.key!=="Escape") return; if(lbOpen) closeLightbox(); else if(filterIsOpen()) setFilterOpen(false); else closeModal(); });
 
@@ -7022,7 +7041,9 @@ function tlOpenPost(){
   if(b) b.click();
 }
 function tlOpenDetail(ev){
-  closeTimeline();
+  /* タイムラインは閉じない。詳細を上に重ね、閉じれば同じ位置のフィードに戻る（v88 シームレス化） */
+  if(tlState.timer) clearTimeout(tlState.timer);
+  els.overlay.classList.add("tl-above");
   openModal(ev);
 }
 /* 検証・保守用にタイムラインの算出結果へアクセスできるようにする */
@@ -7115,7 +7136,7 @@ window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
   }
   document.addEventListener("keydown", function(e){
     if(!tlState.open) return;
-    if(e.key==="Escape"){ closeTimeline(); }
+    if(e.key==="Escape"){ if(els.overlay.classList.contains("open")) closeModal(); else closeTimeline(); }
     else if(prefs.tlMode!=="feed" && e.key==="ArrowRight"){ tlGo(tlState.idx+1); }
     else if(prefs.tlMode!=="feed" && e.key==="ArrowLeft"){ tlGo(tlState.idx-1); }
   });
