@@ -43,7 +43,7 @@
   .clear-btn{border:0;background:transparent;color:var(--muted);min-width:40px;padding:0 4px;display:none}
   .reload-btn{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:0 14px;font-size:14px;font-weight:600}
 
-  .view-tabs{display:flex;gap:6px;margin-top:10px;background:var(--surface2);border-radius:10px;padding:4px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
+  .view-tabs{display:flex;gap:6px;margin-top:10px;background:var(--surface2);border-radius:10px;padding:4px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
   .view-tabs::-webkit-scrollbar{display:none}
   .view-tab{flex:1 0 auto;border:0;background:transparent;color:var(--muted);border-radius:8px;padding:8px 12px;font-size:14px;font-weight:700;min-height:40px;white-space:nowrap}
   .view-tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
@@ -739,7 +739,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v78';
+  window.__kgShell='v79';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3584,7 +3584,7 @@ function renderInner(){
   els.prefsView.classList.toggle("hidden", !isPrefs);
   els.routeView.classList.toggle("hidden", !isRoute);
   var tabView = isRoute ? "all" : (isDetail ? (view==="artistDetail" ? "artists" : view==="venueDetail" ? "venues" : "all") : view);
-  document.querySelectorAll(".view-tab").forEach(function(t){ t.setAttribute("aria-selected", t.getAttribute("data-view")===tabView ? "true":"false"); });
+  document.querySelectorAll(".view-tab").forEach(function(t){ var on=t.getAttribute("data-view")===tabView; t.setAttribute("aria-selected", on ? "true":"false"); if(on && tabView!==render._lastTabView){ render._lastTabView=tabView; try{ t.scrollIntoView({block:"nearest", inline:"nearest"}); }catch(e){} } });
   if(isPlan){ renderPlan(); return; }
   if(isCal){ renderCalendar(); return; }
   if(isDir){ renderDir(); return; }
