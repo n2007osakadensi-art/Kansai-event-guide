@@ -222,8 +222,13 @@
   .psheet-panel{position:absolute;left:0;right:0;bottom:0;top:5%;background:var(--surface);color:var(--ink);border-radius:20px 20px 0 0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
   @media(min-width:700px){.psheet-panel{left:50%;right:auto;width:640px;margin-left:-320px}}
   .psheet .prof-cover{border-radius:0;margin:0;height:104px}
-  .ps-closebar{position:sticky;top:0;z-index:3;display:flex;justify-content:flex-end;padding:8px 10px 0;background:transparent}
-  .ps-close{border:none;background:rgba(10,10,12,.45);color:#fff;width:38px;height:38px;border-radius:50%;font-size:17px;cursor:pointer}
+  .ps-closebar{position:sticky;top:0;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
+  .ps-back{border:1.5px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:999px;padding:8px 14px;font-weight:800;font-size:13px;min-height:38px;cursor:pointer}
+  .ps-close{border:1.5px solid var(--line);background:var(--surface2);color:var(--ink);width:38px;height:38px;border-radius:50%;font-size:16px;cursor:pointer}
+  .ps-chip{display:inline-block;border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;margin:0 6px 6px 0}
+  .ps-chip em{font-style:normal;color:var(--muted);font-weight:700;margin-left:4px;font-size:12px}
+  .ps-rel{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:14px;font-weight:700;margin:0 0 6px;cursor:pointer}
+  .ps-rel span{color:var(--muted);font-size:12px;font-weight:700;flex:none}
   .ps-head{padding:0 16px}
   .ps-ava{margin-top:-40px}
   .ps-name{font-size:21px;font-weight:800;margin:8px 0 0}
@@ -808,7 +813,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v97';
+  window.__kgShell='v98';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -7389,7 +7394,7 @@ function renderProfSheet(){
   if(kind==="venue" && prof){ handle=[psHandleOf(prof.x), psHandleOf(prof.ig)].filter(Boolean).join(" ・ "); }
   var followed=psFollowed(kind, name);
   var followLabel = kind==="artist" ? (followed? "★ 推し登録中" : "☆ 推しに登録") : (followed? "フォロー中" : "フォローする");
-  var h='<div class="'+wrapCls+'"><div class="ps-closebar"><button type="button" class="ps-close" id="psClose" aria-label="閉じる">✕</button></div>'
+  var h='<div class="'+wrapCls+'"><div class="ps-closebar"><button type="button" class="ps-back" id="psBack">← タイムラインに戻る</button><button type="button" class="ps-close" id="psClose" aria-label="閉じる">✕</button></div>'
     + '<div class="prof-cover"'+coverStyle+'></div>'
     + '<div class="ps-head">'+ava
     + '<h2 class="ps-name">'+esc(name)+'</h2>'
@@ -7430,23 +7435,26 @@ function renderProfSheet(){
       }
     }
   } else {
-    h+=psInfoHTML(kind, name, prof, upcoming);
+    h+=psInfoHTML(kind, name, prof, upcoming, evs);
   }
   h+='</div></div>';
   panel.innerHTML=h;
   panel.scrollTop=0;
   var cb=document.getElementById("psClose"); if(cb) cb.addEventListener("click", closeProfSheet);
+  var bb=document.getElementById("psBack"); if(bb) bb.addEventListener("click", closeProfSheet);
   var fb=document.getElementById("psFollowBtn"); if(fb) fb.addEventListener("click", psToggleFollow);
   panel.querySelectorAll("[data-ps-tab]").forEach(function(b){ b.addEventListener("click", function(){ profSheetState.tab=b.getAttribute("data-ps-tab"); renderProfSheet(); }); });
   panel.querySelectorAll("[data-ps-ev]").forEach(function(b){ b.addEventListener("click", function(){ var ev=profSheetState.all[Number(b.getAttribute("data-ps-ev"))]; if(ev){ els.overlay.classList.add("prof-above"); openModal(ev); } }); });
   panel.querySelectorAll("[data-ps-co]").forEach(function(b){ b.addEventListener("click", function(){ openProfSheet("artist", b.getAttribute("data-ps-co")); }); });
+  panel.querySelectorAll("[data-ps-org]").forEach(function(b){ b.addEventListener("click", function(){ openProfSheet("organizer", b.getAttribute("data-ps-org")); }); });
+  panel.querySelectorAll("[data-ps-venue]").forEach(function(b){ b.addEventListener("click", function(){ openProfSheet("venue", b.getAttribute("data-ps-venue")); }); });
   var peb=document.getElementById("psProfEditBtn");
   if(peb) peb.addEventListener("click", function(){ if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name); });
 }
 function psRowHTML(ev, idx){
   return '<button type="button" class="ps-row" data-ps-ev="'+idx+'"><span class="pd">'+esc(fmtDate(ev.date))+'</span><span class="pt">'+esc(ev.title)+'<span class="pv">'+esc([ev.timeLabel, ev.venue].filter(Boolean).join(" ・ "))+'</span></span></button>';
 }
-function psInfoHTML(kind, name, prof, upcoming){
+function psInfoHTML(kind, name, prof, upcoming, evs){
   var h="";
   if(kind==="artist"){
     var cat=artistCategoryOf(name);
@@ -7486,6 +7494,29 @@ function psInfoHTML(kind, name, prof, upcoming){
     }
   } else {
     h+='<p>'+(upcoming.length? '次の開催：'+esc(fmtDate(upcoming[0].date))+'「'+esc(upcoming[0].title)+'」' : '開催予定のイベントはまだ掲載されていません。')+'</p>';
+  }
+  /* 活動の傾向（掲載データからの事実集計のみ。順位づけや人気の表現はしない） */
+  var evsAll=evs||[];
+  function topOf(fn, lim){ var c={}; evsAll.forEach(function(ev){ var v=fn(ev); if(v) c[v]=(c[v]||0)+1; }); return Object.keys(c).map(function(k){ return [k, c[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0, lim); }
+  function perfPairs(lim){ var c={}; evsAll.forEach(function(ev){ (ev._perfList||[]).forEach(function(p){ c[p]=(c[p]||0)+1; }); }); return Object.keys(c).map(function(k){ return [k, c[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0, lim); }
+  function relRows(pairs, attr){ return pairs.map(function(p){ return '<button type="button" class="ps-rel" '+attr+'="'+esc(p[0])+'">'+esc(p[0])+'<span>'+p[1]+'件</span></button>'; }).join(""); }
+  if(kind!=="venue"){
+    var areas=topOf(function(ev){ return (ev.area||"").trim() || (ev.prefecture||"").trim(); }, 4);
+    if(areas.length && evsAll.length>1) h+='<p class="ps-sec">主な活動エリア</p><div>'+areas.map(function(p){ return '<span class="ps-chip">'+esc(p[0])+'<em>'+p[1]+'件</em></span>'; }).join("")+'</div>';
+  }
+  if(kind==="artist"){
+    var aOrgs=topOf(function(ev){ return (ev.organizerName||"").trim(); }, 5);
+    if(aOrgs.length) h+='<p class="ps-sec">よく出演する主催</p>'+relRows(aOrgs, "data-ps-org");
+  } else if(kind==="venue"){
+    var vPerfs=perfPairs(6);
+    if(vPerfs.length) h+='<p class="ps-sec">よく出演するアーティスト</p>'+relRows(vPerfs, "data-ps-co");
+    var vOrgs=topOf(function(ev){ return (ev.organizerName||"").trim(); }, 5);
+    if(vOrgs.length) h+='<p class="ps-sec">よく開催する主催</p>'+relRows(vOrgs, "data-ps-org");
+  } else if(kind==="organizer"){
+    var oVens=topOf(function(ev){ return (ev.venue||"").trim(); }, 5);
+    if(oVens.length) h+='<p class="ps-sec">よく使う会場</p>'+relRows(oVens, "data-ps-venue");
+    var oPerfs=perfPairs(6);
+    if(oPerfs.length) h+='<p class="ps-sec">よく出演するアーティスト</p>'+relRows(oPerfs, "data-ps-co");
   }
   if(kind!=="organizer") h+='<div style="margin-top:14px"><button class="modal-fav" type="button" id="psProfEditBtn">プロフィールの追加・修正を送る</button></div>';
   h+='<p class="prof-note" style="margin-top:14px">表示しているのは、ガイドのデータベースに登録された公式プロフィール（公開情報）です。フォロー・推しの状態はこの端末の中だけのもので、ほかの人に公開されることはありません。</p>';
