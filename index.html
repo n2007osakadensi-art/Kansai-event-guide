@@ -721,7 +721,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v70';
+  window.__kgShell='v71';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2349,7 +2349,10 @@ function filtered(){
   /* リストビューでは基礎集合を「選択中リストのイベント集合」に差し替え、
      その上で既存の検索・絞り込み（contentPass）を通す（v66） */
   var listSet=null;
-  if(view==="lists"){ var al0=activeList(); listSet=al0?listEventIdSet(al0):new Set(); }
+  if(view==="lists"){
+    if(listPreset) listSet=new Set(presetSet(listPreset));
+    else { var al0=activeList(); listSet=al0?listEventIdSet(al0):new Set(); }
+  }
   var list=allEvents.filter(function(ev){
     if(listSet && !listSet.has(String(ev.id))) return false;
     if(view==="fav" && !favEvents.has(String(ev.id))) return false;
@@ -3546,7 +3549,7 @@ function renderInner(){
   var endedHidden = showEnded ? 0 : allEvents.filter(function(ev){ return isEnded(ev); }).length;
   els.resultLine.innerHTML = "<strong>"+list.length.toLocaleString()+"件</strong> のイベント（全"+allEvents.length.toLocaleString()+"件中）"
     + (view==="fav" ? "（お気に入り）" : view==="oshi" ? "（推しが出演）" : view==="expo" ? "（アフター万博特集）" : view==="christmas" ? "（クリスマス特集"+(xmasSub!=="all" ? "・"+esc((XMAS_SUBS.filter(function(s){ return s.k===xmasSub; })[0]||{}).label||"") : "")+"）" : "")
-    + (view==="lists" ? "（リスト"+(activeList()?"："+esc(activeList().name):"")+"）" : "")
+    + (view==="lists" ? "（"+(listPreset ? esc(presetLabel(listPreset))+"一覧" : "リスト"+(activeList()?"："+esc(activeList().name):""))+"）" : "")
     + (exactTarget ? " ・ 候補で選択中：「"+esc(exactTarget.value)+"」"+(exactTarget.kind==="eventTitle" ? "（タイトルに含む全件）" : "のみ表示") : (query.trim() ? " ・ 検索：「"+esc(query.trim())+"」"+(currentTicketUrlQuery()!=null ? "（チケットURLで検索中）" : "") : ""))
     + (activeCat!=="すべて" ? " ・ カテゴリ："+esc(activeCat) : "")
     + (activeFilterCount()>0 ? " ・ 絞り込み "+activeFilterCount()+"条件" : "")
@@ -3562,7 +3565,8 @@ function renderInner(){
   els.emptyState.hidden = !empty;
   if(empty){
     if(view==="lists"){
-      if(!myLists.length){ els.emptyTitle.textContent="リストがまだありません"; els.emptyText.textContent="上の「＋ 新規リスト」から作るか、イベント詳細の「＋ リスト」、アーティストページの「リストに追加」から入れられます。"; }
+      if(listPreset){ els.emptyTitle.textContent=presetLabel(listPreset)+"はまだありません"; els.emptyText.textContent="イベントのカードや詳細、フィードで印を付けると、ここに集まります。「終了したイベントも表示」をONにすると、終わった分も振り返れます。"; }
+      else if(!myLists.length){ els.emptyTitle.textContent="リストがまだありません"; els.emptyText.textContent="上の「＋ 新規リスト」から作るか、イベント詳細の「＋ リスト」、アーティストページの「リストに追加」から入れられます。"; }
       else { els.emptyTitle.textContent="このリストに合うイベントがありません"; els.emptyText.textContent="検索・絞り込みの条件を外すか、イベント詳細の「＋ リスト」やアーティストページの「リストに追加」から追加してください。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
     }
     else if(view==="fav"){ els.emptyTitle.textContent="お気に入りはまだありません"; els.emptyText.textContent="カード右上の ♡ をタップすると、ここに集まります。"; }
@@ -4212,10 +4216,36 @@ function listsEditHTML(){
   }
   return "";
 }
+var listPreset=null; /* リストビューの固定タブ（"fav"|"want"|"int"）。nullなら通常リスト */
+function presetSet(p){
+  if(p==="fav") return favEvents;
+  if(p==="want") return wantEvents;
+  if(p==="int") return intEvents;
+  return new Set();
+}
+function presetLabel(p){ return p==="fav" ? "お気に入り" : p==="want" ? "行きたい" : p==="int" ? "気になる" : ""; }
+function presetCount(p){
+  var s=presetSet(p), n=0;
+  allEvents.forEach(function(ev){ if(s.has(String(ev.id))) n++; });
+  return n;
+}
+function presetTabsHTML(){
+  return [["fav","♥ お気に入り"],["want","✓ 行きたい"],["int","● 気になる"]].map(function(x){
+    return '<button type="button" role="tab" aria-selected="'+(listPreset===x[0])+'" class="lists-tab preset'+(listPreset===x[0]?" on":"")+'" data-lists-preset="'+x[0]+'">'+x[1]+'<span class="lists-cnt">'+presetCount(x[0])+'件</span></button>';
+  }).join("");
+}
 function renderListsBar(){
   var bar=els.listsBar; if(!bar) return;
+  if(listPreset){
+    bar.innerHTML='<div class="lists-tabs" role="tablist" aria-label="マイリストの切り替え">'+presetTabsHTML()
+      + myLists.map(function(x){ var xc=listCounts(x); return '<button type="button" role="tab" aria-selected="false" class="lists-tab" data-lists-tab="'+esc(x.id)+'">'+esc(x.name)+'<span class="lists-cnt">'+xc.total+'件</span></button>'; }).join("")
+      + '<button type="button" class="lists-tab add" data-lists-new="1">＋ 新規リスト</button></div>'
+      + '<div class="lists-meta">'+presetLabel(listPreset)+' '+presetCount(listPreset)+'件　検索・絞り込みはこの中にも効きます。「終了したイベントも表示」をONにすると、終わった分も振り返れます</div>';
+    return;
+  }
   if(!myLists.length){
     bar.innerHTML='<h2 class="lists-title">マイリスト</h2>'
+      + '<div class="lists-tabs" role="tablist" aria-label="マイリストの切り替え">'+presetTabsHTML()+'</div>'
       + '<p class="lists-empty-note">まだリストがありません。気になるイベントや推しをまとめる「リスト」を作ると、ここで切り替えて見られます。<br>作り方：下のボタンで新規作成するか、イベント詳細の「＋ リスト」、アーティスト・会場・主催の各ページの「リストに追加」から入れられます。会場や主催を入れると、その会場・主催のイベントが自動で集まります。</p>'
       + '<div class="lists-actions"><button type="button" class="btn-accent" data-lists-new="1">＋ 新規リスト</button></div>'
       + listsEditHTML();
@@ -4227,7 +4257,7 @@ function renderListsBar(){
     var xc=listCounts(x);
     return '<button type="button" role="tab" aria-selected="'+(x.id===l.id)+'" class="lists-tab'+(x.id===l.id?" on":"")+'" data-lists-tab="'+esc(x.id)+'">'+esc(x.name)+'<span class="lists-cnt">'+xc.total+'件</span></button>';
   }).join("");
-  bar.innerHTML='<div class="lists-tabs" role="tablist" aria-label="マイリストの切り替え">'+tabs
+  bar.innerHTML='<div class="lists-tabs" role="tablist" aria-label="マイリストの切り替え">'+presetTabsHTML()+tabs
     + '<button type="button" class="lists-tab add" data-lists-new="1">＋ 新規リスト</button></div>'
     + '<div class="lists-meta">直接 '+c.direct+'件'
         + (c.viaArtist? ' ・ 推し経由 '+c.viaArtist+'件' : "")
@@ -4342,8 +4372,10 @@ function renderListPicker(){
   if(bar){
     bar.addEventListener("click", function(e){
       var t=e.target.closest("[data-lists-tab]");
-      if(t){ activeListId=t.getAttribute("data-lists-tab"); listsEdit=null; render(); return; }
-      if(e.target.closest("[data-lists-new]")){ listsEdit={mode:"new"}; renderListsBarFocus(); return; }
+      if(t){ listPreset=null; activeListId=t.getAttribute("data-lists-tab"); listsEdit=null; render(); return; }
+      var pt=e.target.closest("[data-lists-preset]");
+      if(pt){ listPreset=pt.getAttribute("data-lists-preset"); listsEdit=null; render(); return; }
+      if(e.target.closest("[data-lists-new]")){ listPreset=null; listsEdit={mode:"new"}; renderListsBarFocus(); return; }
       if(e.target.closest("[data-lists-rename]")){ listsEdit={mode:"rename"}; renderListsBarFocus(); return; }
       if(e.target.closest("[data-lists-delete]")){ listsEdit={mode:"delask"}; renderListsBar(); return; }
       if(e.target.closest("[data-lists-cancel]")){ listsEdit=null; renderListsBar(); return; }
