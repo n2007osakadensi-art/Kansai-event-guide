@@ -648,7 +648,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v60';
+  window.__kgShell='v61';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3584,10 +3584,6 @@ function openModal(ev){
     + '<div class="act-bar">'
     + '<button class="act-btn'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
     + '<button class="act-btn" type="button" id="modalShare">共有する</button>'
-    + (ev.linkTicket?'<a class="act-btn primary" href="'+esc(ev.linkTicket)+'" target="_blank" rel="noopener">チケット</a>':"")
-    + (ev.linkWeb?'<a class="act-btn" href="'+esc(ev.linkWeb)+'" target="_blank" rel="noopener">公式サイト</a>':"")
-    + (ev.linkX?'<a class="act-btn" href="'+esc(ev.linkX)+'" target="_blank" rel="noopener">X</a>':"")
-    + (ev.linkInstagram?'<a class="act-btn" href="'+esc(ev.linkInstagram)+'" target="_blank" rel="noopener">Instagram</a>':"")
     + '</div>'
     + '<dl class="detail">'
     + '<dt>日時</dt><dd>'+esc(dateLabel(ev))+(ev.timeLabel?"　"+esc(ev.timeLabel):"")+'</dd>'
@@ -3597,6 +3593,7 @@ function openModal(ev){
     + (ev.price||pc?'<dt>料金</dt><dd>'+esc(ev.price||"")+(pc?(ev.price?" ":"")+'<span class="badge-long">'+PRICE_LABELS[pc]+'</span>':"")+'</dd>':"")
     + (ev.organizerName?'<dt>主催</dt><dd><button type="button" class="venue-link" data-org-open="'+esc(ev.organizerName)+'">'+esc(ev.organizerName)+'</button></dd>':"")
     + '</dl>'
+    + (links? '<h3 style="margin:20px 0 8px;font-size:15px">チケット・公式リンク</h3><div class="link-row" style="margin-top:0">'+links+'</div>':"")
     + (ev._perfList.length? '<h3 style="margin:20px 0 8px;font-size:15px">出演者</h3><div class="perf-list">'
         + ev._perfList.map(function(p){ var on=favPerfs.has(p); return '<button class="perf'+(on?" on":"")+'" type="button" data-perf="'+esc(p)+'" aria-pressed="'+on+'"><span class="star">'+(on?"★":"☆")+'</span>'+esc(p)+'</button>'; }).join("")
         + '</div><p class="perf-hint">出演者名をタップすると、その出演者の公演一覧（プロフィール）へ移動します。推しの登録は公演一覧ページのボタンからできます。</p>' : "")
