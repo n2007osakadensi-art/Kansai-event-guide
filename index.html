@@ -739,7 +739,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v79';
+  window.__kgShell='v80';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4246,6 +4246,7 @@ var myLists=loadMyLists();
 var activeListId=null; /* リストビューで選択中のリストid（未選択なら先頭を使う） */
 var listsEdit=null;    /* リストバーの編集状態 {mode:"new"|"rename"|"delask"} */
 var tlScopeListId=null; /* タイムラインのスコープ（null=すべて）。保存しない */
+var tlScopePreset=null; /* タイムラインの固定スコープ（"fav"|"want"|"int"、v80）。リストとは排他 */
 function findList(id){ return myLists.find(function(l){ return l.id===id; })||null; }
 function activeList(){
   var l=activeListId?findList(activeListId):null;
@@ -6684,6 +6685,11 @@ function buildTimelineItems(){
     var lset=sl?listEventIdSet(sl):new Set();
     up=up.filter(function(ev){ return lset.has(String(ev.id)); });
   }
+  /* 固定スコープ（お気に入り・行きたい・気になる）もタイムラインに流せる（v80） */
+  if(tlScopePreset){
+    var pset=presetSet(tlScopePreset);
+    up=up.filter(function(ev){ return pset.has(String(ev.id)); });
+  }
   var mine=[], favs=[], oshi=[], scored=[], rest=[];
   up.forEach(function(ev){
     if(ev._pending) mine.push(ev);
@@ -6796,16 +6802,17 @@ function tlUpdateClock(){
 }
 function renderTlScope(){
   var el=tlEl("tlScope"); if(!el) return;
-  if(!myLists.length){ el.classList.add("hidden"); el.innerHTML=""; tlScopeListId=null; return; }
-  if(tlScopeListId && !findList(tlScopeListId)) tlScopeListId=null;
+  if(tlScopeListId && !findList(tlScopeListId)){ tlScopeListId=null; }
   el.classList.remove("hidden");
-  el.innerHTML='<button type="button" data-tlscope="" class="'+(tlScopeListId?"":"on")+'">すべて</button>'
+  var anySel=!!(tlScopeListId||tlScopePreset);
+  el.innerHTML='<button type="button" data-tlscope="" class="'+(anySel?"":"on")+'">すべて</button>'
+    + ["fav","want","int"].map(function(p){ return '<button type="button" data-tlscope="p:'+p+'" class="'+(tlScopePreset===p?"on":"")+'">'+esc(presetLabel(p))+'</button>'; }).join("")
     + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("");
 }
 function openTimeline(){
   if(!allEvents.length){ toast("データの読み込みが終わってから開始できます"); return; }
   /* スコープは開くたび「すべて」から始める（v66） */
-  tlScopeListId=null;
+  tlScopeListId=null; tlScopePreset=null;
   renderTlScope();
   tlState.items=buildTimelineItems();
   if(!tlState.items.length){ toast("表示できるイベントがありません"); return; }
@@ -6860,7 +6867,8 @@ window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
   if(scopeEl) scopeEl.addEventListener("click", function(e){
     var b=e.target.closest("[data-tlscope]"); if(!b) return;
     var v=b.getAttribute("data-tlscope");
-    tlScopeListId = v ? v : null;
+    if(v && v.indexOf("p:")===0){ tlScopePreset=v.slice(2); tlScopeListId=null; }
+    else { tlScopeListId = v ? v : null; tlScopePreset=null; }
     tlState.items=buildTimelineItems();
     tlState.idx=0;
     renderTlScope();
@@ -6870,10 +6878,10 @@ window.KG_TIMELINE={open:openTimeline, close:closeTimeline,
       if(tlState.timer) clearTimeout(tlState.timer);
       if(prefs.tlMode!=="feed"){
         var st=tlEl("tlStage");
-        if(st) st.innerHTML='<section class="tl-slide"><div class="tl-end"><h2>このリストには表示できるイベントがありません</h2><p>リストにイベントや推しを追加すると、ここに流れます。</p></div></section>';
+        if(st) st.innerHTML='<section class="tl-slide"><div class="tl-end"><h2>この範囲には表示できるイベントがありません</h2><p>お気に入り・行きたい・気になるの印や、リストへの追加をすると、ここに流れます。</p></div></section>';
         var cnt=tlEl("tlCount"); if(cnt) cnt.textContent="0 / 0";
       }
-      toast("このリストには表示できるイベントがありません");
+      toast("この範囲には表示できるイベントがありません");
     }
   });
   var post=tlEl("tlPostBtn");

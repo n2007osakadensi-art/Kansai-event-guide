@@ -61,6 +61,25 @@
   .rail-btn.int.on{background:var(--gold)}
   .rail-btn.pop{animation:railpop .25s ease}
   @keyframes railpop{40%{transform:scale(1.14)}}
+  .rail-btn.list.on{background:#5b50c6}
+  /* リストのスコープ切り替え（v80連携）: トップバー下のチップ行 */
+  .scopebar{display:flex;gap:6px;overflow-x:auto;padding:2px 14px 10px;max-width:560px;margin:0 auto;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
+  .scopebar::-webkit-scrollbar{display:none}
+  .scopebar button{flex:0 0 auto;border:1px solid rgba(255,255,255,.45);background:rgba(20,20,20,.38);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;min-height:34px;white-space:nowrap;cursor:pointer;font-family:inherit;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+  .scopebar button.on{background:#f4f2ec;color:#141414;border-color:#f4f2ec;text-shadow:none}
+  /* リスト選択シート */
+  .lp-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:80}
+  .lp-sheet{position:fixed;left:0;right:0;bottom:0;z-index:81;max-width:560px;margin:0 auto;background:#17181d;color:#f4f2ec;border-radius:18px 18px 0 0;padding:14px 16px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.5);max-height:72dvh;overflow-y:auto}
+  .lp-sheet.hidden,.lp-backdrop.hidden{display:none}
+  .lp-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .lp-head h2{margin:0;font-size:16px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp-close{border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;border-radius:999px;width:36px;height:36px;font-size:15px;cursor:pointer}
+  .lp-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:#f4f2ec;border-radius:12px;padding:12px;font-size:14.5px;font-weight:700;cursor:pointer;margin-top:8px;font-family:inherit}
+  .lp-row .lp-check{margin-left:auto;font-size:15px;color:#8be0a4;min-width:20px;text-align:center}
+  .lp-none{color:rgba(255,255,255,.65);font-size:13.5px;margin:10px 2px 2px}
+  .lp-new{display:flex;gap:8px;margin-top:14px}
+  .lp-new input{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);border-radius:10px;color:#fff;padding:10px 12px;font-size:15px;font-family:inherit}
+  .lp-new button{flex:0 0 auto;border:none;border-radius:10px;background:#f4f2ec;color:#141414;font-weight:800;padding:10px 14px;font-size:13.5px;cursor:pointer;font-family:inherit}
   .ev-title{margin:0 0 6px;font-size:22px;font-weight:800;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 8px rgba(0,0,0,.5)}
   .ev-date{font-size:15px;font-weight:700;margin-bottom:4px}
   .ev-meta{font-size:14px;color:rgba(255,255,255,.94);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -87,8 +106,15 @@
   <span class="spacer"></span>
   <span class="count" id="count"></span>
   <a class="guide-link" href="../">ガイドを開く</a>
-</div></header>
+</div>
+<div class="scopebar" id="scopeBar" role="group" aria-label="フィードに流す範囲の切り替え"></div>
+</header>
 
+<div class="lp-backdrop hidden" id="lpBackdrop"></div>
+<div class="lp-sheet hidden" id="lpSheet" role="dialog" aria-modal="true" aria-label="リストに追加">
+  <div class="lp-head"><h2 id="lpTitle">リストに追加</h2><button class="lp-close" type="button" id="lpClose" aria-label="閉じる">✕</button></div>
+  <div id="lpBody"></div>
+</div>
 <main class="feed" id="feed" style="display:none"></main>
 <div class="state" id="state"><div class="spinner" aria-hidden="true"></div><div>読み込み中…</div></div>
 <noscript><div class="state"><div>このページは JavaScript が必要です。<br><a href="../">ガイドを開く</a></div></div></noscript>
@@ -342,6 +368,34 @@ var LS_PREFS="kg_trial_prefs_v1", LS_LEARN="kg_trial_learn_v1", LS_PENDING="kg_t
 function loadSet(key){ try{ var a=JSON.parse(localStorage.getItem(key)||"[]"); return new Set(Array.isArray(a)?a.map(String):[]); }catch(e){ return new Set(); } }
 function saveSet(key, set){ try{ localStorage.setItem(key, JSON.stringify(Array.from(set))); }catch(e){} }
 var favEvents=loadSet(LS_FAV), favPerfs=loadSet(LS_OSHI), wantEvents=loadSet(LS_WANT), intEvents=loadSet(LS_INT);
+/* リスト（本体と共有の kg_trial_lists_v1）とフィードの表示範囲 */
+var LS_LISTS="kg_trial_lists_v1", LS_FEED_SCOPE="kg_feed_scope_v1";
+function loadLists(){ try{ var a=JSON.parse(localStorage.getItem(LS_LISTS)||"[]"); return Array.isArray(a)? a.filter(function(l){ return l && l.id; }) : []; }catch(e){ return []; } }
+function saveLists(){ try{ localStorage.setItem(LS_LISTS, JSON.stringify(myLists)); }catch(e){} }
+var myLists=loadLists();
+var feedScope=""; try{ feedScope=localStorage.getItem(LS_FEED_SCOPE)||""; }catch(e){}
+function setFeedScope(v){ feedScope=v||""; try{ localStorage.setItem(LS_FEED_SCOPE, feedScope); }catch(e){} }
+function findFeedList(id){ var f=null; myLists.forEach(function(l){ if(String(l.id)===String(id)) f=l; }); return f; }
+function inAnyList(id){ id=String(id); return myLists.some(function(l){ return (l.events||[]).map(String).indexOf(id)>=0; }); }
+function feedScopeSet(){
+  if(!feedScope) return null;
+  if(feedScope==="p:fav") return favEvents;
+  if(feedScope==="p:want") return wantEvents;
+  if(feedScope==="p:int") return intEvents;
+  var l=findFeedList(feedScope);
+  if(!l) return null;
+  var set=new Set((l.events||[]).map(String));
+  var arts=l.artists||[], vens=l.venues||[], orgs=l.organizers||[];
+  if(arts.length||vens.length||orgs.length){
+    allEvents.forEach(function(ev){
+      var id=String(ev.id); if(set.has(id)) return;
+      if(arts.length && (ev._perfList||[]).some(function(p){ return arts.indexOf(p)>=0; })){ set.add(id); return; }
+      if(vens.length && ev.venue && vens.some(function(v){ return v && (ev.venue===v || ev.venue.indexOf(v)===0 || v.indexOf(ev.venue)===0); })){ set.add(id); return; }
+      if(orgs.length && ev.organizerName && orgs.indexOf(ev.organizerName)>=0) set.add(id);
+    });
+  }
+  return set;
+}
 function loadPrefsLite(){
   var p={cats:[],artists:[],prefs:[],areas:[],free:false,weekend:false,collab:false};
   try{
@@ -535,6 +589,8 @@ function byDate(a,b){
 }
 function buildFeedItems(events){
   var up=events.filter(function(ev){ return !isEnded(ev); });
+  var ss=feedScopeSet();
+  if(ss) up=up.filter(function(ev){ return ss.has(String(ev.id)); });
   var pend=[], favs=[], wants=[], ints=[], oshi=[], scored=[], rest=[];
   up.forEach(function(ev){
     if(ev._pending) pend.push(ev);
@@ -586,6 +642,7 @@ function railHTML(ev){
     + btn("fav", favEvents, "♥", "お気に入り")
     + btn("want", wantEvents, "✓", "行きたい")
     + btn("int", intEvents, "●", "気になる")
+    + '<button type="button" class="rail-btn list'+(inAnyList(id)?" on":"")+'" data-list="1" aria-label="リストに追加"><span class="rail-glyph">＋</span><span class="rail-label">リスト</span></button>'
     + '</div>';
 }
 function cardHTML(ev, idx){
@@ -641,7 +698,13 @@ function showState(html){
 function renderFeed(keepIdx){
   feedItems=buildFeedItems(allEvents);
   if(!feedItems.length){
-    showState('<div>表示できるイベントがありませんでした。</div><div><a href="../">ガイドを開く</a></div>');
+    if(feedScope){
+      showState('<div>この範囲には表示できるイベントがありません。</div><div><button type="button" class="reload-btn" id="scopeReset">すべての範囲で見る</button></div>');
+      var sr=document.getElementById("scopeReset");
+      if(sr) sr.addEventListener("click", function(){ setFeedScope(""); renderScopeBar(); renderFeed(false); });
+    } else {
+      showState('<div>表示できるイベントがありませんでした。</div><div><a href="../">ガイドを開く</a></div>');
+    }
     countEl.textContent="";
     return;
   }
@@ -657,8 +720,81 @@ function renderFeed(keepIdx){
   if(again) again.addEventListener("click", function(){ feedEl.scrollTo({top:0, behavior:"smooth"}); });
 }
 
+/* ---------- 表示範囲（リスト）の切り替え ---------- */
+var scopeBarEl=document.getElementById("scopeBar");
+function renderScopeBar(){
+  if(feedScope && feedScope.indexOf("p:")!==0 && !findFeedList(feedScope)) setFeedScope("");
+  var chip=function(v, label){ return '<button type="button" data-scope="'+esc(v)+'" class="'+(feedScope===v?"on":"")+'">'+esc(label)+'</button>'; };
+  scopeBarEl.innerHTML=chip("", "すべて")+chip("p:fav", "お気に入り")+chip("p:want", "行きたい")+chip("p:int", "気になる")
+    + myLists.map(function(l){ return chip(String(l.id), l.name||"無題のリスト"); }).join("");
+}
+scopeBarEl.addEventListener("click", function(e){
+  var b=(e.target && e.target.closest)? e.target.closest("[data-scope]") : null;
+  if(!b) return;
+  setFeedScope(b.getAttribute("data-scope")||"");
+  renderScopeBar();
+  renderFeed(false);
+});
+
+/* ---------- リスト選択シート（カードから直接リストへ） ---------- */
+var lpEv=null, lpCardEl=null;
+var lpSheet=document.getElementById("lpSheet"), lpBackdrop=document.getElementById("lpBackdrop"), lpBody=document.getElementById("lpBody"), lpTitle=document.getElementById("lpTitle");
+function lpRender(){
+  if(!lpEv) return;
+  var id=String(lpEv.id);
+  lpTitle.textContent="リストに追加";
+  var rows=myLists.map(function(l){
+    var has=(l.events||[]).map(String).indexOf(id)>=0;
+    return '<button type="button" class="lp-row" data-lp="'+esc(l.id)+'"><span>'+esc(l.name||"無題のリスト")+'</span><span class="lp-check">'+(has?"✓":"")+'</span></button>';
+  }).join("");
+  lpBody.innerHTML=(rows || '<p class="lp-none">まだリストがありません。下の欄から作って追加できます。</p>')
+    + '<div class="lp-new"><input id="lpNewName" type="text" maxlength="60" placeholder="新しいリスト名"><button type="button" id="lpCreate">作って追加</button></div>';
+  var cr=document.getElementById("lpCreate");
+  if(cr) cr.addEventListener("click", function(){
+    var inp=document.getElementById("lpNewName");
+    var name=(inp && inp.value || "").trim() || "無題のリスト";
+    var nl={id:"l"+Date.now().toString(36)+Math.floor(Math.random()*1e4), name:name, events:[String(lpEv.id)], artists:[], venues:[], organizers:[], createdAt:Date.now()};
+    myLists.push(nl); saveLists(); lpAfterChange();
+  });
+}
+function lpAfterChange(){
+  lpRender(); renderScopeBar();
+  if(lpCardEl){
+    var btn=lpCardEl.querySelector("[data-list]");
+    if(btn && lpEv) btn.classList.toggle("on", inAnyList(lpEv.id));
+  }
+  if(feedScope && feedScope.indexOf("p:")!==0) renderFeed(true);
+}
+function lpToggle(listId){
+  var l=findFeedList(listId); if(!l || !lpEv) return;
+  var id=String(lpEv.id);
+  var evs=(l.events||[]).map(String);
+  var i=evs.indexOf(id);
+  if(i>=0) evs.splice(i,1); else evs.push(id);
+  l.events=evs; saveLists(); lpAfterChange();
+}
+function openListPicker(ev, cardEl){
+  lpEv=ev; lpCardEl=cardEl||null;
+  lpRender();
+  lpSheet.classList.remove("hidden"); lpBackdrop.classList.remove("hidden");
+}
+function closeListPicker(){ lpSheet.classList.add("hidden"); lpBackdrop.classList.add("hidden"); lpEv=null; lpCardEl=null; }
+lpBody.addEventListener("click", function(e){
+  var b=(e.target && e.target.closest)? e.target.closest("[data-lp]") : null;
+  if(b) lpToggle(b.getAttribute("data-lp"));
+});
+document.getElementById("lpClose").addEventListener("click", closeListPicker);
+lpBackdrop.addEventListener("click", closeListPicker);
+
 /* ---------- カード上のクイックアクション（詳細を開かずに付け外し） ---------- */
 feedEl.addEventListener("click", function(e){
+  var lb=(e.target && e.target.closest)? e.target.closest("[data-list]") : null;
+  if(lb){
+    var lcard=lb.closest(".card"); if(!lcard) return;
+    var lev=feedItems[parseInt(lcard.getAttribute("data-idx"),10)]; if(!lev) return;
+    openListPicker(lev, lcard);
+    return;
+  }
   var b=(e.target && e.target.closest)? e.target.closest("[data-act]") : null;
   if(!b) return;
   var card=b.closest(".card"); if(!card) return;
@@ -683,6 +819,7 @@ feedEl.addEventListener("click", function(e){
 
 /* ---------- 起動 ---------- */
 function start(){
+  renderScopeBar();
   showState('<div class="spinner" aria-hidden="true"></div><div>読み込み中…</div>');
   loadSheetRace("events_lite", LITE_FIELDS, function(events){
     sheetEvents=events;
@@ -700,9 +837,10 @@ function start(){
 /* 本体側で お気に入り等 が変わったら並びを追随させる */
 window.addEventListener("storage", function(e){
   if(!sheetEvents) return;
-  if(e.key===LS_FAV||e.key===LS_OSHI||e.key===LS_WANT||e.key===LS_INT||e.key===LS_LEARN||e.key===LS_PREFS||e.key===LS_PENDING){
+  if(e.key===LS_FAV||e.key===LS_OSHI||e.key===LS_WANT||e.key===LS_INT||e.key===LS_LEARN||e.key===LS_PREFS||e.key===LS_PENDING||e.key===LS_LISTS){
     favEvents=loadSet(LS_FAV); favPerfs=loadSet(LS_OSHI); wantEvents=loadSet(LS_WANT); intEvents=loadSet(LS_INT);
     prefs=loadPrefsLite(); learn=loadLearn();
+    myLists=loadLists(); renderScopeBar();
     allEvents=mergePendingEvents(sheetEvents);
     renderFeed(true);
   }
