@@ -543,7 +543,7 @@
   .sg-stat-num{display:block;font-size:clamp(24px,3.6vw,44px);font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums}
   .sg-stat-label{font-size:clamp(11.5px,1.4vw,14px);color:rgba(244,242,236,.75);font-weight:700}
   .sg-note{margin:0;font-size:clamp(13px,1.6vw,17px);color:rgba(244,242,236,.65)}
-  .sg-cards{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(10px,1.8vw,20px);align-content:start}
+  .sg-cards{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(10px,1.8vw,20px);align-content:start;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:10px}
   @media (min-width:900px){.sg-cards{grid-template-columns:repeat(4,1fr)}}
   .sg-card{cursor:pointer;background:#1a1c20;border:1px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
   .sg-card-media{position:relative;aspect-ratio:16/9;background:#26282e;overflow:hidden;flex:none}
@@ -555,7 +555,7 @@
   .sg-card-title{margin:0;font-size:clamp(15px,1.9vw,20px);font-weight:800;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
   .sg-card-venue{margin:0;font-size:clamp(12.5px,1.5vw,15px);color:rgba(244,242,236,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .sg-card-metric{margin:2px 0 0;font-size:clamp(12px,1.4vw,14.5px);font-weight:700;color:#e05545}
-  .sg-textlist{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+  .sg-textlist{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:10px}
   .sg-textrow{cursor:pointer;border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:14px 18px;background:rgba(255,255,255,.04)}
   .sg-textrow .sg-card-date{font-size:clamp(13px,1.6vw,16px)}
   .sg-textrow h3{margin:2px 0 0;font-size:clamp(17px,2.4vw,26px);line-height:1.4}
@@ -624,7 +624,7 @@
   .tl-end p{margin:0;color:rgba(244,242,236,.75);font-size:clamp(14px,1.8vw,17px);line-height:1.7;max-width:34em}
   .tl-end .tl-post{font-size:16px;padding:12px 26px}
   .tl-again{border:1.5px solid rgba(255,255,255,.5);background:transparent;color:#f4f2ec;border-radius:999px;padding:10px 22px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer}
-  .tl-feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px clamp(12px,4vw,40px) 28px;display:flex;flex-direction:column;gap:18px}
+  .tl-feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;padding:16px clamp(12px,4vw,40px) 28px;display:flex;flex-direction:column;gap:18px}
   .tl-feed.hidden{display:none}
   .tl-fcard{flex:none;max-width:680px;width:100%;margin:0 auto;background:#1a1c20;border:1px solid rgba(255,255,255,.14);border-radius:16px;overflow:hidden;cursor:pointer;text-align:left;color:inherit;padding:0;font:inherit}
   .tl-fcard .tl-media{flex:none;aspect-ratio:16/9;border-radius:0}
@@ -642,7 +642,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v57';
+  window.__kgShell='v58';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -5731,7 +5731,7 @@ window.KG_SIGNAGE={build:buildSignageData, slides:buildSignageSlides, open:openS
         setTimeout(function(){ if(fb.parentNode) fb.parentNode.removeChild(fb); }, 420);
       }catch(_){}
     }
-    stage.addEventListener("pointerdown", function(e){ sx=e.clientX; sy=e.clientY; stT=Date.now(); sTarget=e.target; });
+    stage.addEventListener("pointerdown", function(e){ sx=e.clientX; sy=e.clientY; stT=Date.now(); sTarget=e.target; if(sgState.timer) clearTimeout(sgState.timer); });
     stage.addEventListener("pointerup", function(e){
       if(sx==null) return;
       var dx=e.clientX-sx, dy=e.clientY-sy, dt=Date.now()-stT, tgt=sTarget; sx=null; sy=null; sTarget=null;
@@ -5748,8 +5748,9 @@ window.KG_SIGNAGE={build:buildSignageData, slides:buildSignageSlides, open:openS
         sgGo(sgState.idx + dir);
         sgFlash(dir);
       }
+      if(sgState.open) sgSchedule();
     });
-    stage.addEventListener("pointercancel", function(){ sx=null; sy=null; sTarget=null; });
+    stage.addEventListener("pointercancel", function(){ sx=null; sy=null; sTarget=null; if(sgState.open) sgSchedule(); });
     /* キーボードでもカードから詳細を開ける */
     stage.addEventListener("keydown", function(e){
       if(e.key!=="Enter" && e.key!==" ") return;
