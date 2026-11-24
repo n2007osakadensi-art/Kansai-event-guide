@@ -577,7 +577,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v53';
+  window.__kgShell='v54';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1289,10 +1289,32 @@ function parseDesc(desc){
    そのまま row[0]/row[1] を読むとラベル先行形式で列がずれるため、
    表示・回しプラン・編集プリフィルはすべてこの判別を通す */
 var DESC_LABELS=["開場","開演","終演","物販","特典会"];
+/* dict 風文字列（{'act': '…', 'time': '…'} の単一引用符形式や {"act": "…"} の
+   二重引用符形式）をキー単位で読み、act と time を取り出す（v54）。データ側に
+   Python repr の dict を文字列化した行が混ざっており、そのまま表示すると
+   生の dict 風文字列が画面に出るため表示側で防御する。eval は使わない */
+function descDictCell(s){
+  var t=String(s==null?"":s).trim();
+  if(t.charAt(0)!=="{" || t.indexOf(":")<0) return null;
+  function get(k){
+    var m=t.match(new RegExp("['\"]?"+k+"['\"]?\\s*[:：]\\s*(?:'([^']*)'|\"([^\"]*)\"|([^,}\\s][^,}]*))"));
+    if(!m) return "";
+    var v=m[1]!=null?m[1]:(m[2]!=null?m[2]:m[3]);
+    return (v==null?"":String(v)).trim();
+  }
+  var act=get("act")||get("text")||get("performer")||get("content");
+  var tim=get("time");
+  if(!act && !tim) return null;
+  return {act:act, time:tim};
+}
 function descRowParts(row){
   if(row==null) return {time:"", label:"", text:"", stage:""};
   if(typeof row==="string"){
     var st=row.trim();
+    if(st.charAt(0)==="{"){
+      var dc0=descDictCell(st);
+      if(dc0) return {time:(/^\d{1,2}[:：]\d{2}/.test(dc0.time)?dc0.time.replace("：",":"):""), label:"", text:dc0.act, stage:""};
+    }
     var am=st.match(/act['"]?\s*[:：]\s*['"]([^'"]*)['"]/);
     var tm2=st.match(/(?:time|時刻)['"]?\s*[:：]\s*['"]?(\d{1,2}[:：]\d{2})/);
     if(am||tm2) return {time:tm2?tm2[1].replace("：",":"):"", label:"", text:am?am[1]:st, stage:""};
@@ -1300,6 +1322,14 @@ function descRowParts(row){
   }
   if(Array.isArray(row)){
     var cells=row.map(function(c){ return c==null?"":String(c).trim(); });
+    var dictTime="";
+    cells=cells.map(function(x,i){
+      if(i===0) return x;
+      var dcell=descDictCell(x);
+      if(!dcell) return x;
+      if(dcell.time && /^\d{1,2}[:：]\d{2}/.test(dcell.time) && !dictTime) dictTime=dcell.time.replace("：",":");
+      return dcell.act||"";
+    });
     var c0=cells[0]||"", c1=cells[1]||"", rest=cells.slice(2).filter(Boolean).join(" ");
     var isTime=function(x){ return /^\d{1,2}[:：]\d{2}/.test(x); };
     if(DESC_LABELS.indexOf(c0)>=0){
@@ -1308,7 +1338,7 @@ function descRowParts(row){
     }
     var cm=c0.match(/^(開場|開演|終演|物販|特典会)\s*(\d{1,2}[:：]\d{2})/);
     if(cm) return {time:cm[2].replace("：",":"), label:cm[1], text:[c1,rest].filter(Boolean).join(" "), stage:""};
-    return {time:c0, label:"", text:[c1,rest].filter(Boolean).join(" "), stage:""};
+    return {time:(c0||dictTime), label:"", text:[c1,rest].filter(Boolean).join(" "), stage:""};
   }
   if(typeof row==="object"){
     var tx=row.act||row.text||row.performer||row.content||"";
@@ -2144,6 +2174,12 @@ function filtered(){
      時刻順になっていなかった */
   var dkey=function(ev){ return ev.date||"9999-12-31"; };
   var erank=function(ev){ return isEnded(ev)?1:0; };
+  var todayS=todayStr();
+  /* 日付順（近い順）では開催中（開始日が今日以前で未終了）の並びキーを今日に
+     そろえる（v54）。開始日昇順のままだと数か月前から開催中の長期展示が先頭を
+     占め、今日・明日の単日イベントが後ろに埋もれるため。同キー内はこの後の
+     startMin 比較で時刻順になる。未来のイベントは開始日昇順のまま */
+  var okey=function(ev){ return isOngoing(ev)?todayS:dkey(ev); };
   list.sort(function(a,b){
     var ea=erank(a), eb=erank(b);
     if(sortMode==="startAsc" || sortMode==="startDesc"){
@@ -2171,7 +2207,7 @@ function filtered(){
     } else {
       if(ea!==eb) return ea-eb;
       if(ea===1 && dkey(a)!==dkey(b)) return dkey(a)<dkey(b)?1:-1;
-      if(dkey(a)!==dkey(b)) return dkey(a)<dkey(b)?-1:1;
+      if(okey(a)!==okey(b)) return okey(a)<okey(b)?-1:1;
     }
     var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin;
     return as-bs;
@@ -4782,6 +4818,10 @@ function renderRouteFit(){
     /* 複数日イベント（開始日が今日より前）は「開催中」としてだけ扱う（v53）。
        開始日の startMin を今日の現在時刻と比べて「開始まであと○分」とは言わない */
     if(ev.date && ev.date<rfT){
+      /* 複数日イベントでも、その日の実施終了時刻（endMin）を過ぎていれば今日の
+         分は終了として「開催中」候補から外す（v54。毎日開催の体操が終了後に
+         残る件）。endMin が startMin 以下（日またぎ・異常値）の場合は判定しない */
+      if(ev.endMin!=null && (ev.startMin==null || ev.endMin>ev.startMin) && baseMin>ev.endMin) return;
       if(rfCat!=="すべて" && evCategories(ev).indexOf(rfCat)<0) return;
       if(freeOnly && !isStrictFree(ev)) return;
       var vpM=venueProfileFor(ev.venue);
