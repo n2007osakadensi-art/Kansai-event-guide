@@ -788,7 +788,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v91';
+  window.__kgShell='v92';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3026,6 +3026,7 @@ function loadProfiles(){
     if(res[3]){ venueSuppById=res[3]; attachVenueSupp(); }
     if(res[4]){ dictByName=res[4]; dictWords.memo={}; buildDictRevMap(); }
     loadSheetDict();
+    loadSheetProfiles();
     if(res[5]){ artistCats=res[5]; }
     artistCatCache={};
     profilesLoaded=true; profilesLoading=null;
@@ -5975,6 +5976,86 @@ function loadSheetDict(){
   script.async=true;
   script.src=sheetJsonpBase("検索辞書")+cbName+"&_="+Date.now();
   document.head.appendChild(script);
+}
+/* プロフィールの自動反映（v92）: シートの artists / venues / readings タブを読み、
+   同梱データへマージする。ガイドへ追加・修正してシート同期されれば、再pushなしで反映される。
+   マージ方針はデータを失わない側: シートの非空値が勝ち、シートに無い項目（アイコン等）は同梱を保持。 */
+var sheetProfilesLoaded=false;
+function fetchSheetRows(tab, cb){
+  var cbName="__kgProfCb"+(++loadSeq);
+  var settled=false;
+  var script=document.createElement("script");
+  var timer=setTimeout(function(){ finish(); }, 30000);
+  function finish(){ if(settled) return; settled=true; clearTimeout(timer); try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); cb(null); }
+  window[cbName]=function(resp){
+    if(settled) return; settled=true; clearTimeout(timer);
+    try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; }
+    if(script.parentNode) script.parentNode.removeChild(script);
+    var rows=[];
+    try{ ((resp && resp.table && resp.table.rows)||[]).forEach(function(r){ var row=[]; ((r && r.c)||[]).forEach(function(c){ row.push(c && c.v!=null ? String(c.v) : ""); }); rows.push(row); }); }catch(e){}
+    cb(rows);
+  };
+  script.onerror=function(){ finish(); };
+  script.async=true;
+  script.src=sheetJsonpBase(tab)+cbName+"&_="+Date.now();
+  document.head.appendChild(script);
+}
+function mergeProfileObj(base, over){
+  var out={}; for(var k in base) out[k]=base[k];
+  for(var k2 in over){
+    var v=over[k2];
+    if(v==null || v==="" || (Array.isArray(v) && !v.length)) continue;
+    if(k2==="m" && Array.isArray(v)){
+      var bm={}; (out.m||[]).forEach(function(m){ if(m && m.n) bm[m.n]=m; });
+      out.m=v.map(function(m){
+        var prev=bm[m.n]||{}; var nm={}; for(var a in prev) nm[a]=prev[a];
+        for(var b in m){ if(m[b]!=null && m[b]!=="") nm[b]=m[b]; }
+        return nm;
+      });
+      continue;
+    }
+    out[k2]=v;
+  }
+  return out;
+}
+function loadSheetProfiles(){
+  if(sheetProfilesLoaded) return;
+  sheetProfilesLoaded=true;
+  var pending=3, changed=false;
+  function step(){
+    if(--pending>0 || !changed) return;
+    indexVenueProfiles();
+    artistCatCache={};
+    allEvents.forEach(function(ev){ ev._hay=null; });
+    if(allEvents.length) render();
+    if(detailCtx) renderDetail();
+    if(profSheetState.open) renderProfSheet();
+  }
+  function profTab(tab, store){
+    fetchSheetRows(tab, function(rows){
+      if(rows) rows.forEach(function(r, ri){
+        if(ri===0 || !r) return;
+        var name=r[0], js=r[1];
+        if(!name || !js) return;
+        var p; try{ p=JSON.parse(js); }catch(e){ return; }
+        var merged=mergeProfileObj(store[name]||{}, p);
+        if(JSON.stringify(merged)!==JSON.stringify(store[name]||{})){ store[name]=merged; changed=true; }
+      });
+      step();
+    });
+  }
+  profTab("artists", artistProfiles);
+  profTab("venues", venueProfiles);
+  fetchSheetRows("readings", function(rows){
+    if(rows){ var seen={}; rows.forEach(function(r, ri){
+      if(ri===0 || !r) return;
+      var nm=r[0], rd=r[1];
+      if(!nm || !rd || seen[nm]) return;
+      seen[nm]=1;
+      if(readingByName[nm]!==rd){ readingByName[nm]=rd; changed=true; }
+    }); }
+    step();
+  });
 }
 function loadSheetRace(sheetName, ok, failAll){
   var settled=false, jsonpFailed=false, fetchStarted=false, fetchFailed=false, hedgeTimer=null;
