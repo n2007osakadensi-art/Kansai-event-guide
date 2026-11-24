@@ -232,6 +232,7 @@
   .modal-in h2{margin:8px 0 12px;font-size:21px;line-height:1.4}
   .close-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
   .mini-acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .mini-acts-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:22px 0 2px}
   .mini-btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 10px;font-weight:700;font-size:12.5px;min-height:36px;cursor:pointer;font-family:inherit;white-space:nowrap}
   .mini-btn.on{background:var(--heart);border-color:var(--heart);color:#fff}
   .mini-btn.want.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -656,7 +657,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v63';
+  window.__kgShell='v64';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3604,12 +3605,7 @@ function openModal(ev){
   els.modal.innerHTML =
     '<div class="modal-media'+(ev.imageUrl?"":" noimg")+'">'+media+(ev.imageUrl?'<button class="zoom-btn" type="button" data-lbopen="1" aria-label="'+esc(ev.title)+' の画像を拡大表示">画像を拡大</button>':"")+'</div><div class="modal-in">'
     + '<div class="close-row"><span class="cat-chip" style="background:'+catColor(ev.category)+'">'+catIcon(ev.category,13)+esc(ev.category||"イベント")+'</span>'
-    + '<span class="mini-acts">'
-    + '<button class="mini-btn'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
-    + '<button class="mini-btn want'+(isWant?" on":"")+'" type="button" id="modalWant">'+(isWant?"✓ 行きたい":"行きたい")+'</button>'
-    + '<button class="mini-btn interest'+(isInt?" on":"")+'" type="button" id="modalInt">'+(isInt?"✓ 気になる":"気になる")+'</button>'
-    + '<button class="mini-btn" type="button" id="modalShare">共有</button>'
-    + '<button class="close-btn" type="button" id="modalClose" aria-label="閉じる">✕</button></span></div>'
+    + '<button class="close-btn" type="button" id="modalClose" aria-label="閉じる">✕</button></div>'
     + '<h2 id="modalTitle">'+esc(ev.title)+'</h2>'
     + (ev._pending?'<p class="pending-note">反映待ち：あなたが送信した内容を、この端末だけに表示しています。確認のうえガイドへ反映されると、正式な掲載に切り替わります。</p>':"")
     + '<dl class="detail">'
@@ -3625,6 +3621,12 @@ function openModal(ev){
         + ev._perfList.map(function(p){ var on=favPerfs.has(p); return '<button class="perf'+(on?" on":"")+'" type="button" data-perf="'+esc(p)+'" aria-pressed="'+on+'">'+esc(p)+'</button>'; }).join("")
         + '</div><p class="perf-hint">出演者名をタップすると、その出演者の公演一覧（プロフィール）へ移動します。推しの登録は公演一覧ページのボタンからできます。</p>' : "")
     + '<h3 style="margin:20px 0 8px;font-size:15px">詳細・タイムテーブル</h3>'+descHTML
+    + '<div class="mini-acts-row">'
+    + '<button class="mini-btn'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
+    + '<button class="mini-btn want'+(isWant?" on":"")+'" type="button" id="modalWant">'+(isWant?"✓ 行きたい":"行きたい")+'</button>'
+    + '<button class="mini-btn interest'+(isInt?" on":"")+'" type="button" id="modalInt">'+(isInt?"✓ 気になる":"気になる")+'</button>'
+    + '<button class="mini-btn" type="button" id="modalShare">共有</button>'
+    + '</div>'
     + relatedEventsHTML(ev)
     + '<div class="modal-edit-row"><button class="modal-edit-btn" type="button" id="modalEdit">このイベントの修正を送る</button></div>'
     + '</div>';
