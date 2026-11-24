@@ -21,8 +21,8 @@
     '<div id="kg-guest"><hr><p><strong>ゲスト利用</strong>（一時的な端末向け）</p>' +
     '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
     '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button><span id="kg-guest-end-confirm" hidden> <span style="font-size:13px">この端末のデータを消去しますか？</span> <button id="kg-guest-end-yes" type="button">消去する</button> <button id="kg-guest-end-no" type="button">やめる</button></span></div></div>' +
-    '<div id="kg-admin"><hr><p><strong>管理者モード</strong>（この端末だけ）</p>' +
-    '<div id="kg-admin-off"><p style="font-size:13px">管理者の端末では、ログイン操作なしで管理者として扱います。有効化には管理者パスフレーズの設定が必要です（この端末内にだけ保存されます）。</p><p><input id="kg-admin-p1" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-admin-p2" type="password" placeholder="確認のためもう一度（新規設定のとき）" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-enable" type="button">管理者モードを有効にする</button></div>' +
+    '<div id="kg-admin"><hr><p><strong>管理者モード</strong></p>' +
+    '<div id="kg-admin-off"><p style="font-size:13px">管理者のGoogleアカウントでログインすると、スマホでもPCでも自動で管理者として扱われます（端末ごとに設定は要りません）。パスフレーズで、この端末だけを管理者にすることもできます（端末内にだけ保存されます）。</p><p><input id="kg-admin-p1" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-admin-p2" type="password" placeholder="確認のためもう一度（新規設定のとき）" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-enable" type="button">管理者モードを有効にする</button></div>' +
     '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。ログイン操作は不要です。</p><p><input id="kg-admin-off-p" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></div></div>' +
     '<p style="font-size:13px">メールアドレス・推し・お気に入りを認証・保存サービスで扱います。サービス提供者のプライバシーポリシーをご確認ください。</p></dialog>';
   document.body.appendChild(overlay);
@@ -85,6 +85,8 @@
     user=session && session.user ? session.user : null; initialized=false;
     if(!user){ parts(false,true,false,false); text('ログインしていません。推し・お気に入りは端末内に保存されます。'); renderAdmin(); return; }
     var uid=user.id; $('kg-email-display').textContent='ログイン中：'+(user.email||'アカウント');
+    var isAdminAcct=await noteAdminAccount(user);
+    if(isAdminAcct){ $('kg-email-display').textContent+='（管理者）'; renderAdmin(); }
     parts(false,false,true,false); renderState();
     if (localStorage.getItem(currentMarker)===uid) {
       text('アカウントのデータを確認しています…');
@@ -277,6 +279,18 @@
      有効化・解除には本人が決めたパスフレーズが要る（ハッシュだけを端末に保存）。 */
   var ADMIN_FLAG='kg_admin_mode_v1', ADMIN_HASH='kg_admin_hash_v1';
   function adminOn(){ try{ return localStorage.getItem(ADMIN_FLAG)==='1'; }catch(_){ return false; } }
+  /* 管理者本人のGoogleアカウント（ハッシュで照合し、アドレス自体は埋め込まない）で
+     ログインしたら、その端末を自動で管理者として扱う（Kota指示 2026-11-24:
+     管理者は端末ごとにログイン・設定する中途半端な形にしない。スマホでもPCでも同じ） */
+  var ADMIN_EMAIL_HASH='57214438aece9c683a3ab3120651fe8828ae6230cf855af1acbca324d37b26a3';
+  async function noteAdminAccount(u){
+    if(!u || !u.email) return false;
+    try{
+      var h=await sha256hex(String(u.email).trim().toLowerCase());
+      if(h===ADMIN_EMAIL_HASH){ localStorage.setItem(ADMIN_FLAG,'1'); return true; }
+    }catch(_){}
+    return false;
+  }
   function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）。ログインは不要です。'); renderState(); }
   /* パスフレーズはダイアログ内の通常 input で扱う（v53）。prompt() は
      ダイアログ抑制環境で無言で null を返し、管理者フロー全体が死ぬため使わない。
