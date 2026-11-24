@@ -10,6 +10,8 @@
 
   var KEYS={
     favorites:'kg_trial_fav_events_v1',
+    want:'kg_trial_want_events_v1',
+    interest:'kg_trial_interest_events_v1',
     performers:'kg_trial_fav_performers_v1',
     profiles:'kg_filter_profiles_v1',
     preferences:'kg_trial_prefs_v1',
@@ -93,6 +95,8 @@
     var learned=parseStored(KEYS.learned,DEFAULT_LEARNED);
     return {
       favorites:stringArray(eventIds,'お気に入り',50000),
+      want:stringArray(parseStored(KEYS.want,[]),'行きたい',50000),
+      interest:stringArray(parseStored(KEYS.interest,[]),'気になる',50000),
       performers:stringArray(performers,'推し',50000),
       filterProfiles:safeProfiles(profiles),
       preferences:safePrefs(preferences),
@@ -111,6 +115,8 @@
     if(typeof d.showEnded!=='boolean') throw new Error('終了イベント表示の設定が正しくありません。');
     return {
       favorites:stringArray(d.favorites,'お気に入り',50000),
+      want:Array.isArray(d.want)?stringArray(d.want,'行きたい',50000):[],
+      interest:Array.isArray(d.interest)?stringArray(d.interest,'気になる',50000):[],
       performers:stringArray(d.performers,'推し',50000),
       filterProfiles:safeProfiles(d.filterProfiles),
       preferences:safePrefs(d.preferences),
@@ -150,6 +156,8 @@
   function mergeData(a,b){
     return {
       favorites:union(a.favorites,b.favorites),
+      want:union(a.want||[],b.want||[]),
+      interest:union(a.interest||[],b.interest||[]),
       performers:union(a.performers,b.performers),
       filterProfiles:mergeProfiles(a.filterProfiles,b.filterProfiles),
       preferences:mergePrefs(a.preferences,b.preferences),
@@ -161,11 +169,13 @@
     return 'お気に入り '+d.favorites.length+'件・推し '+d.performers.length+'件・保存条件 '+d.filterProfiles.length+'件';
   }
   function countSummary(d){
-    return 'お気に入り '+d.favorites.length+'件、推し '+d.performers.length+'件、保存した絞り込み '+d.filterProfiles.length+'件、好み設定 '+(d.preferences.onboarded?'あり':'なし');
+    return 'お気に入り '+d.favorites.length+'件、行きたい '+(d.want||[]).length+'件、気になる '+(d.interest||[]).length+'件、推し '+d.performers.length+'件、保存した絞り込み '+d.filterProfiles.length+'件、好み設定 '+(d.preferences.onboarded?'あり':'なし');
   }
   function writeData(d){
     var values={};
     values[KEYS.favorites]=JSON.stringify(d.favorites);
+    values[KEYS.want]=JSON.stringify(d.want||[]);
+    values[KEYS.interest]=JSON.stringify(d.interest||[]);
     values[KEYS.performers]=JSON.stringify(d.performers);
     values[KEYS.profiles]=JSON.stringify(d.filterProfiles);
     values[KEYS.preferences]=JSON.stringify(d.preferences);
