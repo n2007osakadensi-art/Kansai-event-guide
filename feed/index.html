@@ -30,6 +30,7 @@
   .topbar .count{font-size:12px;color:rgba(255,255,255,.85);text-shadow:0 1px 4px rgba(0,0,0,.6);white-space:nowrap}
   .topbar .guide-link{display:inline-flex;align-items:center;min-height:36px;padding:6px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(20,20,20,.38);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap}
   .topbar .guide-link:active{transform:scale(.97)}
+  button.guide-link{font-family:inherit;cursor:pointer}
 
   /* ---------- フィード本体 ---------- */
   .feed{height:100vh;height:100dvh;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-width:none}
@@ -105,6 +106,7 @@
   <h1>関西イベント フィード</h1>
   <span class="spacer"></span>
   <span class="count" id="count"></span>
+  <button class="guide-link" id="kg-account-open" type="button">ログイン / 同期</button>
   <a class="guide-link" href="../">ガイドを開く</a>
 </div>
 <div class="scopebar" id="scopeBar" role="group" aria-label="フィードに流す範囲の切り替え"></div>
@@ -366,13 +368,16 @@ function isCollabCafe(ev){ return /コラボカフェ|コラボレーション�
 var LS_FAV="kg_trial_fav_events_v1", LS_OSHI="kg_trial_fav_performers_v1", LS_WANT="kg_trial_want_events_v1", LS_INT="kg_trial_interest_events_v1";
 var LS_PREFS="kg_trial_prefs_v1", LS_LEARN="kg_trial_learn_v1", LS_PENDING="kg_trial_pending_events_v1";
 function loadSet(key){ try{ var a=JSON.parse(localStorage.getItem(key)||"[]"); return new Set(Array.isArray(a)?a.map(String):[]); }catch(e){ return new Set(); } }
-function saveSet(key, set){ try{ localStorage.setItem(key, JSON.stringify(Array.from(set))); }catch(e){} }
+function saveSet(key, set){ try{ var before=JSON.parse(localStorage.getItem(key)||"[]"); var after=Array.from(set); localStorage.setItem(key, JSON.stringify(after)); window.dispatchEvent(new CustomEvent("kg:favorites-change",{detail:{key:key,before:before,after:after}})); }catch(e){} }
 var favEvents=loadSet(LS_FAV), favPerfs=loadSet(LS_OSHI), wantEvents=loadSet(LS_WANT), intEvents=loadSet(LS_INT);
 /* リスト（本体と共有の kg_trial_lists_v1）とフィードの表示範囲 */
 var LS_LISTS="kg_trial_lists_v1", LS_FEED_SCOPE="kg_feed_scope_v1";
 function loadLists(){ try{ var a=JSON.parse(localStorage.getItem(LS_LISTS)||"[]"); return Array.isArray(a)? a.filter(function(l){ return l && l.id; }) : []; }catch(e){ return []; } }
 function saveLists(){ try{ localStorage.setItem(LS_LISTS, JSON.stringify(myLists)); }catch(e){} }
 var myLists=loadLists();
+var LS_FOLLOWS="kg_trial_follows_v1";
+function loadFeedFollows(){ try{ var o=JSON.parse(localStorage.getItem(LS_FOLLOWS)||"null"); if(o && Array.isArray(o.venues) && Array.isArray(o.organizers)) return {venues:o.venues.map(String), organizers:o.organizers.map(String)}; }catch(e){} return {venues:[], organizers:[]}; }
+var feedFollows=loadFeedFollows();
 var feedScope=""; try{ feedScope=localStorage.getItem(LS_FEED_SCOPE)||""; }catch(e){}
 function setFeedScope(v){ feedScope=v||""; try{ localStorage.setItem(LS_FEED_SCOPE, feedScope); }catch(e){} }
 function findFeedList(id){ var f=null; myLists.forEach(function(l){ if(String(l.id)===String(id)) f=l; }); return f; }
@@ -382,6 +387,17 @@ function feedScopeSet(){
   if(feedScope==="p:fav") return favEvents;
   if(feedScope==="p:want") return wantEvents;
   if(feedScope==="p:int") return intEvents;
+  if(feedScope==="p:follow"){
+    var fset=new Set();
+    allEvents.forEach(function(ev){
+      var id=String(ev.id);
+      if(hasOshi(ev)){ fset.add(id); return; }
+      var org=(ev.organizerName||"").trim();
+      if(org && feedFollows.organizers.indexOf(org)>=0){ fset.add(id); return; }
+      if(ev.venue && feedFollows.venues.some(function(v){ return v && (ev.venue===v || ev.venue.indexOf(v)===0 || v.indexOf(ev.venue)===0); })) fset.add(id);
+    });
+    return fset;
+  }
   var l=findFeedList(feedScope);
   if(!l) return null;
   var set=new Set((l.events||[]).map(String));
@@ -725,7 +741,7 @@ var scopeBarEl=document.getElementById("scopeBar");
 function renderScopeBar(){
   if(feedScope && feedScope.indexOf("p:")!==0 && !findFeedList(feedScope)) setFeedScope("");
   var chip=function(v, label){ return '<button type="button" data-scope="'+esc(v)+'" class="'+(feedScope===v?"on":"")+'">'+esc(label)+'</button>'; };
-  scopeBarEl.innerHTML=chip("", "すべて")+chip("p:fav", "お気に入り")+chip("p:want", "行きたい")+chip("p:int", "気になる")
+  scopeBarEl.innerHTML=chip("", "すべて")+chip("p:fav", "お気に入り")+chip("p:want", "行きたい")+chip("p:int", "気になる")+chip("p:follow", "フォロー中")
     + myLists.map(function(l){ return chip(String(l.id), l.name||"無題のリスト"); }).join("");
 }
 scopeBarEl.addEventListener("click", function(e){
@@ -817,6 +833,21 @@ feedEl.addEventListener("click", function(e){
   if(bd){ var t=document.createElement("div"); t.innerHTML=badgesHTML(ev); if(t.firstChild) bd.replaceWith(t.firstChild); }
 });
 
+/* ---------- ログイン・同期との橋渡し（本体と同じ account.js を使う） ---------- */
+window.KGAccountBridge = {
+  keys: { event: LS_FAV, artist: LS_OSHI },
+  read: function(){ return { event: Array.from(favEvents), artist: Array.from(favPerfs) }; },
+  replace: function(data){
+    favEvents = new Set((data && data.event) || []);
+    favPerfs = new Set((data && data.artist) || []);
+    try{
+      localStorage.setItem(LS_FAV, JSON.stringify(Array.from(favEvents)));
+      localStorage.setItem(LS_OSHI, JSON.stringify(Array.from(favPerfs)));
+    }catch(e){}
+    if(sheetEvents){ allEvents=mergePendingEvents(sheetEvents); renderScopeBar(); renderFeed(true); }
+  }
+};
+
 /* ---------- 起動 ---------- */
 function start(){
   renderScopeBar();
@@ -837,10 +868,10 @@ function start(){
 /* 本体側で お気に入り等 が変わったら並びを追随させる */
 window.addEventListener("storage", function(e){
   if(!sheetEvents) return;
-  if(e.key===LS_FAV||e.key===LS_OSHI||e.key===LS_WANT||e.key===LS_INT||e.key===LS_LEARN||e.key===LS_PREFS||e.key===LS_PENDING||e.key===LS_LISTS){
+  if(e.key===LS_FAV||e.key===LS_OSHI||e.key===LS_WANT||e.key===LS_INT||e.key===LS_LEARN||e.key===LS_PREFS||e.key===LS_PENDING||e.key===LS_LISTS||e.key===LS_FOLLOWS){
     favEvents=loadSet(LS_FAV); favPerfs=loadSet(LS_OSHI); wantEvents=loadSet(LS_WANT); intEvents=loadSet(LS_INT);
     prefs=loadPrefsLite(); learn=loadLearn();
-    myLists=loadLists(); renderScopeBar();
+    myLists=loadLists(); feedFollows=loadFeedFollows(); renderScopeBar();
     allEvents=mergePendingEvents(sheetEvents);
     renderFeed(true);
   }
@@ -851,4 +882,6 @@ if("serviceWorker" in navigator){
 start();
 })();
 </script>
+<script src="../account-config.js"></script>
+<script src="../account.js"></script>
 </body></html>

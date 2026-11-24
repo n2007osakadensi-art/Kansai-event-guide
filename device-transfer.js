@@ -13,6 +13,7 @@
     want:'kg_trial_want_events_v1',
     interest:'kg_trial_interest_events_v1',
     lists:'kg_trial_lists_v1',
+    follows:'kg_trial_follows_v1',
     performers:'kg_trial_fav_performers_v1',
     profiles:'kg_filter_profiles_v1',
     preferences:'kg_trial_prefs_v1',
@@ -104,6 +105,11 @@
     });
     return out;
   }
+  function safeFollows(v){
+    if(!v||typeof v!=='object'||Array.isArray(v)) return {venues:[],organizers:[]};
+    return { venues:stringArray(v.venues||[],'フォロー中の会場',5000), organizers:stringArray(v.organizers||[],'フォロー中の主催',5000) };
+  }
+  function unionStrings(a,b){ var s=new Set(a||[]); (b||[]).forEach(function(x){ s.add(x); }); return Array.from(s); }
   function readCurrent(){
     var eventIds=parseStored(KEYS.favorites,[]),performers=parseStored(KEYS.performers,[]);
     var profiles=parseStored(KEYS.profiles,[]),preferences=parseStored(KEYS.preferences,DEFAULT_PREFS);
@@ -113,6 +119,7 @@
       want:stringArray(parseStored(KEYS.want,[]),'行きたい',50000),
       interest:stringArray(parseStored(KEYS.interest,[]),'気になる',50000),
       lists:safeLists(parseStored(KEYS.lists,[])),
+      follows:safeFollows(parseStored(KEYS.follows,{venues:[],organizers:[]})),
       performers:stringArray(performers,'推し',50000),
       filterProfiles:safeProfiles(profiles),
       preferences:safePrefs(preferences),
@@ -134,6 +141,7 @@
       want:Array.isArray(d.want)?stringArray(d.want,'行きたい',50000):[],
       interest:Array.isArray(d.interest)?stringArray(d.interest,'気になる',50000):[],
       lists:Array.isArray(d.lists)?safeLists(d.lists):[],
+      follows:(d.follows&&typeof d.follows==='object'&&!Array.isArray(d.follows))?safeFollows(d.follows):{venues:[],organizers:[]},
       performers:stringArray(d.performers,'推し',50000),
       filterProfiles:safeProfiles(d.filterProfiles),
       preferences:safePrefs(d.preferences),
@@ -186,6 +194,7 @@
       want:union(a.want||[],b.want||[]),
       interest:union(a.interest||[],b.interest||[]),
       lists:mergeLists(a.lists,b.lists),
+      follows:{venues:unionStrings((a.follows||{}).venues,(b.follows||{}).venues),organizers:unionStrings((a.follows||{}).organizers,(b.follows||{}).organizers)},
       performers:union(a.performers,b.performers),
       filterProfiles:mergeProfiles(a.filterProfiles,b.filterProfiles),
       preferences:mergePrefs(a.preferences,b.preferences),
@@ -197,7 +206,7 @@
     return 'お気に入り '+d.favorites.length+'件・推し '+d.performers.length+'件・保存条件 '+d.filterProfiles.length+'件';
   }
   function countSummary(d){
-    return 'お気に入り '+d.favorites.length+'件、行きたい '+(d.want||[]).length+'件、気になる '+(d.interest||[]).length+'件、マイリスト '+(d.lists||[]).length+'件、推し '+d.performers.length+'件、保存した絞り込み '+d.filterProfiles.length+'件、好み設定 '+(d.preferences.onboarded?'あり':'なし');
+    return 'お気に入り '+d.favorites.length+'件、行きたい '+(d.want||[]).length+'件、気になる '+(d.interest||[]).length+'件、マイリスト '+(d.lists||[]).length+'件、推し '+d.performers.length+'件、フォロー 会場'+((d.follows||{}).venues||[]).length+'件・主催'+((d.follows||{}).organizers||[]).length+'件、保存した絞り込み '+d.filterProfiles.length+'件、好み設定 '+(d.preferences.onboarded?'あり':'なし');
   }
   function writeData(d){
     var values={};
@@ -205,6 +214,7 @@
     values[KEYS.want]=JSON.stringify(d.want||[]);
     values[KEYS.interest]=JSON.stringify(d.interest||[]);
     values[KEYS.lists]=JSON.stringify(d.lists||[]);
+    values[KEYS.follows]=JSON.stringify(d.follows||{venues:[],organizers:[]});
     values[KEYS.performers]=JSON.stringify(d.performers);
     values[KEYS.profiles]=JSON.stringify(d.filterProfiles);
     values[KEYS.preferences]=JSON.stringify(d.preferences);
