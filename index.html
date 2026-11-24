@@ -813,7 +813,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v99';
+  window.__kgShell='v100';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2060,7 +2060,7 @@ function cardHTML(ev){
   var isInt=intEvents.has(String(ev.id));
   var oshi=hasOshi(ev);
   var media = ev.imageUrl
-    ? '<img src="'+esc(ev.imageUrl)+'" alt="'+esc(ev.title)+' のフライヤー画像" loading="lazy" data-fallback="1"><div class="ph hidden" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>'
+    ? '<img src="'+esc(ev.imageUrl)+'" alt="'+esc(ev.title)+' のフライヤー画像" loading="lazy" data-fallback="1" data-fbk="'+esc(ev.id)+':0" data-fbmode="card"><div class="ph hidden" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>'
     : '<div class="ph" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>';
   var ended=isEnded(ev), ongoing=isOngoing(ev), longRun=isLongRun(ev);
   var stateBadge = ended ? '<span class="badge-ended">終了</span>' : (ongoing && ev.dateEnd ? '<span class="badge-now">開催中</span>' : (ongoing ? '<span class="badge-now">本日開催</span>' : ""));
@@ -3010,6 +3010,46 @@ function prefFromAddress(ad){
    両方を読み、イベントごとに枚数の多い方を採用する。どちらも無い／読めない
    場合は空のままにし、表示は従来の imageUrl 1枚にフォールバックする */
 var eventImages={}, eventImagesLoaded=false, eventImagesLoading=null;
+/* 画像の保険（v100）: 公開URLが切れたら、ガイドに記録された一次情報元の
+   画像URL（X・公式・チケットサイト等）へ自動で差し替えて表示を維持する。
+   assets/event-image-fallbacks.json = {eventId: [位置ごとの元URL]} */
+var eventImageFallbacks={}, eventImageFallbacksLoaded=false, fbWaiters=[];
+function fbUrlFor(id,pos){ var l=eventImageFallbacks[String(id)]; return (l && l[pos])? l[pos] : ""; }
+function evImgErr(img){
+  var spec=(img.getAttribute("data-fbk")||"").split(":");
+  var id=spec[0], pos=parseInt(spec[1]||"0",10)||0;
+  if(!id){ var card=img.closest?img.closest("[data-id]"):null; if(card){ id=card.getAttribute("data-id"); } }
+  var mode=img.getAttribute("data-fbmode")||"remove";
+  function fail(){
+    if(mode==="ph"){ img.style.display="none"; var nx=img.nextElementSibling; if(nx) nx.style.display="flex"; }
+    else if(mode==="card"){ img.style.display="none"; var ph=img.nextElementSibling; if(ph) ph.classList.remove("hidden"); }
+    else { img.remove(); }
+  }
+  if(!id){ fail(); return; }
+  if(img.dataset.fbTried){ fail(); return; }
+  if(!eventImageFallbacksLoaded){
+    if(!img.dataset.fbWait){ img.dataset.fbWait="1"; fbWaiters.push(img); }
+    if(mode==="card"){ img.style.display="none"; var ph0=img.nextElementSibling; if(ph0) ph0.classList.remove("hidden"); }
+    else { img.style.visibility="hidden"; }
+    loadEventImages();
+    return;
+  }
+  var fb=fbUrlFor(id,pos);
+  if(fb){
+    img.dataset.fbTried="1";
+    img.addEventListener("load", function(){
+      img.style.visibility=""; img.style.display="";
+      if(mode==="card"){ var ph=img.nextElementSibling; if(ph) ph.classList.add("hidden"); }
+      if(mode==="ph"){ var nx=img.nextElementSibling; if(nx) nx.style.display="none"; }
+    }, {once:true});
+    img.src=fb;
+  } else fail();
+}
+window.evImgErr=evImgErr;
+function fbResolveWaiters(){
+  var ws=fbWaiters; fbWaiters=[];
+  ws.forEach(function(img){ if(img.isConnected && img.dataset.fbWait){ delete img.dataset.fbWait; img.style.visibility=""; evImgErr(img); } });
+}
 function applyEventImages(map){
   Object.keys(map).forEach(function(id){
     var urls=(map[id]||[]).filter(function(u){ return typeof u==="string" && !!u; });
@@ -3046,7 +3086,17 @@ function loadEventImages(){
       }, function(){ resolve(); });
     }catch(e){ resolve(); }
   });
-  eventImagesLoading=Promise.all([staticDone, sheetDone]).then(function(){
+  var fbDone=new Promise(function(resolve){
+    try{
+      var ctl2=("AbortController" in window)?new AbortController():null;
+      var tm2=ctl2?setTimeout(function(){ ctl2.abort(); },20000):null;
+      fetch("assets/event-image-fallbacks.json", ctl2?{signal:ctl2.signal}:undefined).then(function(r){ if(tm2)clearTimeout(tm2); if(!r.ok) throw new Error("event-image-fallbacks"); return r.json(); }).then(function(j){
+        if(j && typeof j==="object" && !Array.isArray(j)) eventImageFallbacks=j;
+        eventImageFallbacksLoaded=true; fbResolveWaiters(); resolve();
+      }).catch(function(){ if(tm2)clearTimeout(tm2); eventImageFallbacksLoaded=true; fbResolveWaiters(); resolve(); });
+    }catch(e){ eventImageFallbacksLoaded=true; fbResolveWaiters(); resolve(); }
+  });
+  eventImagesLoading=Promise.all([staticDone, sheetDone, fbDone]).then(function(){
     eventImagesLoaded=true; eventImagesLoading=null;
     if(currentEv && eventImageList(currentEv).length>=2 && !els.modal.querySelector("#galTrack")) openModal(currentEv);
   });
@@ -3674,8 +3724,9 @@ function renderExpoChrome(){
 }
 function wireCardImages(root){
   root.querySelectorAll("img[data-fallback]").forEach(function(img){
-    img.addEventListener("error", function(){ img.style.display="none"; var ph=img.nextElementSibling; if(ph) ph.classList.remove("hidden"); });
-    if(img.complete && img.naturalWidth===0 && img.src){ img.style.display="none"; var ph2=img.nextElementSibling; if(ph2) ph2.classList.remove("hidden"); }
+    img.setAttribute("data-fbmode","card");
+    img.addEventListener("error", function(){ evImgErr(img); });
+    if(img.complete && img.naturalWidth===0 && img.src){ evImgErr(img); }
   });
 }
 
@@ -4112,12 +4163,12 @@ function openModal(ev){
     /* 複数画像: 横スワイプのギャラリー（スナップ＋ドット＋カウンタ）。
        タップでその画像をライトボックスで開く */
     media='<div class="gal-track" id="galTrack">'
-      + imgList.map(function(u,i){ return '<div class="gal-slide">'+phHTML+'<img src="'+esc(u)+'" alt="'+esc(ev.title)+' のフライヤー画像（'+(i+1)+'枚目）" data-lbopen="'+i+'" draggable="false"'+(i?' loading="lazy"':"")+' onerror="this.remove()"></div>'; }).join("")
+      + imgList.map(function(u,i){ return '<div class="gal-slide">'+phHTML+'<img src="'+esc(u)+'" alt="'+esc(ev.title)+' のフライヤー画像（'+(i+1)+'枚目）" data-lbopen="'+i+'" draggable="false"'+(i?' loading="lazy"':"")+' data-fbk="'+esc(ev.id)+':'+i+'" data-fbmode="remove" onerror="evImgErr(this)"></div>'; }).join("")
       + '</div>'
       + '<div class="gal-ui"><button class="gal-nav" type="button" id="galPrev" aria-label="前の画像" disabled>‹</button><span class="gal-dots">'+imgList.map(function(_,i){ return '<span class="gal-dot'+(i===0?" on":"")+'"></span>'; }).join("")+'</span><span class="gal-count" id="galCount">1/'+imgList.length+'</span><button class="gal-nav" type="button" id="galNext" aria-label="次の画像">›</button></div>';
   } else if(imgList.length===1){
     // fix fallback layering: placeholder behind image
-    media=phHTML+'<img src="'+esc(imgList[0])+'" alt="'+esc(ev.title)+' のフライヤー画像" class="lb-openable" data-lbopen="0" style="position:relative" onerror="this.remove()">';
+    media=phHTML+'<img src="'+esc(imgList[0])+'" alt="'+esc(ev.title)+' のフライヤー画像" class="lb-openable" data-lbopen="0" style="position:relative" data-fbk="'+esc(ev.id)+':0" data-fbmode="remove" onerror="evImgErr(this)">';
   } else {
     media='<div class="ph" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>';
   }
@@ -5292,7 +5343,7 @@ function rankScore(ev){
 }
 function rankRowHTML(ev, no, why){
   var img=ev.imageUrl
-    ? '<img class="rank-thumb" src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" onerror="this.remove()">'
+    ? '<img class="rank-thumb" src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" data-fbk="'+esc(ev.id)+':0" data-fbmode="remove" onerror="evImgErr(this)">'
     : '<span class="rank-thumb rank-ph" style="background:'+catColor(ev.category)+'"></span>';
   return '<div class="rank-row" data-id="'+esc(ev.id)+'" role="button" tabindex="0" aria-label="'+esc(ev.title)+'">'
     + '<span class="rank-no'+(no<=3?" top":"")+'">'+no+'</span>'
@@ -6836,7 +6887,7 @@ function buildSignageData(){
 function sgCardHTML(ev, opts){
   opts=opts||{};
   var media = ev.imageUrl
-    ? '<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="sg-ph" style="display:none;background:'+catColor(ev.category)+'"><span>'+esc(ev.category||"イベント")+'</span></div>'
+    ? '<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" data-fbk="'+esc(ev.id)+':0" data-fbmode="ph" onerror="evImgErr(this)"><div class="sg-ph" style="display:none;background:'+catColor(ev.category)+'"><span>'+esc(ev.category||"イベント")+'</span></div>'
     : '<div class="sg-ph" style="background:'+catColor(ev.category)+'"><span>'+esc(ev.category||"イベント")+'</span></div>';
   var metric="";
   if(opts.metric){
@@ -7141,7 +7192,7 @@ function tlChipsHTML(ev){
 }
 function tlMediaHTML(ev){
   var ph='<span>'+esc(ev.category||"イベント")+'</span>';
-  if(ev.imageUrl) return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" onerror="this.remove()"></div>';
+  if(ev.imageUrl) return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" data-fbk="'+esc(ev.id)+':0" data-fbmode="remove" onerror="evImgErr(this)"></div>';
   return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'</div>';
 }
 /* カードからアーティスト／会場／主催のプロフィールへ入る導線（v89） */

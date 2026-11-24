@@ -150,6 +150,25 @@ function catColor(cat){
   return "hsl("+(h%360)+",58%,38%)";
 }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+/* 画像の保険（v100・本体と共通）: 公開URLが切れたら一次情報元の画像URLへ差し替える */
+var feedFallbacks={}, feedFallbacksLoaded=false, feedFbWaiters=[];
+function evImgErr(img){
+  var spec=(img.getAttribute("data-fbk")||"").split(":");
+  var id=spec[0], pos=parseInt(spec[1]||"0",10)||0;
+  if(!id || img.dataset.fbTried){ img.remove(); return; }
+  if(!feedFallbacksLoaded){ if(!img.dataset.fbWait){ img.dataset.fbWait="1"; feedFbWaiters.push(img); } img.style.visibility="hidden"; return; }
+  var l=feedFallbacks[String(id)], fb=(l && l[pos])? l[pos] : "";
+  if(fb){ img.dataset.fbTried="1"; img.addEventListener("load", function(){ img.style.visibility=""; }, {once:true}); img.src=fb; }
+  else img.remove();
+}
+window.evImgErr=evImgErr;
+fetch("../assets/event-image-fallbacks.json").then(function(r){ return r.ok? r.json() : {}; }).then(function(j){
+  if(j && typeof j==="object" && !Array.isArray(j)) feedFallbacks=j;
+}).catch(function(){}).then(function(){
+  feedFallbacksLoaded=true;
+  var ws=feedFbWaiters; feedFbWaiters=[];
+  ws.forEach(function(img){ if(img.isConnected && img.dataset.fbWait){ delete img.dataset.fbWait; img.style.visibility=""; evImgErr(img); } });
+});
 
 /* ---------- gviz parsing（本体 parseGvizObject の再実装・fields 引数化） ---------- */
 function cellText(cell){
@@ -679,7 +698,7 @@ function cardHTML(ev, idx){
     + '<div class="fb-title">'+esc(ev.title)+'</div>'
     + '<div class="fb-date">'+esc(dateLabel(ev))+(ev.timeLabel?' '+esc(ev.timeLabel):"")+'</div>'
     + '</div>';
-  var media=hasImg? '<img class="media" src="'+esc(ev.imageUrl)+'" alt="" '+(idx<2?"":'loading="lazy" ')+'onerror="this.remove()">' : "";
+  var media=hasImg? '<img class="media" src="'+esc(ev.imageUrl)+'" alt="" '+(idx<2?"":'loading="lazy" ')+'data-fbk="'+esc(ev.id)+':0" onerror="evImgErr(this)">' : "";
   var overlay='<div class="overlay">'
     + badgesHTML(ev)
     + (hasImg? '<h2 class="ev-title">'+esc(ev.title)+'</h2>'
