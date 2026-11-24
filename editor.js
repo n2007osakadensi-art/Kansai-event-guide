@@ -45,6 +45,14 @@
     + '#kg-editor .ttrow input,#kg-editor .ttrow select{min-height:40px}'
     + '}';
   document.head.appendChild(style);
+  var style2 = document.createElement('style');
+  style2.textContent = '#ke-img-preview{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}'
+    + '#ke-img-preview figure{margin:0;width:96px}'
+    + '#ke-img-preview img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid #bbb;background:#f3f3f3;display:block}'
+    + '#ke-img-preview figcaption{font-size:11px;color:#666;margin-top:3px;text-align:center;line-height:1.4}'
+    + '#ke-img-preview figure.bad img{border-color:#c0392b;opacity:.4}'
+    + '#ke-img-preview figure.bad figcaption{color:#c0392b}';
+  document.head.appendChild(style2);
   var dlg = document.createElement('dialog');
   dlg.id = 'kg-editor';
   function field(label, inner) { return '<label>' + label + inner + '</label>'; }
@@ -65,6 +73,7 @@
     '<p><button id="ke-paste-btn" type="button">各欄へ取り込む</button></p>' +
     sec('画像') +
     field('画像URL（1行に1つ、最大8件。並び順＝表示順。公式フライヤーの原寸URL）', '<textarea id="ke-images"></textarea>') +
+    '<div id="ke-img-preview"></div>' +
     sec('タイトル') +
     field('タイトル（必須）※公式名そのまま', '<input id="ke-title" type="text" maxlength="200">') +
     sec('日付') +
@@ -225,6 +234,22 @@
     $('ke-perf-preview').textContent = list.length ? '出演者 ' + list.length + '組：' + list.join(' / ') : '';
   }
   $('ke-performers').addEventListener('input', perfPreview);
+  /* 画像URLプレビュー: 貼ったURLの画像をその場で表示し、読み込めないURLは知らせる */
+  function escA(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+  var imgPrevTimer = null;
+  function imgPreview() {
+    var box = $('ke-img-preview'); if (!box) return;
+    var urls = lines('ke-images').slice(0, 8);
+    if (!urls.length) { box.innerHTML = ''; return; }
+    box.innerHTML = urls.map(function (u, i) {
+      return '<figure><img src="' + escA(u) + '" alt="" loading="lazy"><figcaption>' + (i === 0 ? '1枚目（メイン）' : (i + 1) + '枚目') + '</figcaption></figure>';
+    }).join('');
+    box.querySelectorAll('figure').forEach(function (f) {
+      var img = f.querySelector('img');
+      img.addEventListener('error', function () { f.classList.add('bad'); f.querySelector('figcaption').textContent = '読み込めませんでした（URLを確認してください）'; });
+    });
+  }
+  $('ke-images').addEventListener('input', function () { clearTimeout(imgPrevTimer); imgPrevTimer = setTimeout(imgPreview, 400); });
   var venueInput = $('ke-venue'), venueSug = $('ke-venue-sug');
   function hideVenueSug() { venueSug.classList.remove('show'); venueSug.innerHTML = ''; }
   function showVenueSug() {
@@ -415,6 +440,7 @@
     $('ke-linkx').value = ev.linkX || '';
     $('ke-linkig').value = ev.linkInstagram || '';
     setLines('ke-images', ev.imageUrl ? [ev.imageUrl] : []);
+    imgPreview();
     unloadedSnapshot = unloadedState();
     status('読み込みました。直す箇所だけ変更して送信してください。このサイトの表示データに無い項目は、変更していなければガイド側の既存値が保持されます。');
   }
@@ -559,6 +585,7 @@
     $('ke-source').value = 'primary';
     if ($('ke-pick-list')) $('ke-pick-list').innerHTML = '';
     if ($('ke-perf-preview')) $('ke-perf-preview').textContent = '';
+    if ($('ke-img-preview')) $('ke-img-preview').innerHTML = '';
     ttBox.innerHTML = ''; ttRow();
     ttTouched = false; noteTouched = false; loadedEventId = ''; dupArmKey = ''; unloadedSnapshot = null;
     status('');
