@@ -732,7 +732,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v74';
+  window.__kgShell='v75';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1433,6 +1433,8 @@ function parseGvizObject(json){
     if(lk==="views") viewsIdx=idx[k];
     if(lk==="impressions") impIdx=idx[k];
   });
+  /* 複数画像タブ（events_images）用： imageUrls 列（公開URLのJSON配列文字列） */
+  var imgUrlsIdx = idx["imageUrls"]!=null ? idx["imageUrls"] : null;
   var events=[];
   rows.forEach(function(r){
     var c=r.c||[]; var ev={};
@@ -1451,6 +1453,7 @@ function parseGvizObject(json){
     /* 閲覧数／表示数（公開版の人気集計と同一列）。列が無い場合は null */
     ev._views = viewsIdx==null ? null : parseCountCell(c[viewsIdx]);
     ev._impressions = impIdx==null ? null : parseCountCell(c[impIdx]);
+    ev.sheetImageUrls = imgUrlsIdx==null ? null : String(rawCellValue(c[imgUrlsIdx])||"");
     if(!ev.title && !ev.id) return;
     ev.date = normalizeDate(ev.date);
     ev.dateEnd = ev.dateEnd ? normalizeDate(ev.dateEnd) : "";
@@ -2888,23 +2891,53 @@ function prefFromAddress(ad){
   var m=String(ad||"").match(/^(大阪府|京都府|兵庫県|奈良県|滋賀県|和歌山県|三重県|福井県|徳島県)/);
   return m?m[1]:"";
 }
-/* 複数画像イベントの全URL（assets/event-images.json = {id:[url,...]}）。
-   無い／読めない場合は空のままにし、表示は従来の imageUrl 1枚にフォールバックする */
+/* 複数画像イベントの全URL。出所は2つ（v75）:
+   (1) シートの events_images タブ（全同期で自動更新。167件分、未公開の位置は ""）
+   (2) 同梱の assets/event-images.json（GitHub経路の公開直後はこちらが先行する）
+   両方を読み、イベントごとに枚数の多い方を採用する。どちらも無い／読めない
+   場合は空のままにし、表示は従来の imageUrl 1枚にフォールバックする */
 var eventImages={}, eventImagesLoaded=false, eventImagesLoading=null;
+function applyEventImages(map){
+  Object.keys(map).forEach(function(id){
+    var urls=(map[id]||[]).filter(function(u){ return typeof u==="string" && !!u; });
+    if(!urls.length) return;
+    var cur=eventImages[id];
+    if(!cur || urls.length>=cur.length) eventImages[id]=urls;
+  });
+  /* 深いリンク等で読み込み前に詳細が開いていたら、ギャラリー付きで開き直す */
+  if(currentEv && eventImageList(currentEv).length>=2 && !els.modal.querySelector("#galTrack")) openModal(currentEv);
+}
 function loadEventImages(){
   if(eventImagesLoaded) return Promise.resolve();
   if(eventImagesLoading) return eventImagesLoading;
-  try{
-    var ctl=("AbortController" in window)?new AbortController():null;
-    var tm=ctl?setTimeout(function(){ ctl.abort(); },20000):null;
-    eventImagesLoading=fetch("assets/event-images.json", ctl?{signal:ctl.signal}:undefined).then(function(r){ if(tm)clearTimeout(tm); if(!r.ok) throw new Error("event-images"); return r.json(); }).then(function(j){
-      if(j && typeof j==="object" && !Array.isArray(j)) eventImages=j;
-      eventImagesLoaded=true; eventImagesLoading=null;
-      /* 深いリンク等で読み込み前に詳細が開いていたら、ギャラリー付きで開き直す */
-      if(currentEv && eventImageList(currentEv).length>=2 && !els.modal.querySelector("#galTrack")) openModal(currentEv);
-    }).catch(function(){ if(tm)clearTimeout(tm); eventImagesLoaded=true; eventImagesLoading=null; });
-    return eventImagesLoading;
-  }catch(e){ eventImagesLoaded=true; return Promise.resolve(); }
+  var staticDone=new Promise(function(resolve){
+    try{
+      var ctl=("AbortController" in window)?new AbortController():null;
+      var tm=ctl?setTimeout(function(){ ctl.abort(); },20000):null;
+      fetch("assets/event-images.json", ctl?{signal:ctl.signal}:undefined).then(function(r){ if(tm)clearTimeout(tm); if(!r.ok) throw new Error("event-images"); return r.json(); }).then(function(j){
+        if(j && typeof j==="object" && !Array.isArray(j)) applyEventImages(j);
+        resolve();
+      }).catch(function(){ if(tm)clearTimeout(tm); resolve(); });
+    }catch(e){ resolve(); }
+  });
+  var sheetDone=new Promise(function(resolve){
+    try{
+      loadSheetRace("events_images", function(rows){
+        var map={};
+        (rows||[]).forEach(function(r){
+          if(!r || r.id==null || !r.sheetImageUrls) return;
+          try{ var arr=JSON.parse(r.sheetImageUrls); if(Array.isArray(arr)) map[String(r.id)]=arr; }catch(e){}
+        });
+        applyEventImages(map);
+        resolve();
+      }, function(){ resolve(); });
+    }catch(e){ resolve(); }
+  });
+  eventImagesLoading=Promise.all([staticDone, sheetDone]).then(function(){
+    eventImagesLoaded=true; eventImagesLoading=null;
+    if(currentEv && eventImageList(currentEv).length>=2 && !els.modal.querySelector("#galTrack")) openModal(currentEv);
+  });
+  return eventImagesLoading;
 }
 function eventImageList(ev){
   var list=eventImages[String(ev.id)];
