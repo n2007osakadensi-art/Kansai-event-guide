@@ -66,7 +66,21 @@
   /* リストのスコープ切り替え（v80連携）: トップバー下のチップ行 */
   .scopebar{display:flex;gap:6px;overflow-x:auto;padding:2px 14px 10px;max-width:560px;margin:0 auto;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
   .scopebar::-webkit-scrollbar{display:none}
-  .searchbar{display:flex;gap:6px;align-items:center;padding:0 14px 4px;max-width:560px;margin:0 auto}
+  .searchbar{display:flex;gap:6px;align-items:center;padding:0 14px 4px;max-width:560px;margin:0 auto;position:relative}
+  .feed-suggest{position:absolute;left:14px;right:14px;top:100%;z-index:60;background:#1c1e24;border:1px solid rgba(255,255,255,.16);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.5);overflow:hidden;text-align:left}
+  .feed-suggest button{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;background:none;border:0;border-bottom:1px solid rgba(255,255,255,.07);color:#f4f2ec;font-size:14px;cursor:pointer;text-align:left}
+  .feed-suggest button:last-child{border-bottom:0}
+  .feed-suggest .sk{font-size:10.5px;font-weight:700;color:#fff;border-radius:999px;padding:2px 7px;white-space:nowrap}
+  .feed-suggest .ssub{color:rgba(244,242,236,.6);font-size:12.5px}
+  .fd-guide{margin-top:10px;text-align:left;max-width:520px}
+  .fd-gt{font-size:13px;color:rgba(255,255,255,.85);margin:0 0 6px}
+  .fd-zrow{display:flex;gap:8px;align-items:baseline;width:100%;padding:8px 10px;margin-bottom:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#f4f2ec;cursor:pointer;text-align:left;font-size:13.5px}
+  .fd-zd{white-space:nowrap;font-weight:700;font-size:12.5px}
+  .fd-zt{flex:1}
+  .fd-zs{color:rgba(255,255,255,.65);font-size:12px}
+  .fd-zv{display:block;color:rgba(255,255,255,.6);font-size:12px}
+  .fd-zchips{display:flex;flex-wrap:wrap;gap:6px}
+  .fd-zchip{padding:7px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#f4f2ec;font-size:13px;cursor:pointer}
   .searchbar input{flex:1;min-width:0;min-height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(20,20,20,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-size:14.5px;font-family:inherit;padding:8px 16px;outline:none}
   .searchbar input::placeholder{color:rgba(255,255,255,.65)}
   .searchbar button{flex:none;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(20,20,20,.45);color:#fff;font-size:15px;cursor:pointer;font-family:inherit}
@@ -159,7 +173,7 @@
   <a class="guide-link" href="../">ガイドを開く</a>
 </div>
 <div class="scopebar" id="scopeBar" role="group" aria-label="フィードに流す範囲の切り替え"></div>
-<div class="searchbar"><input id="feedSearchInput" type="search" inputmode="search" placeholder="イベント・会場・出演者で検索" autocomplete="off" aria-label="イベントを検索"><button type="button" id="feedSearchClear" class="hidden" aria-label="検索を解除">✕</button></div>
+<div class="searchbar"><input id="feedSearchInput" type="search" inputmode="search" placeholder="イベント・会場・出演者で検索" autocomplete="off" aria-label="イベントを検索"><button type="button" id="feedSearchClear" class="hidden" aria-label="検索を解除">✕</button><div class="feed-suggest hidden" id="feedSuggest" role="listbox" aria-label="検索候補"></div></div>
 <div class="search-note hidden" id="feedSearchNote"></div>
 <button type="button" class="notice-strip hidden" id="noticeStrip"><span class="ns-kicker">お知らせ</span><span class="ns-badge hidden" id="noticeNew">NEW</span><span class="ns-title" id="noticeTitle"></span><span class="ns-go">›</span></button>
 </header>
@@ -481,6 +495,7 @@ function normSearch(s){
     .replace(/[・･]/g, "");
 }
 var feedQuery="", feedDictByName={}, feedReadingByName={}, feedHayVer=0, feedDictStarted=false;
+var feedExactTarget=null;
 function dictWordsFeed(name){
   if(!name) return [];
   var memo=dictWordsFeed.memo||(dictWordsFeed.memo={});
@@ -506,12 +521,19 @@ function feedHay(ev){
   if(ev._hayFeed && ev._hayFeedVer===feedHayVer) return ev._hayFeed;
   var parts=[ev.title, ev.venue, ev.venueSpaceNote, ev.performers, ev.category, ev.area, ev.prefecture, ev.organizerName, ev.description, ev.price];
   if(Array.isArray(ev.categories)) parts.push(ev.categories.join(" ")); else if(ev.categories) parts.push(String(ev.categories));
+  if(ev.vs) parts.push(ev.vs);
   (ev._perfList||[]).forEach(function(p){
     if(feedReadingByName[p]) parts.push(feedReadingByName[p]);
+    var ap=feedArtistProfileFor(p);
+    if(ap && ap.al && ap.al.length) parts.push(ap.al.join(" "));
     var dw=dictWordsFeed(p); if(dw.length) parts.push(dw.join(" "));
+    var mems=feedGroupMembers(p); if(mems.length) parts.push(mems.join(" "));
   });
   var tdw=dictWordsFeed(ev.title); if(tdw.length) parts.push(tdw.join(" "));
   var vdw=dictWordsFeed(ev.venue); if(vdw.length) parts.push(vdw.join(" "));
+  feedVenueVariants(ev.venue).forEach(function(vv){ if(vv!==ev.venue) parts.push(vv); });
+  var vp0=feedVenueProfileFor(ev.venue);
+  if(vp0 && vp0.ad) parts.push(vp0.ad);
   feedDateForms(ev.date).forEach(function(f){ parts.push(f); });
   feedDateForms(ev.dateEnd).forEach(function(f){ parts.push(f); });
   ev._hayFeed=normSearch(parts.filter(Boolean).join(" "));
@@ -519,14 +541,16 @@ function feedHay(ev){
   return ev._hayFeed;
 }
 function buildSearchItems(events){
-  var q=normSearch(feedQuery.trim().replace(/\s+/g," "));
-  if(!q) return null;
-  var matches=(events||[]).filter(function(ev){ return feedHay(ev).indexOf(q)>=0; });
-  var upcoming=matches.filter(function(ev){ return !isEnded(ev); });
-  var endedOnly = upcoming.length===0 && matches.length>0;
-  var list=(upcoming.length? upcoming : matches).slice();
+  if(!feedQuery && !feedExactTarget) return null;
+  var upcoming=(events||[]).filter(function(ev){ return !isEnded(ev) && feedEventPass(ev); });
+  var endedOnly=false, list=upcoming;
+  if(!upcoming.length){
+    var all=(events||[]).filter(function(ev){ return feedEventPass(ev); });
+    if(all.length){ list=all; endedOnly=true; }
+  }
+  list=list.slice();
   list.sort(byDate);
-  return {items:list, endedOnly:endedOnly, total:matches.length};
+  return {items:list, endedOnly:endedOnly, total:list.length};
 }
 function updateSearchNote(res){
   var note=document.getElementById("feedSearchNote");
@@ -534,8 +558,9 @@ function updateSearchNote(res){
   var inp=document.getElementById("feedSearchInput");
   if(clr) clr.classList.toggle("hidden", !(inp && inp.value));
   if(!note) return;
-  if(!feedQuery){ note.classList.add("hidden"); note.textContent=""; return; }
+  if(!feedQuery && !feedExactTarget){ note.classList.add("hidden"); note.textContent=""; return; }
   if(!res){ note.classList.add("hidden"); return; }
+  if(!res.items.length){ note.classList.add("hidden"); note.textContent=""; return; }
   note.textContent="「"+feedQuery+"」の検索結果 "+res.items.length+"件"+(res.endedOnly? "（終了したイベントのみ見つかりました）":"");
   note.classList.remove("hidden");
 }
@@ -543,9 +568,460 @@ function clearFeedSearch(){
   var inp=document.getElementById("feedSearchInput");
   if(inp) inp.value="";
   feedQuery="";
+  feedExactTarget=null;
+  hideFeedSuggest();
   updateSearchNote(null);
   renderFeed(false);
 }
+
+/* ---------- プロフィール読み込み（候補と照合のため、本体と同じデータ） ---------- */
+var feedArtistProfiles={}, feedVenueProfiles={}, feedArtistProfCache={}, feedProfilesStarted=false;
+function feedStripVenueSuffix(s){ return String(s||"").replace(/（[^）]*）\s*$/,"").replace(/\([^)]*\)\s*$/,"").trim();}
+function feedArtistProfileFor(name){
+if(!name) return null;
+if(Object.prototype.hasOwnProperty.call(feedArtistProfCache, name)) return feedArtistProfCache[name];
+var p=feedArtistProfiles[name]||null;
+if(!p){
+Object.keys(feedArtistProfiles).forEach(function(k){
+var ap=feedArtistProfiles[k];
+if(ap && (ap.al||[]).indexOf(name)>=0) p=ap;
+});
+}
+feedArtistProfCache[name]=p;
+return p;
+}
+function feedVenueProfileFor(name){
+if(!name) return null;
+return feedVenueProfiles[name] || feedVenueProfiles[feedStripVenueSuffix(name)] || null;
+}
+var feedProfSeq=0;
+function feedSheetRows(tab, cb){
+var cbName="__kgFeedProfCb"+(++feedProfSeq);
+var settled=false;
+var script=document.createElement("script");
+var timer=setTimeout(function(){ finish();}, 30000);
+function finish(){ if(settled) return; settled=true; clearTimeout(timer); try{ delete window[cbName];}catch(e){ window[cbName]=undefined;} if(script.parentNode) script.parentNode.removeChild(script); cb(null);}
+window[cbName]=function(resp){
+if(settled) return; settled=true; clearTimeout(timer);
+try{ delete window[cbName];}catch(e){ window[cbName]=undefined;}
+if(script.parentNode) script.parentNode.removeChild(script);
+var rows=[];
+try{ ((resp && resp.table && resp.table.rows)||[]).forEach(function(r){ var row=[]; ((r && r.c)||[]).forEach(function(c){ row.push(c && c.v!=null? String(c.v): "");}); rows.push(row);});}catch(e){}
+cb(rows);
+};
+script.onerror=function(){ finish();};
+script.async=true;
+script.src=sheetJsonpBase(tab)+cbName+"&_="+Date.now();
+document.head.appendChild(script);
+}
+function loadFeedProfiles(){
+if(feedProfilesStarted) return; feedProfilesStarted=true;
+var bump=function(){ feedArtistProfCache={}; feedHayVer++; dictWordsFeed.memo={}; if(feedQuery || feedExactTarget) renderFeed(true); renderFeedSuggest();};
+try{
+fetch("../assets/artists.json").then(function(r){ return r.ok? r.json(): null;}).then(function(j){
+if(j && typeof j==="object" &&!Array.isArray(j)){ feedArtistProfiles=j; bump();}
+}).catch(function(){});
+fetch("../assets/venues.json").then(function(r){ return r.ok? r.json(): null;}).then(function(j){
+if(j && typeof j==="object" &&!Array.isArray(j)){ feedVenueProfiles=j; bump();}
+}).catch(function(){});
+}catch(e){}
+var mergeTab=function(tab, store){
+feedSheetRows(tab, function(rows){
+if(!rows) return;
+var n=0;
+rows.forEach(function(row, i){
+if(i===0) return;
+var nm=(row[0]||"").trim(); if(!nm ||!row[1]) return;
+try{ var obj=JSON.parse(row[1]); if(obj && typeof obj==="object"){ var merged={}; var cur=store[nm]; if(cur) for(var k in cur) merged[k]=cur[k]; for(var k2 in obj) merged[k2]=obj[k2]; store[nm]=merged; n++;}}catch(e){}
+});
+if(n) bump();
+});
+};
+mergeTab("artists", feedArtistProfiles);
+mergeTab("venues", feedVenueProfiles);
+}
+/* ---------- 本体と同じ照合部品（移植） ---------- */
+function feedDictHit(name, textNorm){
+var ws=dictWordsFeed(name);
+for(var i=0;i<ws.length;i++){ if(normSearch(ws[i]).indexOf(textNorm)>=0) return true;}
+return false;
+}
+var FEED_VENUE_QUALIFIERS=/市立|区立|県立|府立|都立|町立|村立|国立/g;
+function feedVenueQualStrip(s){ return String(s||"").replace(FEED_VENUE_QUALIFIERS,"");}
+function feedVenueVariants(name){
+var memo=feedVenueVariants.memo||(feedVenueVariants.memo={});
+if(Object.prototype.hasOwnProperty.call(memo, name)) return memo[name];
+var out=[], seen={};
+function add(x){ x=String(x||"").trim(); if(x &&!seen[x]){ seen[x]=1; out.push(x);}}
+add(name);
+var st=feedStripVenueSuffix(name); add(st); add(feedVenueQualStrip(name)); add(feedVenueQualStrip(st));
+[name, st, feedVenueQualStrip(name), feedVenueQualStrip(st)].forEach(function(x){ add(String(x||"").replace(/[\s　]+/g,""));});
+memo[name]=out;
+return out;
+}
+function feedAddressVariants(ad){
+var s=String(ad||"").replace(/[\s　]+/g,"");
+if(!s) return [];
+var out=[s];
+var hyph=s.replace(/(\d+)丁目/g,"$1-").replace(/(\d+)番(?:地)?/g,"$1-").replace(/(\d+)号(?!室)/g,"$1").replace(/-{2,}/g,"-").replace(/-$/,"");
+if(hyph!==s) out.push(hyph);
+var nosep=hyph.replace(/-/g,"");
+if(nosep!==hyph && out.indexOf(nosep)<0) out.push(nosep);
+return out;
+}
+function feedAddrNormText(s){
+var t=normSearch(String(s||"").trim().replace(/\s+/g,""));
+return t.replace(/(\d+)丁目/g,"$1-").replace(/(\d+)番(?:地)?/g,"$1-").replace(/(\d+)号(?!室)/g,"$1").replace(/-{2,}/g,"-");
+}
+function feedAddrTextMatch(ad, rawText){
+if(!ad ||!rawText) return false;
+var t=normSearch(rawText), vars=feedAddressVariants(ad), i;
+for(i=0;i<vars.length;i++){ if(normSearch(vars[i]).indexOf(t)>=0) return true;}
+var at=feedAddrNormText(rawText);
+if(at && at!==t){
+for(i=0;i<vars.length;i++){ if(normSearch(vars[i]).indexOf(at)>=0) return true;}
+if(normSearch(ad).indexOf(at)>=0) return true;
+}
+return false;
+}
+function feedSameVenueFacility(a, b){
+if(!a ||!b) return false;
+if(a===b) return true;
+var pa=feedVenueProfileFor(a), pb=feedVenueProfileFor(b);
+if(pa && pb && pa===pb) return true;
+var va=feedVenueVariants(a), vb=feedVenueVariants(b);
+if(pa && pa.n) feedVenueVariants(pa.n).forEach(function(x){ if(va.indexOf(x)<0) va.push(x);});
+if(pb && pb.n) feedVenueVariants(pb.n).forEach(function(x){ if(vb.indexOf(x)<0) vb.push(x);});
+for(var i=0;i<va.length;i++){
+for(var j=0;j<vb.length;j++){
+var x=normSearch(va[i]), y=normSearch(vb[j]);
+if(x===y) return true;
+if(x.length>=6 && y.indexOf(x)>=0) return true;
+if(y.length>=6 && x.indexOf(y)>=0) return true;
+}
+}
+return false;
+}
+function feedSimpleTitleKey(s){
+var x=normSearch(s);
+x=x.replace(/20\d{2}年?/g,"");
+x=x.replace(/（[^）]*）/g,"").replace(/\([^)]*\)/g,"").replace(/]*】/g,"").replace(/\[[^\]]*\]/g,"");
+x=x.replace(/[〜～].*$/,"");
+x=x.replace(/\s+/g,"");
+return x;
+}
+function feedSimpleHay(ev){
+if(ev._shayFeed==null) ev._shayFeed=feedSimpleTitleKey(ev.title);
+return ev._shayFeed;
+}
+function feedEpisodeBaseKey(s){
+var x=String(s||"").replace(/vol\.?\s*\d+/gi,"").replace(/第\s*\d+\s*[回話]/g,"").replace(/[#＃]\s*\d+/g,"");
+return feedSimpleTitleKey(x);
+}
+function feedEpisodeQueryOf(raw){
+var s=String(raw||"");
+var m=s.match(/vol\.?\s*(\d+)/i) || s.match(/第\s*(\d+)\s*[回話]/) || s.match(/[#＃]\s*(\d+)/);
+if(m){
+var base=s.replace(/vol\.?\s*\d+/i,"").replace(/第\s*\d+\s*[回話]/g,"").replace(/[#＃]\s*\d+/g,"").trim();
+if(!base) return null;
+return {num:parseInt(m[1],10), baseKey:feedEpisodeBaseKey(base), bare:false};
+}
+var m2=s.match(/(\d{1,4})\s*回?\s*$/);
+if(m2){
+var base2=s.slice(0, s.length-m2[0].length).trim();
+if(base2.length>=2) return {num:parseInt(m2[1],10), baseKey:feedEpisodeBaseKey(base2), bare:true};
+}
+return null;
+}
+function feedOfficialEpisodeNum(title){
+var s=String(title||"");
+var m=s.match(/vol\.?\s*(\d+)/i) || s.match(/第\s*(\d+)\s*[回話]/) || s.match(/[#＃]\s*(\d+)/);
+return m?parseInt(m[1],10):null;
+}
+var feedGuideEpCache={};
+function feedGuideEpisodeNum(ev, baseKey){
+var ck=baseKey+"|"+allEvents.length;
+var map=feedGuideEpCache[ck];
+if(!map){
+map={};
+var list=allEvents.filter(function(e2){ return feedEpisodeBaseKey(e2.title)===baseKey;});
+list.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; return String(a.id).localeCompare(String(b.id));});
+list.forEach(function(e2,i){ map[String(e2.id)]=i+1;});
+feedGuideEpCache[ck]=map;
+}
+var n=map[String(ev.id)];
+return n===undefined?null:n;
+}
+function feedEpisodeMatch(ev, epQ){
+if(feedEpisodeBaseKey(ev.title)!==epQ.baseKey) return false;
+var off=feedOfficialEpisodeNum(ev.title);
+if(off!=null) return off===epQ.num;
+return feedGuideEpisodeNum(ev, epQ.baseKey)===epQ.num;
+}
+var FEED_KNOWN_TICKET_DOMAINS=["livepocket.jp","tiget.net","eplus.jp","pia.jp","t.pia.jp","l-tike.com","ticketpay.jp","passmarket.yahoo.co.jp","peatix.com","teket.jp","zaiko.io","ticket.rakuten.co.jp","cnplayguide.com","kyodo-osaka.co.jp","ticketme.io"];
+function feedNormalizeTicketUrl(raw){
+var s=String(raw||"").trim().toLowerCase();
+s=s.replace(/^[a-z][a-z0-9+.-]*:\/\//,"");
+s=s.replace(/^\/\//,"");
+s=(s.split("#")[0]||s).trim();
+var queryPart="";
+var qIdx=s.indexOf("?");
+if(qIdx>=0){ queryPart=s.slice(qIdx+1); s=s.slice(0,qIdx);}
+if(queryPart){
+var kept=queryPart.split("&").filter(function(p){
+var key=(p.split("=")[0]||"").trim();
+return key.indexOf("utm_")!==0 && key!=="fbclid" && key!=="gclid" && key!=="yclid" && key!=="mc_cid" && key!=="mc_eid";
+});
+if(kept.length>0) s=s+"?"+kept.join("&");
+}
+s=s.replace(/^www\./,"");
+var qMark=s.indexOf("?");
+if(qMark>=0){ s=s.slice(0,qMark).replace(/\/+$/,"")+s.slice(qMark);}
+s=s.replace(/\/+$/,"");
+return s;
+}
+function feedIsUrlSearchInput(raw){
+var s=String(raw||"").trim();
+if(!s || /\s/.test(s)) return false;
+if(s.indexOf("://")>=0) return true;
+var lower=s.toLowerCase();
+for(var i=0;i<FEED_KNOWN_TICKET_DOMAINS.length;i++){ if(lower.indexOf(FEED_KNOWN_TICKET_DOMAINS[i])>=0) return true;}
+if(s.indexOf("/")>=0){
+var head=s.split("/")[0]||"";
+if(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(head)) return true;
+}
+return false;
+}
+function feedIsTicketCodeLike(raw){
+var s=String(raw||"").trim();
+return /^[A-Za-z0-9_-]{4,}$/.test(s) && /[0-9]/.test(s) && /[A-Za-z]/.test(s);
+}
+function feedTicketUrlPath(normalizedUrl){
+var idx=normalizedUrl.indexOf("/");
+return idx>=0? normalizedUrl.slice(idx+1): "";
+}
+function feedEventMatchesTicketUrl(linkTicket, normalizedQuery){
+if(!linkTicket ||!normalizedQuery) return false;
+return feedNormalizeTicketUrl(linkTicket).indexOf(normalizedQuery)>=0;
+}
+var feedTqCache={q:null, evs:null, val:null};
+function feedCurrentTicketUrlQuery(){
+if(feedExactTarget) return null;
+var raw=String(feedQuery||"");
+if(feedTqCache.q===raw && feedTqCache.evs===allEvents) return feedTqCache.val;
+var val=null;
+if(feedIsUrlSearchInput(raw)){ val=feedNormalizeTicketUrl(raw);}
+else if(feedIsTicketCodeLike(raw)){
+var nq=feedNormalizeTicketUrl(raw);
+var hit=allEvents.some(function(ev){
+if(!ev.linkTicket) return false;
+return feedTicketUrlPath(feedNormalizeTicketUrl(ev.linkTicket)).indexOf(nq)>=0;
+});
+if(hit) val=nq;
+}
+feedTqCache={q:raw, evs:allEvents, val:val};
+return val;
+}
+function feedGroupMembers(p){
+var ap=feedArtistProfileFor(p);
+if(!ap ||!ap.m ||!ap.m.length) return [];
+var out=[];
+ap.m.forEach(function(mb){ var n=(mb && mb.n)? String(mb.n).trim(): ""; if(n && out.indexOf(n)<0) out.push(n);});
+return out;
+}
+var FEED_OSK_BASE="ちぃたん☆ぼんばーずOSK";
+function feedIsOskRelated(ev, name){
+if(name!==FEED_OSK_BASE) return false;
+var hit=false;
+(ev._perfList||[]).forEach(function(p){ if(p.indexOf("ちぃたん")>=0) hit=true;});
+if((ev.title||"").indexOf("ちぃたん")>=0) hit=true;
+return hit;
+}
+function feedExactMatch(ev, t){
+if(!t) return false;
+if(t.kind==="event") return ev.title===t.value;
+if(t.kind==="eventTitle") return normSearch(ev.title).indexOf(normSearch(t.value))>=0;
+if(t.kind==="artist"){
+if(ev._perfList.indexOf(t.value)>=0) return true;
+if(feedIsOskRelated(ev, t.value)) return true;
+var tp=feedArtistProfileFor(t.value);
+if(tp) return ev._perfList.some(function(p){ return feedArtistProfileFor(p)===tp;});
+if(ev._perfList.some(function(p){ return feedGroupMembers(p).indexOf(t.value)>=0;})) return true;
+return false;
+}
+if(t.kind==="venue"){
+var v=(ev.venue||"").trim();
+if(v===t.value) return true;
+return feedSameVenueFacility(v, t.value);
+}
+return false;
+}
+/* 候補の収集（本体の collectSuggestItems と同じ規則） */
+function feedCollectSuggestItems(text){
+function score(label){ var n=normSearch(label); return (n.indexOf(text)===0?0:10000)+label.length;}
+var titleStats={};
+allEvents.forEach(function(ev){
+var st=titleStats[ev.title];
+if(!st){ st=titleStats[ev.title]={count:0,min:"",max:""};}
+st.count++;
+var eEnd=ev.dateEnd||ev.date;
+if(ev.date && (!st.min || ev.date<st.min)) st.min=ev.date;
+if(eEnd && (!st.max || eEnd>st.max)) st.max=eEnd;
+});
+var artists=[], venues=[], events=[], seenA={}, seenV={}, seenE={};
+allEvents.forEach(function(ev){
+ev._perfList.forEach(function(p){
+if(seenA[p]) return;
+var hit = normSearch(p).indexOf(text)>=0
+|| (feedReadingByName[p] && normSearch(feedReadingByName[p]).indexOf(text)>=0)
+|| feedDictHit(p, text)
+|| (function(){ var ap=feedArtistProfileFor(p); return!!(ap && ap.al && ap.al.some(function(a){ return normSearch(a).indexOf(text)>=0;}));})();
+if(hit){ seenA[p]=1; artists.push({kind:"artist", klabel:"アーティスト", color:"#e88bb0", label:p, value:p, score:score(p)});}
+else {
+var mems=feedGroupMembers(p);
+for(var mi=0; mi<mems.length; mi++){
+var mk="m|"+mems[mi];
+if(seenA[mk]) continue;
+if(normSearch(mems[mi]).indexOf(text)>=0){ seenA[mk]=1; artists.push({kind:"artist", klabel:"アーティスト", color:"#e88bb0", label:mems[mi], value:mems[mi], sub:p+"のメンバー", score:score(mems[mi])});}
+}
+}
+});
+var v=(ev.venue||"").trim();
+if(v &&!seenV[v]){
+var vhit = normSearch(v).indexOf(text)>=0;
+if(!vhit && normSearch(feedVenueQualStrip(v)).indexOf(text)>=0) vhit=true;
+if(!vhit && feedDictHit(v, text)) vhit=true;
+if(!vhit){ var vp=feedVenueProfileFor(v); if(vp && vp.al && vp.al.some(function(a){ return normSearch(a).indexOf(text)>=0;})) vhit=true; if(!vhit && vp && vp.n && (feedDictHit(vp.n, text) || normSearch(feedVenueQualStrip(vp.n)).indexOf(text)>=0)) vhit=true;}
+if(!vhit){ var vpa=feedVenueProfileFor(v); if(vpa && feedAddrTextMatch(vpa.ad, text)) vhit=true;}
+if(vhit){ seenV[v]=1; venues.push({kind:"venue", klabel:"会場", color:"#d9b45b", label:v, value:v, score:score(v)});}
+}
+if(!seenE[ev.title] && normSearch(ev.title).indexOf(text)>=0){
+seenE[ev.title]=1;
+var tst=titleStats[ev.title]||{count:1,min:ev.date,max:ev.dateEnd||ev.date};
+var dupT=tst.count>1;
+events.push({kind: dupT?"eventTitle":"event", klabel:"イベント", color:"#8ab6e8", label:ev.title, value:ev.title,
+sub: dupT? ("全"+tst.count+"件・"+tst.min+"〜"+tst.max): (tst.min||""),
+score:score(ev.title)});
+}
+});
+var byScore=function(a,b){ return a.score-b.score;};
+artists.sort(byScore); venues.sort(byScore); events.sort(byScore);
+var items=artists.slice(0,3).concat(venues.slice(0,3), events.slice(0,3));
+if(items.length<9){
+var used={}; items.forEach(function(it){ used[it.kind+"|"+it.value]=1;});
+artists.concat(venues, events).sort(byScore).forEach(function(it){
+if(items.length>=9) return;
+if(!used[it.kind+"|"+it.value]){ used[it.kind+"|"+it.value]=1; items.push(it);}
+});
+}
+return items;
+}
+/* 手入力の照合（本体の contentPass のテキスト部と同じ規則。絞り込み条件は
+フィードには無いので、候補選択・URL・話数・文字列照合だけを同じにする） */
+function feedEventPass(ev){
+if(feedExactTarget) return feedExactMatch(ev, feedExactTarget);
+var urlQ=feedCurrentTicketUrlQuery();
+if(urlQ!=null) return feedEventMatchesTicketUrl(ev.linkTicket, urlQ);
+var epQ=feedEpisodeQueryOf(feedQuery);
+if(epQ &&!epQ.bare){
+var q0=normSearch(String(feedQuery||"").trim().replace(/\s+/g," "));
+if(q0 && feedHay(ev).indexOf(q0)>=0) return true;
+return feedEpisodeMatch(ev, epQ);
+}
+var q=normSearch(String(feedQuery||"").trim().replace(/\s+/g," "));
+if(q && feedHay(ev).indexOf(q)<0){
+if(/[\d０-９]/.test(String(feedQuery||"")) || /市|区|町|村|丁目|番地/.test(String(feedQuery||""))){
+var aq=feedAddrNormText(feedQuery);
+if(aq && feedHay(ev).indexOf(aq)>=0) return true;
+}
+var sq=feedSimpleTitleKey(String(feedQuery||"").trim());
+if(!sq || feedSimpleHay(ev).indexOf(sq)<0){
+if(epQ && epQ.bare && feedEpisodeMatch(ev, epQ)) return true;
+return false;
+}
+}
+return true;
+}
+/* ---------- 候補（サジェスト）の表示 ---------- */
+function renderFeedSuggest(){
+var el=document.getElementById("feedSuggest"); if(!el) return;
+var inp=document.getElementById("feedSearchInput");
+var raw=inp? inp.value.trim().replace(/\s+/g," "): "";
+if(!raw || feedExactTarget){ el.classList.add("hidden"); el.innerHTML=""; return;}
+var text=normSearch(raw);
+if(!text){ el.classList.add("hidden"); el.innerHTML=""; return;}
+var items=feedCollectSuggestItems(text);
+if(!items.length){ el.classList.add("hidden"); el.innerHTML=""; return;}
+el.innerHTML=items.map(function(it){
+return '<button type="button" role="option" data-fs-suggest="'+esc(it.value)+'" data-fs-suggest-kind="'+esc(it.kind)+'"><span class="sk" style="background:'+it.color+'">'+esc(it.klabel)+'</span><span>'+esc(it.label)+'</span>'+(it.sub?'<span class="ssub">'+esc(it.sub)+'</span>':"")+'</button>';
+}).join("");
+el.classList.remove("hidden");
+}
+function hideFeedSuggest(){
+var el=document.getElementById("feedSuggest");
+if(el){ el.classList.add("hidden"); el.innerHTML="";}
+}
+function feedApplySuggest(v, kind){
+var inp=document.getElementById("feedSearchInput");
+if(inp) inp.value=v;
+feedQuery=v; feedExactTarget={kind:kind||"event", value:v};
+hideFeedSuggest();
+kgFeedUserTyped=true; kgFeedRestoreSettled=true; kgFeedSave();
+renderFeed(false);
+}
+/* ---------- 0件のときの案内（本体・タイムラインと同じ3種） ---------- */
+function feedQueryDateParts(raw){
+var s=String(raw||"");
+var found=[];
+var rest=s.replace(/20\d{2}[\/\-年]\s*\d{1,2}[\/\-月]\s*\d{1,2}日?/g, function(m){ found.push(m); return " ";})
+.replace(/\d{1,2}月\s*\d{1,2}日/g, function(m){ found.push(m); return " ";})
+.replace(/\d{1,2}\/\d{1,2}/g, function(m){ found.push(m); return " ";})
+.replace(/\s+/g," ").trim();
+return {dates:found, rest:rest};
+}
+function feedZeroGuideHTML(){
+if(feedExactTarget) return "";
+var qraw=String(feedQuery||"").trim(); if(!qraw) return "";
+var text=normSearch(qraw.replace(/\s+/g," "));
+function rowHTML(ev, sub){
+return '<button type="button" class="fd-zrow" data-fs-ev="'+esc(String(ev.id))+'"><span class="fd-zd">'+esc(fmtDate(ev.date))+'</span><span class="fd-zt">'+esc(ev.title)+(sub?' <span class="fd-zs">'+esc(sub)+'</span>':"")+'<span class="fd-zv">'+esc(ev.venue||"")+'</span></span></button>';
+}
+var epQ=feedEpisodeQueryOf(qraw);
+if(epQ){
+var series=allEvents.filter(function(ev){ return feedEpisodeBaseKey(ev.title)===epQ.baseKey;});
+series.sort(byDate);
+if(series.length){
+var srows=series.slice(0,8).map(function(ev){
+var off=feedOfficialEpisodeNum(ev.title);
+var lbl= off!=null? ("vol."+off): ("ガイド集計 第"+feedGuideEpisodeNum(ev, epQ.baseKey)+"回");
+return rowHTML(ev, lbl);
+}).join("");
+return '<div class="fd-guide"><p class="fd-gt">このシリーズの開催が見つかりました：</p>'+srows+'</div>';
+}
+}
+var dp=feedQueryDateParts(qraw);
+if(dp.dates.length && dp.rest){
+var sQ=feedQuery, sE=feedExactTarget;
+feedQuery=dp.rest; feedExactTarget=null;
+var hits=allEvents.filter(function(ev){ return feedEventPass(ev);});
+feedQuery=sQ; feedExactTarget=sE;
+hits.sort(byDate);
+if(hits.length){
+return '<div class="fd-guide"><p class="fd-gt">日付違いの候補があります（名前が合う開催です）：</p>'
++ hits.slice(0,5).map(function(ev){ return rowHTML(ev, "");}).join("") + '</div>';
+}
+}
+var cands=feedCollectSuggestItems(text);
+if(cands.length){
+var per={};
+var chips=cands.filter(function(it){ per[it.kind]=(per[it.kind]||0)+1; return per[it.kind]<=2;}).map(function(it){
+return '<button type="button" class="fd-zchip" data-fs-suggest="'+esc(it.value)+'" data-fs-suggest-kind="'+esc(it.kind)+'">'+esc(it.klabel)+'：'+esc(it.label)+'</button>';
+}).join("");
+if(chips) return '<div class="fd-guide"><p class="fd-gt">こちらでは？</p><div class="fd-zchips">'+chips+'</div></div>';
+}
+return "";
+}
+
 function endCardSearchHTML(){
   return '<section class="card end"><div class="end-in">'
     + '<h2>検索結果はここまでです</h2>'
@@ -1023,12 +1499,12 @@ function showState(html){
 }
 function renderFeed(keepIdx){
   kgFeedRestoreKick();
-  var searchRes = feedQuery? buildSearchItems(allEvents) : null;
+  var searchRes = (feedQuery || feedExactTarget)? buildSearchItems(allEvents) : null;
   feedItems = searchRes? searchRes.items : buildFeedItems(allEvents);
   updateSearchNote(searchRes);
   if(!feedItems.length){
     if(searchRes){
-      showState('<div>「'+esc(feedQuery)+'」に一致するイベントがありませんでした。</div><div><button type="button" class="reload-btn" id="searchReset">検索を解除する</button></div>');
+      showState('<div>「'+esc(feedQuery)+'」に一致するイベントがありませんでした。</div>'+feedZeroGuideHTML()+'<div><button type="button" class="reload-btn" id="searchReset">検索を解除する</button></div>');
       var xr=document.getElementById("searchReset");
       if(xr) xr.addEventListener("click", function(){ clearFeedSearch(); });
     } else if(feedScope){
@@ -1075,7 +1551,7 @@ scopeBarEl.addEventListener("click", function(e){
   }
   var b=(e.target && e.target.closest)? e.target.closest("[data-scope]") : null;
   if(!b) return;
-  if(feedQuery){ feedQuery=""; var si=document.getElementById("feedSearchInput"); if(si) si.value=""; updateSearchNote(null); }
+  if(feedQuery || feedExactTarget){ feedQuery=""; feedExactTarget=null; hideFeedSuggest(); var si=document.getElementById("feedSearchInput"); if(si) si.value=""; updateSearchNote(null); }
   setFeedScope(b.getAttribute("data-scope")||"");
   renderScopeBar();
   renderFeed(false);
@@ -1089,10 +1565,29 @@ scopeBarEl.addEventListener("click", function(e){
     var deb=null;
     inp.addEventListener("input", function(){
       if(clr) clr.classList.toggle("hidden", !inp.value);
+      feedExactTarget=null;
+      renderFeedSuggest();
       if(deb) clearTimeout(deb);
       deb=setTimeout(function(){ kgFeedUserTyped=true; kgFeedRestoreSettled=true; feedQuery=inp.value.trim(); kgFeedSave(); renderFeed(false); }, 180);
     });
-    inp.addEventListener("search", function(){ if(!inp.value && feedQuery){ feedQuery=""; renderFeed(false); } });
+    inp.addEventListener("focus", function(){ renderFeedSuggest(); });
+    inp.addEventListener("blur", function(){ setTimeout(hideFeedSuggest, 150); });
+    inp.addEventListener("search", function(){ if(!inp.value && feedQuery){ feedQuery=""; feedExactTarget=null; hideFeedSuggest(); renderFeed(false); } });
+    var sug=document.getElementById("feedSuggest");
+    if(sug) sug.addEventListener("click", function(e){
+      var b=e.target.closest("[data-fs-suggest]"); if(!b) return;
+      feedApplySuggest(b.getAttribute("data-fs-suggest"), b.getAttribute("data-fs-suggest-kind"));
+    });
+    if(stateEl) stateEl.addEventListener("click", function(e){
+      var sb=e.target.closest("[data-fs-suggest]");
+      if(sb){ feedApplySuggest(sb.getAttribute("data-fs-suggest"), sb.getAttribute("data-fs-suggest-kind")); return; }
+      var rb=e.target.closest("[data-fs-ev]");
+      if(rb){
+        var id=rb.getAttribute("data-fs-ev"), ev=null;
+        for(var i=0;i<allEvents.length;i++){ if(String(allEvents[i].id)===id){ ev=allEvents[i]; break; } }
+        if(ev) openFeedDetail(ev);
+      }
+    });
   }
   if(clr) clr.addEventListener("click", function(){ clearFeedSearch(); });
 })();
@@ -1360,7 +1855,7 @@ function start(){
      開始（予約）時点で保存を解禁したため、観測側の初回保存が予約直後に
      走って保存済みの状態を空で上書きしていた。確定 = 復元の適用が
      済んだ／保存が無かった／利用者が入力した／8秒経過、のいずれか */
-  function kgFeedSave(){ if(!kgFeedRestoreSettled) return; try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx})); kgFeedSaveCount++; kgFeedDiagSet({sv:kgFeedSaveCount, se:"", sq:feedQuery||"", si:curIdx}); }catch(e){ kgFeedDiagSet({se:String((e&&e.message)||e).slice(0,80)}); } }
+  function kgFeedSave(){ if(!kgFeedRestoreSettled) return; try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx, et:feedExactTarget})); kgFeedSaveCount++; kgFeedDiagSet({sv:kgFeedSaveCount, se:"", sq:feedQuery||"", si:curIdx}); }catch(e){ kgFeedDiagSet({se:String((e&&e.message)||e).slice(0,80)}); } }
   window.addEventListener("pagehide", kgFeedSave);
   document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") kgFeedSave(); });
   var kgFeedUserTyped=false;
@@ -1380,10 +1875,12 @@ function start(){
     if(!st){ kgFeedRestoreSettled=true; if(n===1) kgFeedDiagSet({rf:0}); return; }
     var applied=[];
     try{
-      if(st.q && feedQuery!==st.q){
+      var etSt=(st.et && st.et.kind && st.et.value)? {kind:String(st.et.kind), value:String(st.et.value)} : null;
+      if((st.q && feedQuery!==st.q) || (etSt && !feedExactTarget) || (!etSt && feedExactTarget)){
         var inp=document.getElementById("feedSearchInput");
-        if(inp) inp.value=st.q;
-        feedQuery=st.q;
+        if(inp && st.q) inp.value=st.q;
+        feedQuery=st.q||"";
+        feedExactTarget=etSt;
         applied.push("q");
         renderFeed(false);
       }
@@ -1418,6 +1915,7 @@ if("serviceWorker" in navigator){
   try{ navigator.serviceWorker.register("./feed-worker.js", {updateViaCache:"none"}).catch(function(){}); }catch(e){}
 }
 loadFeedDict();
+loadFeedProfiles();
 loadFeedNotices();
 start();
 })();
