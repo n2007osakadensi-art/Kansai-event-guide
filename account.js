@@ -22,7 +22,7 @@
     '<div id="kg-account-choice" hidden><p><strong>この端末のデータをどうしますか？</strong></p><p>統合すると、この端末の推しとお気に入りがアカウントに追加されます。共有端末や別の方のデータなら「アカウントのデータを使う」を選んでください。</p><button id="kg-merge" type="button">この端末のデータを統合</button> <button id="kg-use-cloud" type="button">アカウントのデータを使う</button></div>' +
     '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
     '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。普段のログインはコードだけで、Googleアカウントは要りません。コードの発行（初回のみ）と、コードを失くしたときの再発行には、本人確認としてGoogleアカウントでの確認を行い、コードはそのGoogleアカウントに紐づきます。</p><button id="kg-code-issue" type="button">会員コードを発行する（初回はGoogle本人確認）</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、発行時に紐づけたGoogleアカウントで本人確認をして、新しいコードを発行できます（古いコードは使えなくなります）。</p><p><button id="kg-google-recover" type="button">コードを失くした方（Google本人確認で新しいコードを発行）</button></p></div>' +
-    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button><span id="kg-code-reissue-confirm" hidden> <span style="font-size:13px">新しいコードを発行します。今までのコードは使えなくなります。</span> <button id="kg-code-reissue-yes" type="button">発行する</button> <button id="kg-code-reissue-no" type="button">やめる</button></span></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><div id="kg-bind-block" hidden><p style="font-size:13px">このアカウントは、まだGoogleアカウントと紐づいていません。コードを失くしたときの本人確認のため、初回のみ紐づけをお願いします。</p><p><button id="kg-bind-google" type="button">Googleアカウントと紐づける</button></p></div><p style="font-size:13px">コードの再発行には、紐づけたGoogleアカウントでの本人確認が必要です。再発行すると、今までのコードは使えなくなります。</p><button id="kg-code-logout" type="button">この端末からログアウト</button><span id="kg-code-logout-confirm" hidden> <span style="font-size:13px">この端末内のデータをすべて消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。</span> <button id="kg-code-logout-yes" type="button">ログアウトする</button> <button id="kg-code-logout-no" type="button">やめる</button></span></div></div>' +
+    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button><span id="kg-code-reissue-confirm" hidden> <span style="font-size:13px">新しいコードを発行します。今までのコードは使えなくなります。</span> <button id="kg-code-reissue-yes" type="button">発行する</button> <button id="kg-code-reissue-no" type="button">やめる</button></span></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><div id="kg-bind-block" hidden><p style="font-size:13px">このアカウントは、まだGoogleアカウントと紐づいていません。コードを失くしたときの本人確認のため、初回のみ紐づけをお願いします。</p><p><button id="kg-bind-google" type="button">Googleアカウントと紐づける</button></p></div><p style="font-size:13px">コードの再発行には、紐づけたGoogleアカウントでの本人確認が必要です。再発行すると、今までのコードは使えなくなります。</p><button id="kg-code-logout" type="button">この端末からログアウト</button><span id="kg-code-logout-confirm" hidden> <span style="font-size:13px">この端末内のデータをすべて消去します。会員コードの控えがない場合、データに戻れなくなります。</span> <button id="kg-code-logout-yes" type="button">ログアウトする</button> <button id="kg-code-logout-no" type="button">やめる</button></span></div></div>' +
     '<div id="kg-guest"><hr><p><strong>ゲスト利用</strong>（一時的な端末向け）</p>' +
     '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
     '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button><span id="kg-guest-end-confirm" hidden> <span style="font-size:13px">この端末のデータを消去しますか？</span> <button id="kg-guest-end-yes" type="button">消去する</button> <button id="kg-guest-end-no" type="button">やめる</button></span></div></div>' +
@@ -36,7 +36,7 @@
   function fmtSyncTime(t){ var d=new Date(t); function p2(n){ return (n<10?'0':'')+n; } return (d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }
   function markSynced(){ try{ localStorage.setItem('kg_last_sync_v1', String(Date.now())); }catch(e){} syncPanelRender(); }
   function syncPanelRender(){ var p=$('kg-sync-panel'); if(!p) return; p.hidden=!(member||user); var el=$('kg-sync-last'); if(el){ var t=0; try{ t=Number(localStorage.getItem('kg_last_sync_v1')||0); }catch(e){} el.textContent = t? ('最終同期：'+fmtSyncTime(t)) : '最終同期：まだ同期されていません'; } }
-  function showModal() { syncPanelRender(); if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open',''); } }
+  function showModal() { syncPanelRender(); refreshBindBlock(); if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open',''); } }
   $('kg-account-open').onclick = showModal;
   $('kg-account-close').onclick = function () { if (dialog.close) dialog.close(); else dialog.removeAttribute('open'); };
   function parts(off, login, logged, choice) { $('kg-account-off').hidden=!off; $('kg-login-form').hidden=true; $('kg-account-user').hidden=!logged; $('kg-account-choice').hidden=!choice; }
@@ -285,7 +285,14 @@
   async function refreshBindBlock(){
     var blk=$('kg-bind-block'); if(!blk) return;
     if(!member || !memberReady){ blk.hidden=true; return; }
-    try{ var d=await memberDoc(member.acct); blk.hidden=!!(d && d.googleHash); }catch(e){ blk.hidden=true; }
+    try{ var d=await memberDoc(member.acct); blk.hidden=!!(d && d.googleHash); }
+    catch(e){
+      blk.hidden=true;
+      /* ログイン直後は入口が混み合い、読み取りが失敗することがある。
+         隠したままにせず、少し置いて1回だけ再評価する */
+      var acct=member.acct;
+      setTimeout(function(){ if(member && member.acct===acct && memberReady) refreshBindBlock(); }, 6000);
+    }
   }
   async function udGoogleGet(uid) {
     var sheetErr=null;
