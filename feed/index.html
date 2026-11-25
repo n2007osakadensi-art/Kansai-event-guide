@@ -1280,7 +1280,10 @@ function start(){
   var kgFeedUiDone=false;
   var kgFeedSaveCount=0;
   function kgFeedDiagSet(o){ try{ var d={}; try{ d=JSON.parse(localStorage.getItem("kg_feed_ui_diag_v1")||"{}"); }catch(e){} for(var k in o) d[k]=o[k]; localStorage.setItem("kg_feed_ui_diag_v1", JSON.stringify(d)); }catch(e){} }
-  function kgFeedSave(){ try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx})); kgFeedSaveCount++; kgFeedDiagSet({sv:kgFeedSaveCount, se:""}); }catch(e){ kgFeedDiagSet({se:String((e&&e.message)||e).slice(0,80)}); } }
+  var kgFeedTouched=false;
+  ["touchstart","wheel","pointerdown"].forEach(function(t){ document.addEventListener(t, function(){ kgFeedTouched=true; }, {passive:true}); });
+  document.addEventListener("keydown", function(){ kgFeedTouched=true; });
+  function kgFeedSave(){ if(localStorage.getItem("kg_feed_ui_v1") && !kgFeedTouched) return; try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx})); kgFeedSaveCount++; kgFeedDiagSet({sv:kgFeedSaveCount, se:""}); }catch(e){ kgFeedDiagSet({se:String((e&&e.message)||e).slice(0,80)}); } }
   window.addEventListener("pagehide", kgFeedSave);
   document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") kgFeedSave(); });
   function kgFeedRestoreKick(){

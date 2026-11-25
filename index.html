@@ -904,7 +904,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v122';
+  window.__kgShell='v123';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -8571,7 +8571,7 @@ function refreshTlLogin(){
 /* Keep saved filter profiles in sync when the same site is open in another tab. */
   /* ---------- 画面状態の保存と復元 (v120): PWAで戻っても元の場所へ ---------- */
   var KG_UI_KEY="kg_ui_state_v1", kgUiRestored=false, kgUiLast="", kgUiTouched=false;
-  ["wheel","touchstart","keydown"].forEach(function(t){ window.addEventListener(t, function(){ kgUiTouched=true; }, {passive:true}); });
+  ["wheel","touchstart","keydown","pointerdown"].forEach(function(t){ window.addEventListener(t, function(){ kgUiTouched=true; }, {passive:true}); });
   var kgUiSaveCount=0;
   function kgUiDiagSet(o){ try{ var d={}; try{ d=JSON.parse(localStorage.getItem("kg_ui_diag_v1")||"{}"); }catch(e){} for(var k in o) d[k]=o[k]; localStorage.setItem("kg_ui_diag_v1", JSON.stringify(d)); if(window.__kgDiagLine) window.__kgDiagLine(); }catch(e){} }
   function kgUiSnapshot(){
@@ -8582,6 +8582,7 @@ function refreshTlLogin(){
     return {v:1, ts:Date.now(), view:view, q:query, cats:Array.from(selCats), scrollY:Math.round(window.scrollY||0), tl:tl, modalId:(typeof currentEv!=="undefined" && currentEv && els.overlay.classList.contains("open"))? String(currentEv.id) : null, dir:dir};
   }
   function kgUiSave(){
+    if(localStorage.getItem(KG_UI_KEY) && !kgUiTouched) return;
     if(!kgUiRestored && localStorage.getItem(KG_UI_KEY)) return;
     try{ var snap=kgUiSnapshot(); var s=JSON.stringify(snap); if(s!==kgUiLast){ kgUiLast=s; localStorage.setItem(KG_UI_KEY, s); kgUiSaveCount++; kgUiDiagSet({sv:kgUiSaveCount, se:"", sq:snap.q||"", stl:snap.tl?1:0}); } }catch(e){ kgUiDiagSet({se:String((e&&e.message)||e).slice(0,80)}); }
   }
