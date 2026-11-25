@@ -953,7 +953,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v138';
+  window.__kgShell='v139';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2627,30 +2627,8 @@ function exactMatch(ev, t){
 }
 function contentPass(ev, opts){
   opts=opts||{};
-  /* タイムライン内検索（v130）: 絞り込み条件は使わず、キーワード照合だけを
-     本体検索と同一ロジックで行う。下のテキスト照合部を変更したらこちらも揃えること */
-  if(opts.textOnly){
-    var tq=(opts.q!=null)? String(opts.q) : query;
-    var tepQ=episodeQueryOf(tq);
-    if(tepQ && !tepQ.bare){
-      var tq0=normSearch(String(tq||"").trim().replace(/\s+/g," "));
-      if(tq0 && searchHay(ev).indexOf(tq0)>=0) return true;
-      return episodeMatch(ev, tepQ);
-    }
-    var tq2=normSearch(String(tq||"").trim().replace(/\s+/g," "));
-    if(tq2 && searchHay(ev).indexOf(tq2)<0){
-      if(/[\d０-９]/.test(String(tq||"")) || /市|区|町|村|丁目|番地/.test(String(tq||""))){
-        var taq=addrNormText(tq);
-        if(taq && searchHay(ev).indexOf(taq)>=0) return true;
-      }
-      var tsq=simpleTitleKey(String(tq||"").trim());
-      if(!tsq || simpleHay(ev).indexOf(tsq)<0){
-        if(tepQ && tepQ.bare && episodeMatch(ev, tepQ)) return true;
-        return false;
-      }
-    }
-    return true;
-  }
+  /* タイムライン内検索もこの関数と filtered() をそのまま使う（v139で
+     専用の複製ロジックを廃止し、本体の検索と完全に同一にした） */
   var exact=exactTarget;
   /* 終了済みの除外は、候補選択でも手入力でも同じに効かせる（v103）。
      以前は候補を選んだ時だけ終了分が免除され、「候補を選ばないと
@@ -7874,11 +7852,16 @@ function tlIdNum(ev){ var n=parseInt(ev.id,10); return isNaN(n)? Number.MAX_SAFE
 /* タイムライン内検索（v130）: 検索中は範囲指定を外し、全イベントから
    本体検索と同じ照合で探す（フィードアプリの検索と同じ考え方）。
    終了分だけが当たる場合は終了分も出す（本体検索の救済と同じ） */
-var tlQuery="";
+var tlQuery="", tlExactTarget=null, tlSearchTotal=0, tlSearchRescued=false;
 function buildTimelineItems(){
-  if(tlQuery){
-    var hits=allEvents.filter(function(ev){ return !isEnded(ev) && contentPass(ev, {textOnly:true, q:tlQuery}); });
-    if(!hits.length) hits=allEvents.filter(function(ev){ return contentPass(ev, {textOnly:true, q:tlQuery}); });
+  if(tlQuery || tlExactTarget){
+    /* 本体の検索そのもの（filtered()）を、検索語と候補選択だけ差し替えて
+       使う。照合・候補の意味・終了分の救済まで本体と完全に同一（v139） */
+    var sQ=query, sE=exactTarget, sV=view, sR=endedRescue;
+    query=tlQuery; exactTarget=tlExactTarget; view="all";
+    var hits=filtered();
+    tlSearchTotal=hits.length; tlSearchRescued=endedRescue;
+    query=sQ; exactTarget=sE; view=sV; endedRescue=sR;
     hits.sort(tlByDate);
     return hits.slice(0,120);
   }
@@ -8618,7 +8601,7 @@ function refreshTlLogin(){
   /* ---------- タイムライン内検索の操作（v130） ---------- */
   function tlResetQuery(){
     tlHideSuggest();
-    tlQuery="";
+    tlQuery=""; tlExactTarget=null;
     var i2=document.getElementById("tlSearchInput"); if(i2) i2.value="";
     var n2=document.getElementById("tlSearchNote"); if(n2){ n2.textContent=""; n2.classList.add("hidden"); }
     var c2=document.getElementById("tlSearchClear"); if(c2) c2.classList.add("hidden");
@@ -8628,12 +8611,12 @@ function refreshTlLogin(){
     var note=tlEl("tlSearchNote"), clr=tlEl("tlSearchClear");
     if(clr) clr.classList.toggle("hidden", !tlQuery);
     if(note){
-      if(tlQuery && tlState.items.length===0){
+      if((tlQuery || tlExactTarget) && tlState.items.length===0){
         var zg=tlZeroGuideHTML();
         note.innerHTML=zg || ("「"+esc(tlQuery)+"」に一致するイベントが見つかりませんでした");
         note.classList.remove("hidden");
       }
-      else if(tlQuery){ note.textContent="「"+tlQuery+"」の検索結果 "+tlState.items.length+"件（全イベントから検索中・範囲指定は解除）"; note.classList.remove("hidden"); }
+      else if(tlQuery || tlExactTarget){ note.textContent="「"+tlQuery+"」の検索結果 "+tlSearchTotal+"件"+(tlSearchTotal>tlState.items.length? "（開催日順の先頭"+tlState.items.length+"件を表示）":"")+(tlSearchRescued? "（終了分を表示しています）":"")+"（全イベントから検索中・範囲指定は解除）"; note.classList.remove("hidden"); }
       else { note.textContent=""; note.classList.add("hidden"); }
     }
   }
@@ -8642,12 +8625,13 @@ function refreshTlLogin(){
     var tdeb=null;
     tsi.addEventListener("input", function(){
       renderTlSuggest();
+      tlExactTarget=null; /* 手入力に戻ったら候補の完全一致は解除（本体と同じ） */
       if(tdeb) clearTimeout(tdeb);
       tdeb=setTimeout(function(){ tlQuery=tsi.value.trim(); tlApplyQuery(true); }, 180);
     });
     tsi.addEventListener("focus", renderTlSuggest);
     tsi.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); tlHideSuggest(); tsi.blur(); } });
-    tsi.addEventListener("search", function(){ if(!tsi.value && tlQuery){ tlQuery=""; tlApplyQuery(true); } });
+    tsi.addEventListener("search", function(){ if(!tsi.value && tlQuery){ tlQuery=""; tlExactTarget=null; tlApplyQuery(true); } });
   }
   if(tsc) tsc.addEventListener("click", function(){ tlResetQuery(); tlApplyQuery(true); if(tsi) tsi.focus(); });
   /* ---------- タイムライン内検索の候補と0件案内（本体の検索と同機能、v136） ---------- */
@@ -8662,18 +8646,22 @@ function refreshTlLogin(){
     var items=collectSuggestItems(text);
     if(!items.length){ tlHideSuggest(); return; }
     tlSug.innerHTML=items.map(function(it){
-      return '<button type="button" role="option" data-tl-suggest="'+esc(it.value)+'"><span class="sk" style="background:'+it.color+'">'+esc(it.klabel)+'</span><span>'+esc(it.label)+'</span>'+(it.sub?'<span style="color:rgba(244,242,236,.6);font-size:12.5px">'+esc(it.sub)+'</span>':"")+'</button>';
+      return '<button type="button" role="option" data-tl-suggest="'+esc(it.value)+'" data-tl-suggest-kind="'+esc(it.kind)+'"><span class="sk" style="background:'+it.color+'">'+esc(it.klabel)+'</span><span>'+esc(it.label)+'</span>'+(it.sub?'<span style="color:rgba(244,242,236,.6);font-size:12.5px">'+esc(it.sub)+'</span>':"")+'</button>';
     }).join("");
     tlSug.classList.add("show");
   }
+  function tlApplySuggest(v, kind){
+    if(tsi) tsi.value=v;
+    tlQuery=v; tlExactTarget={kind:kind||"event", value:v};
+    tlHideSuggest(); tlApplyQuery(true);
+  }
   if(tlSug) tlSug.addEventListener("click", function(e){
     var b=e.target.closest("[data-tl-suggest]"); if(!b) return;
-    var v=b.getAttribute("data-tl-suggest");
-    if(tsi) tsi.value=v;
-    tlQuery=v; tlHideSuggest(); tlApplyQuery(true);
+    tlApplySuggest(b.getAttribute("data-tl-suggest"), b.getAttribute("data-tl-suggest-kind"));
   });
   function tlZeroGuideHTML(){
     var qraw=String(tlQuery||"").trim(); if(!qraw) return "";
+    if(tlExactTarget) return ""; /* 候補選択中は案内を出さない（本体と同じ） */
     var epQ=episodeQueryOf(qraw);
     if(epQ){
       var series=allEvents.filter(function(ev){ return episodeBaseKey(ev.title)===epQ.baseKey; });
@@ -8685,7 +8673,10 @@ function refreshTlLogin(){
     }
     var dp=queryDateParts(qraw);
     if(dp.dates.length && dp.rest){
-      var hits=allEvents.filter(function(ev){ return contentPass(ev, {textOnly:true, q:dp.rest}); });
+      var sQ3=query, sE3=exactTarget;
+      query=dp.rest; exactTarget=null;
+      var hits=allEvents.filter(function(ev){ return contentPass(ev, {ignorePeriod:true, ignoreEnded:true}); });
+      query=sQ3; exactTarget=sE3;
       if(hits.length){
         hits.sort(tlByDate);
         return '<div class="tl-guide"><p>日付違いの候補があります（名前が合う開催です）：</p>'
@@ -8698,7 +8689,7 @@ function refreshTlLogin(){
     var cands=zeroHitCandidates(normSearch(nameText.replace(/\s+/g," ")));
     if(cands.length){
       return '<div class="tl-guide"><p>こちらでは？：</p><div class="tl-zchips">'
-        + cands.map(function(it){ return '<button type="button" class="tl-zchip" data-tl-suggest="'+esc(it.value)+'">'+esc(it.klabel)+'：'+esc(it.label)+'</button>'; }).join("") + '</div></div>';
+        + cands.map(function(it){ return '<button type="button" class="tl-zchip" data-tl-suggest="'+esc(it.value)+'" data-tl-suggest-kind="'+esc(it.kind)+'">'+esc(it.klabel)+'：'+esc(it.label)+'</button>'; }).join("") + '</div></div>';
     }
     return "";
   }
@@ -8707,7 +8698,7 @@ function refreshTlLogin(){
     var zb=e.target.closest("[data-tl-zero-id]");
     if(zb){ var t=allEvents.find(function(ev){ return String(ev.id)===zb.getAttribute("data-tl-zero-id"); }); if(t) tlOpenDetail(t); return; }
     var sb=e.target.closest("[data-tl-suggest]");
-    if(sb){ var v=sb.getAttribute("data-tl-suggest"); if(tsi) tsi.value=v; tlQuery=v; tlApplyQuery(true); }
+    if(sb){ tlApplySuggest(sb.getAttribute("data-tl-suggest"), sb.getAttribute("data-tl-suggest-kind")); }
   });
   var post=tlEl("tlPostBtn");
   if(post) post.addEventListener("click", tlOpenPost);
@@ -8838,7 +8829,7 @@ function refreshTlLogin(){
   function kgUiDiagSet(o){ try{ var d={}; try{ d=JSON.parse(localStorage.getItem("kg_ui_diag_v1")||"{}"); }catch(e){} for(var k in o) d[k]=o[k]; localStorage.setItem("kg_ui_diag_v1", JSON.stringify(d)); if(window.__kgDiagLine) window.__kgDiagLine(); }catch(e){} }
   function kgUiSnapshot(){
     var tl=null;
-    if(typeof tlState!=="undefined" && tlState.open){ tl={mode:(typeof prefs!=="undefined"&&prefs? prefs.tlMode : "slide"), preset:tlScopePreset, listId:tlScopeListId, artist:tlScopeArtist, idx:tlState.idx, q:(typeof tlQuery!=="undefined"? tlQuery : "")}; }
+    if(typeof tlState!=="undefined" && tlState.open){ tl={mode:(typeof prefs!=="undefined"&&prefs? prefs.tlMode : "slide"), preset:tlScopePreset, listId:tlScopeListId, artist:tlScopeArtist, idx:tlState.idx, q:(typeof tlQuery!=="undefined"? tlQuery : ""), et:(typeof tlExactTarget!=="undefined"? tlExactTarget : null)}; }
     var dir=null;
     if((view==="artistDetail"||view==="venueDetail"||view==="organizerDetail") && typeof detailCtx!=="undefined" && detailCtx) dir={kind:detailCtx.kind, name:detailCtx.name};
     return {v:1, ts:Date.now(), view:view, q:query, cats:Array.from(selCats), scrollY:Math.round(window.scrollY||0), tl:tl, modalId:(typeof currentEv!=="undefined" && currentEv && els.overlay.classList.contains("open"))? String(currentEv.id) : null, dir:dir};
@@ -8876,9 +8867,9 @@ function refreshTlLogin(){
         openTimeline();
         if(tlState.open){
           tlScopePreset=st.tl.preset||null; tlScopeListId=st.tl.listId||null; tlScopeArtist=st.tl.artist||null;
-          tlQuery=st.tl.q||""; var tsiR=document.getElementById("tlSearchInput"); if(tsiR) tsiR.value=tlQuery;
+          tlQuery=st.tl.q||""; tlExactTarget=(st.tl.et && st.tl.et.kind && st.tl.et.value)? {kind:String(st.tl.et.kind), value:String(st.tl.et.value)} : null; var tsiR=document.getElementById("tlSearchInput"); if(tsiR) tsiR.value=tlQuery;
           tlState.items=buildTimelineItems(); renderTlScope(); tlBuildTicker(); tlApplyMode();
-          if(tlQuery){ var nn=document.getElementById("tlSearchNote"); if(nn){ nn.textContent="「"+tlQuery+"」の検索結果 "+tlState.items.length+"件（全イベントから検索中・範囲指定は解除）"; nn.classList.remove("hidden"); } var cc=document.getElementById("tlSearchClear"); if(cc) cc.classList.remove("hidden"); }
+          if(tlQuery){ var nn=document.getElementById("tlSearchNote"); if(nn){ nn.textContent="「"+tlQuery+"」の検索結果 "+tlSearchTotal+"件"+(tlSearchTotal>tlState.items.length? "（開催日順の先頭"+tlState.items.length+"件を表示）":"")+(tlSearchRescued? "（終了分を表示しています）":"")+"（全イベントから検索中・範囲指定は解除）"; nn.classList.remove("hidden"); } var cc=document.getElementById("tlSearchClear"); if(cc) cc.classList.remove("hidden"); }
           var ix=Math.max(0, Math.min(st.tl.idx||0, tlState.items.length-1));
           if(prefs.tlMode==="slide"){ tlShow(ix); }
           else { tlState.idx=ix; var feed=tlEl("tlFeed"); if(feed){ var cards=feed.querySelectorAll("[data-tl-id]"); if(cards[ix]) setTimeout(function(){ try{ cards[ix].scrollIntoView({block:"start"}); }catch(e){} }, 80); } }
