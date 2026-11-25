@@ -953,7 +953,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v139';
+  window.__kgShell='v140';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -8718,7 +8718,7 @@ function refreshTlLogin(){
     stage.addEventListener("pointerup", function(e){
       if(sx==null) return;
       var dx=e.clientX-sx, dy=e.clientY-sy, dt=Date.now()-stT; sx=null; sy=null;
-      if(Math.abs(dx)>48 && Math.abs(dx)>Math.abs(dy)*1.4){ var d1=dx<0?1:-1; tlGo(tlState.idx + d1); tlFlash(d1); return; }
+      if(Math.abs(dx)>48 && Math.abs(dx)>Math.abs(dy)*1.4){ var d1=dx<0?1:-1; window.__tlPtrNavAt=Date.now(); tlGo(tlState.idx + d1); tlFlash(d1); return; }
       /* タップ: ボタン類を優先し、それ以外はストーリー式に左=前へ／右=次へ（v128。判定幅は v137 で 24px に緩和） */
       if(Math.abs(dx)<24 && Math.abs(dy)<24){
         var prof = e.target && e.target.closest ? e.target.closest("[data-tl-prof]") : null;
@@ -8736,6 +8736,7 @@ function refreshTlLogin(){
           var slideEl=stage.querySelector(".tl-slide");
           var r=(slideEl||stage).getBoundingClientRect();
           var d2=(e.clientX-r.left) < r.width*0.35 ? -1 : 1;
+          window.__tlPtrNavAt=Date.now();
           tlGo(tlState.idx + d2); tlFlash(d2); return;
         }
       }
@@ -8743,6 +8744,19 @@ function refreshTlLogin(){
       if(tlState.open && !profSheetState.open && !els.overlay.classList.contains("open")) tlResumeAuto();
     });
     stage.addEventListener("pointercancel", function(){ sx=null; sy=null; if(tlState.open && !els.overlay.classList.contains("open")) tlResumeAuto(); });
+    /* クリックでの予備の前後移動（v140）: ポインタ操作が届かない環境でも、
+       通常のクリックで左右移動できるようにする。ポインタで移動した直後の
+       クリックは二重に数えない */
+    stage.addEventListener("click", function(e){
+      if(prefs.tlMode==="feed") return;
+      if(window.__tlPtrNavAt && Date.now()-window.__tlPtrNavAt<400) return;
+      if(e.target && e.target.closest && e.target.closest("[data-tl-prof],[data-tl-post],[data-tl-again],[data-tl-more],button,a")) return;
+      var slideEl=stage.querySelector(".tl-slide");
+      var r=(slideEl||stage).getBoundingClientRect();
+      if(!r.width) return;
+      var d3=(e.clientX-r.left) < r.width*0.35 ? -1 : 1;
+      tlGo(tlState.idx + d3); tlFlash(d3);
+    });
   }
   var feed=tlEl("tlFeed");
   if(feed){

@@ -99,7 +99,10 @@
   .dt-gal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:12px;scrollbar-width:none;background:#101114}
   .dt-gal::-webkit-scrollbar{display:none}
   .dt-gal-img{flex:0 0 100%;width:100%;max-height:46dvh;object-fit:contain;scroll-snap-align:start}
-  .dt-gal-count{text-align:right;font-size:12px;opacity:.8;margin:4px 2px 8px;font-weight:700}
+  .dt-gal-count{font-size:12px;opacity:.8;font-weight:700}
+  .dt-gal-ui{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 8px}
+  .dt-gal-nav{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#f4f2ec;font-size:16px;cursor:pointer}
+  .dt-gal-nav:disabled{opacity:.35}
   .img-viewer{position:fixed;inset:0;z-index:95;background:rgba(5,5,8,.96)}
   .img-viewer.hidden{display:none}
   .iv-track{position:absolute;inset:0;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
@@ -1134,7 +1137,7 @@ function openFeedDetail(ev){
   var perfs=ev._perfList||[];
   var imgs=feedImageList(ev);
   var mediaHtml= imgs.length>=2
-    ? '<div class="dt-gal" id="dtGal">'+imgs.map(function(u,i){ return '<img class="dt-gal-img" src="'+esc(u)+'" alt="" data-dimg="'+i+'" data-fbk="'+esc(ev.id)+':'+i+'" onerror="evImgErr(this)">'; }).join("")+'</div><div class="dt-gal-count" id="dtGalCount">1/'+imgs.length+'</div>'
+    ? '<div class="dt-gal" id="dtGal">'+imgs.map(function(u,i){ return '<img class="dt-gal-img" src="'+esc(u)+'" alt="" data-dimg="'+i+'" data-fbk="'+esc(ev.id)+':'+i+'" onerror="evImgErr(this)">'; }).join("")+'</div><div class="dt-gal-ui"><button type="button" class="dt-gal-nav" id="dtGalPrev" aria-label="前の画像">‹</button><span class="dt-gal-count" id="dtGalCount">1/'+imgs.length+'</span><button type="button" class="dt-gal-nav" id="dtGalNext" aria-label="次の画像">›</button></div>'
     : (imgs.length? '<img class="dt-img" src="'+esc(imgs[0])+'" alt="" data-dimg="0" data-fbk="'+esc(ev.id)+':0" onerror="evImgErr(this)">' : '');
   detailBody.innerHTML=
     mediaHtml
@@ -1150,7 +1153,15 @@ function openFeedDetail(ev){
   detailSheet.classList.remove("hidden"); detailBackdrop.classList.remove("hidden");
   detailSheet.scrollTop=0;
   var gal=document.getElementById("dtGal");
-  if(gal) gal.addEventListener("scroll", function(){ var w=gal.clientWidth; if(!w) return; var c=document.getElementById("dtGalCount"); if(c) c.textContent=(Math.round(gal.scrollLeft/w)+1)+"/"+imgs.length; }, {passive:true});
+  if(gal){
+    var galIdx=function(){ var w=gal.clientWidth; return w? Math.round(gal.scrollLeft/w) : 0; };
+    var galSync=function(){ var i=galIdx(); var c=document.getElementById("dtGalCount"); if(c) c.textContent=(i+1)+"/"+imgs.length; var pv=document.getElementById("dtGalPrev"); if(pv) pv.disabled=(i<=0); var nx=document.getElementById("dtGalNext"); if(nx) nx.disabled=(i>=imgs.length-1); };
+    gal.addEventListener("scroll", galSync, {passive:true});
+    var pv2=document.getElementById("dtGalPrev"), nx2=document.getElementById("dtGalNext");
+    if(pv2) pv2.addEventListener("click", function(){ gal.scrollTo({left:(galIdx()-1)*gal.clientWidth, behavior:"smooth"}); });
+    if(nx2) nx2.addEventListener("click", function(){ gal.scrollTo({left:(galIdx()+1)*gal.clientWidth, behavior:"smooth"}); });
+    galSync();
+  }
 }
 /* ---------- 全画面画像ビューア（v134） ---------- */
 var ivTrack=document.getElementById("ivTrack"), ivViewer=document.getElementById("imgViewer"), ivCount=document.getElementById("ivCount"), ivImgs=[];
