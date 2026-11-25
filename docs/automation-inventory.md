@@ -15,7 +15,7 @@
 | crawler-console-diff-check | 6時間ごと | クローラー管理コンソールの差分チェック |
 | crawler-queue-processor-5m | 5分ごと | クローラー実行キューの処理 |
 | kansai-instagram-saved-intake | 6時間ごと | Instagram保存済み投稿の取り込み |
-| kansai-external-ai-intake | 6時間ごと | 外部AI入力タブの自動取り込み（一次検証→本体登録→処理状況の記入→登録があればシート同期まで。両面への自動反映） |
+| kansai-external-ai-intake | 6時間ごと | 外部AI入力タブの自動取り込み（一次検証→本体登録→処理状況の記入→登録があればシート同期まで。画像込みで掲載まで完結させ、両面へ自動反映） |
 | kansai-events-friday-weekend | 金曜21:17 | 週末分の徹底確認 |
 | kansai-events-month-end | 月末21:17 | 翌月スケジュールの徹底調査 |
 | kansai-weekly-quota-burndown | 日曜13:00 | 週次: 残り枠で調査・詳細の底上げ・仕組み改善 |
