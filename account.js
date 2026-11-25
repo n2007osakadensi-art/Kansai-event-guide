@@ -15,6 +15,7 @@
   overlay.innerHTML = '<dialog id="kg-account-dialog" aria-labelledby="kg-account-title" style="width:min(94vw,480px);max-height:90vh;overflow:auto;border:1px solid #ccc;border-radius:16px;padding:22px;color:CanvasText;background:Canvas;box-shadow:0 8px 30px #0005">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 id="kg-account-title" style="font-size:19px;margin:0">ログイン・同期</h2><button id="kg-account-close" type="button" aria-label="閉じる" style="min-width:44px">✕</button></div>' +
     '<p id="kg-account-status" role="status" aria-live="polite"></p>' +
+    '<div id="kg-sync-panel" hidden><p id="kg-sync-last" style="font-size:13px;margin:4px 0"></p><p style="font-size:13px;margin:4px 0">同期は自動でも行われます（変更時・約45秒ごと・アプリを離れる時）。確実に反映したいときは、このボタンで今すぐ同期できます。</p><button id="kg-sync-now" type="button">今すぐ同期する</button></div>' +
     '<div id="kg-account-off" hidden><p>ログインの接続設定はまだ完了していません。現在の推し・お気に入りはこの端末だけに保存されます。</p></div>' +
     '<div id="kg-login-form" hidden><p>Googleアカウントでログインします。</p><button id="kg-google-login" type="button">Googleでログイン</button></div>' +
     '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推し・お気に入り・マイリスト・行きたい／気になる・フォロー・好みなどをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button><span id="kg-signout-confirm" hidden> <span style="font-size:13px">ログアウトすると、この端末内のデータをすべて消去します。アカウントのデータは残ります。</span> <button id="kg-signout-yes" type="button">ログアウトする</button> <button id="kg-signout-no" type="button">やめる</button></span></div>' +
@@ -32,7 +33,10 @@
   document.body.appendChild(overlay);
   var dialog = $('kg-account-dialog');
   function text(s) { $('kg-account-status').textContent = s; }
-  function showModal() { if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open',''); } }
+  function fmtSyncTime(t){ var d=new Date(t); function p2(n){ return (n<10?'0':'')+n; } return (d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }
+  function markSynced(){ try{ localStorage.setItem('kg_last_sync_v1', String(Date.now())); }catch(e){} syncPanelRender(); }
+  function syncPanelRender(){ var p=$('kg-sync-panel'); if(!p) return; p.hidden=!(member||user); var el=$('kg-sync-last'); if(el){ var t=0; try{ t=Number(localStorage.getItem('kg_last_sync_v1')||0); }catch(e){} el.textContent = t? ('最終同期：'+fmtSyncTime(t)) : '最終同期：まだ同期されていません'; } }
+  function showModal() { syncPanelRender(); if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open',''); } }
   $('kg-account-open').onclick = showModal;
   $('kg-account-close').onclick = function () { if (dialog.close) dialog.close(); else dialog.removeAttribute('open'); };
   function parts(off, login, logged, choice) { $('kg-account-off').hidden=!off; $('kg-login-form').hidden=!login; $('kg-account-user').hidden=!logged; $('kg-account-choice').hidden=!choice; }
@@ -224,7 +228,7 @@
     if(client) { await fsTimeout(client.setDoc(client.doc(client.db,'memberdata',acct), fields, {merge:true}), '保存がタイムアウトしました'); return; }
     throw backendMissing();
   }
-  async function memberPushFavorites(acct) { var local=bridge.read(); var c=docCacheGet('m:'+acct); if(c && JSON.stringify(c.events||[])===JSON.stringify(local.event) && JSON.stringify(c.artists||[])===JSON.stringify(local.artist)) return; await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now()}); }
+  async function memberPushFavorites(acct) { var local=bridge.read(); var c=docCacheGet('m:'+acct); if(c && JSON.stringify(c.events||[])===JSON.stringify(local.event) && JSON.stringify(c.artists||[])===JSON.stringify(local.artist)) { markSynced(); return; } await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now()}); markSynced(); }
   async function memberSetMeta(acct, fields) { await memberWriteFields(acct, fields); }
   function idxCollection(prefix){ return prefix==='c:' ? 'codes' : 'recovery'; }
   async function idxGet(prefix, hash) {
@@ -308,6 +312,32 @@
   $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
   $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
   $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail();text('同期に失敗しました。端末内のデータは保持されています。');} };
+  $('kg-sync-now').onclick=async function(){
+    var btn=this; btn.disabled=true;
+    var f0=cloudFails;
+    try{
+      if(member && memberReady){
+        text('同期しています…');
+        await memberPushFavorites(member.acct);
+        var okUd=await udPushNow(true);
+        await udPullMerge();
+        if(!okUd || cloudFails>f0){ text('同期に失敗しました。端末内データは保持されています。時間をおいてもう一度お試しください。'); }
+        else { markSynced(); text('同期しました（会員コード）。'); }
+      } else if(user && initialized){
+        text('同期しています…');
+        var uid2=user.id,g2=generation;
+        if(!await flush(uid2,g2)){ text('同期に失敗しました。端末内のデータは保持されています。'); return; }
+        fsDrain(uid2);
+        var okUd2=await udPushNow(true);
+        await udPullMerge();
+        if(!okUd2 || cloudFails>f0){ text('同期に失敗しました。端末内のデータは保持されています。時間をおいてもう一度お試しください。'); }
+        else { markSynced(); text('同期しました。'); }
+      } else {
+        text('ログインが完了してから同期できます。');
+      }
+    }catch(e){ noteCloudFail(); text('同期に失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。時間をおいてもう一度お試しください。'); }
+    finally{ btn.disabled=false; syncPanelRender(); }
+  };
   $('kg-signout').onclick=function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} $('kg-signout-confirm').hidden=false; };
   $('kg-signout-no').onclick=function(){ $('kg-signout-confirm').hidden=true; };
   $('kg-signout-yes').onclick=async function(){ if(!user)return; $('kg-signout-confirm').hidden=true; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); wipeLocalUserData(); setTimeout(function(){ location.reload(); }, 400); };
@@ -321,7 +351,7 @@
     a.forEach(function(v){if(!b.has(v))ops.push({op:'delete',kind:kind,value:String(v)});});
     if(!ops.length)return;
     try{enqueue(uid,ops); fsEnqueue(uid,ops);}catch(err){text('同期待ちの保存に失敗しました。');showModal();return;}
-    text('同期中…'); if(!running) flush(uid,g).then(function(ok){ if(ok && sameUser(uid,g)) text('同期済み。'); fsDrain(uid); });
+    text('同期中…'); if(!running) flush(uid,g).then(function(ok){ if(ok && sameUser(uid,g)) { text('同期済み。'); markSynced(); } fsDrain(uid); });
   });
   /* 会員コード方式（Kotaの提案、2026-11-23）：サイト発行のコードが鍵。個人情報なし。
      アカウント本体は m:{アカウントID}（ランダムID、1人1行）。
@@ -423,17 +453,19 @@
     }catch(e){}
   }
   var udBusy=false, udLastSig='';
-  async function udPushNow(){
-    if(udBusy) return;
-    if(cloudBlocked()) return;
-    var sig=udSig(); if(!sig || sig===udLastSig) return;
+  async function udPushNow(force){
+    if(udBusy) return true;
+    if(cloudBlocked()) return false;
+    var sig=udSig(); if(!sig) return false; if(!force && sig===udLastSig) return true;
     var data=udReadLocal();
-    try{ if(JSON.stringify(data).length>900000) return; }catch(e){ return; }
+    try{ if(JSON.stringify(data).length>900000) return false; }catch(e){ return false; }
+    if(!(member && memberReady) && !(user && initialized)) return false;
     udBusy=true;
     try{
-      if(member && memberReady){ await memberSetMeta(member.acct, {userdata:data, udUpdatedAt:Date.now()}); udLastSig=sig; noteCloudOk(); }
-      else if(user && initialized){ await udGoogleSet(user.id, data); udLastSig=sig; noteCloudOk(); }
-    }catch(e){ noteCloudFail(); /* 失敗しても端末内データは無事。次回の定期チェックで再送する */ }
+      if(member && memberReady){ await memberSetMeta(member.acct, {userdata:data, udUpdatedAt:Date.now()}); udLastSig=sig; noteCloudOk(); markSynced(); }
+      else if(user && initialized){ await udGoogleSet(user.id, data); udLastSig=sig; noteCloudOk(); markSynced(); }
+      return true;
+    }catch(e){ noteCloudFail(); /* 失敗しても端末内データは無事。次回の定期チェックで再送する */ return false; }
     finally{ udBusy=false; }
   }
   function udArmWatchers(){
@@ -452,7 +484,7 @@
       if(member && memberReady){ var d=await memberDoc(member.acct); cloud=d? d.userdata : null; }
       else if(user && initialized){ cloud=await udGoogleGet(user.id); }
       else return;
-      noteCloudOk();
+      noteCloudOk(); markSynced();
       udArmWatchers();
       if(!cloud){ udLastSig=''; await udPushNow(); return; }
       var before=udSig();
@@ -604,6 +636,7 @@
   }
   function renderState(){
     var b=$('kg-account-open'); if(b) b.textContent=stateLabel();
+    syncPanelRender();
     var go=$('kg-guest-off'), gn=$('kg-guest-on'); var g=guestOn(); if(go) go.hidden=g; if(gn) gn.hidden=!g;
   }
   $('kg-guest-start').onclick=function(){
