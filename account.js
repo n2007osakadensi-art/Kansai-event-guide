@@ -1,9 +1,13 @@
-/* アカウントと推し／イベントの同期。認証・DBはユーザー管理のFirebase。
-   未設定時は従来の端末内保存を維持します。 */
+/* アカウントと推し／イベントの同期。
+   保存先は二重化（Kota決定 2026-11-25）: 主軸＝アカウント用スプレッドシート
+   （非公開＋Apps Script の入口経由）、保険＝Firestore。
+   書き込みは主軸へ先に書き、保険へも best-effort で書く。読み込みは主軸を正とし、
+   失敗したときだけ保険から読む。どちらか片方だけの設定でも動く。
+   Google ログインの認証は Firebase Auth。未設定時は従来の端末内保存を維持します。 */
 (function () {
   'use strict';
   var cfg = window.KG_ACCOUNT_CONFIG || {}, bridge = window.KGAccountBridge;
-  var client = null, user = null, initialized = false, running = false, generation = 0;
+  var client = null, fbUser = null, user = null, initialized = false, running = false, generation = 0;
   var currentMarker = 'kg_account_selected_user_v1';
   var member = null, memberReady = false, choiceMode = 'google', pendingMemberCloud = null, memberPushTimer = null;
   var $ = function (id) { return document.getElementById(id); };
@@ -32,51 +36,59 @@
   $('kg-account-open').onclick = showModal;
   $('kg-account-close').onclick = function () { if (dialog.close) dialog.close(); else dialog.removeAttribute('open'); };
   function parts(off, login, logged, choice) { $('kg-account-off').hidden=!off; $('kg-login-form').hidden=!login; $('kg-account-user').hidden=!logged; $('kg-account-choice').hidden=!choice; }
+  /* 同期待ち行列: 主軸用（kg_account_pending_v1_）と保険（Firestore）用を分ける。
+     主軸の成功が利用者への「同期済み」。保険側は専用行列で静かに追いつく */
   function queueKey(uid) { return 'kg_account_pending_v1_' + uid; }
   function queueRead(uid) { try { var x=JSON.parse(localStorage.getItem(queueKey(uid))||'[]'); return Array.isArray(x)?x:[]; } catch(e) { return []; } }
   function queueWrite(uid,q) { localStorage.setItem(queueKey(uid),JSON.stringify(q)); }
   function enqueue(uid, ops) { var q=queueRead(uid); queueWrite(uid,q.concat(ops)); }
+  function fsQueueKey(uid) { return 'kg_account_pending_fs_v1_' + uid; }
+  function fsQueueRead(uid) { try { var x=JSON.parse(localStorage.getItem(fsQueueKey(uid))||'[]'); return Array.isArray(x)?x:[]; } catch(e) { return []; } }
+  function fsQueueWrite(uid,q) { localStorage.setItem(fsQueueKey(uid),JSON.stringify(q.slice(-500))); }
+  function fsEnqueue(uid, ops) { var q=fsQueueRead(uid); fsQueueWrite(uid,q.concat(ops)); }
   function sameUser(uid,g) { return !!user && user.id===uid && generation===g; }
-  async function flush(uid,g) {
-    if (running) return false;
-    running=true;
-    try {
-      var q=queueRead(uid);
-      while(q.length && sameUser(uid,g)) {
-        var x=q[0], result;
-        var ref=client.doc(client.db,'users',uid,'favorites',favoriteId(x.kind,x.value));
-        if(x.op==='add') await fsTimeout(client.setDoc(ref,{kind:x.kind,item_id:x.value}), '同期がタイムアウトしました');
-        else await fsTimeout(client.deleteDoc(ref), '同期がタイムアウトしました');
-        // 読み出し中に追加された操作を失わない
-        var now=queueRead(uid); now.shift(); queueWrite(uid,now); q=now;
-      }
-      return sameUser(uid,g) && !queueRead(uid).length;
-    } catch(e) { noteCloudFail(); text('同期できていません。端末内には保存済みです。通信を確認して「クラウドから再読み込み」を押してください。'); return false; }
-    finally { running=false; }
-  }
   function favoriteId(kind,value) {
     var bytes=new TextEncoder().encode(kind+':'+value), binary='';
     bytes.forEach(function(b){binary+=String.fromCharCode(b);});
     return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   }
-  /* Firestore 呼び出しのタイムアウト（v53）: オフライン等で Promise が
-     永遠に戻らないと同期全体が無言で止まるため、15秒で失敗として扱う */
+  /* 通信のタイムアウト（v53）: オフライン等で Promise が永遠に戻らないと
+     同期全体が無言で止まるため、15秒で失敗として扱う */
   function fsTimeout(p, label) {
     return Promise.race([p, new Promise(function (_, rej) {
       setTimeout(function () { var e = new Error(label || '通信がタイムアウトしました'); e.code = 'kg-timeout'; rej(e); }, 15000);
     })]);
   }
-  /* クラウド同期の自動停止（v110）: 接続できない状態（DB未作成・圏外など）で
-     自動リトライを繰り返すと端末に負荷がかかり続けるため、2回連続で失敗したら
-     そのセッションでは30分間、自動のクラウド通信を止める。手動の操作
-     （ログイン・発行・再読み込みボタン）は止めない。成功したら即解除する */
+  /* クラウド同期の自動停止（v110）: 接続できない状態で自動リトライを繰り返すと
+     端末に負荷がかかり続けるため、2回連続で失敗したらそのセッションでは30分間、
+     自動のクラウド通信を止める。手動の操作は止めない。成功したら即解除する */
   var cloudFails=0, cloudDownUntil=0;
   try{ cloudDownUntil=+sessionStorage.getItem('kg_cloud_down_until')||0; }catch(e){}
   function cloudBlocked(){ return Date.now()<cloudDownUntil; }
   function noteCloudFail(){ cloudFails++; if(cloudFails>=2){ cloudDownUntil=Date.now()+30*60*1000; try{ sessionStorage.setItem('kg_cloud_down_until', String(cloudDownUntil)); }catch(e){} } }
   function noteCloudOk(){ cloudFails=0; if(cloudDownUntil){ cloudDownUntil=0; try{ sessionStorage.removeItem('kg_cloud_down_until'); }catch(e){} } }
-  async function pull(uid) {
-    if(cloudBlocked()){ var be=new Error('クラウド同期は一時停止中です'); be.code='kg-cloud-down'; throw be; }
+  /* ================= 保険側: Firestore ================= */
+  async function fsApplyOps(uid, readFn, writeFn) {
+    var q=readFn(uid);
+    while(q.length) {
+      var x=q[0];
+      var ref=client.doc(client.db,'users',uid,'favorites',favoriteId(x.kind,x.value));
+      if(x.op==='add') await fsTimeout(client.setDoc(ref,{kind:x.kind,item_id:x.value}), '同期がタイムアウトしました');
+      else await fsTimeout(client.deleteDoc(ref), '同期がタイムアウトしました');
+      // 読み出し中に追加された操作を失わない
+      var now=readFn(uid); now.shift(); writeFn(uid,now); q=now;
+    }
+    return true;
+  }
+  var fsDraining=false;
+  async function fsDrain(uid) {
+    if(!client || fsDraining) return;
+    if(!fsQueueRead(uid).length) return;
+    fsDraining=true;
+    try { await fsApplyOps(uid, fsQueueRead, fsQueueWrite); } catch(e) { /* 保険側の失敗は静かに残す */ }
+    finally { fsDraining=false; }
+  }
+  async function fsPull(uid) {
     var data={event:[],artist:[]}, last=null, pageSize=500;
     var pages=0;
     while(true) {
@@ -88,8 +100,118 @@
       if(snapshot.docs.length<pageSize)break;
       last=snapshot.docs[snapshot.docs.length-1];
     }
+    return data;
+  }
+  /* ================= 主軸: アカウント用シート（Apps Script 経由） ================= */
+  var SYNC_URL = (cfg.syncEndpoint || '').trim();
+  function syncReady(){ return !!SYNC_URL; }
+  async function kvCall(body) {
+    if(!SYNC_URL){ var e0=new Error('同期の接続先が未設定です'); e0.code='kg-no-endpoint'; throw e0; }
+    var p=(async function(){
+      var res=await fetch(SYNC_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(body)});
+      var j=null; try{ j=await res.json(); }catch(_){}
+      if(!j || !j.ok){ var e=new Error((j&&j.error)||('HTTP '+res.status)); e.code=(j&&j.code)||'kg-sync'; throw e; }
+      return j;
+    })();
+    return fsTimeout(p, '同期がタイムアウトしました');
+  }
+  async function kvGet(key, token){ var body={op:'get', key:key}; if(token) body.token=token; var j=await kvCall(body); return j.found ? j.value : null; }
+  async function kvSet(key, value, token){ var body={op:'set', key:key, value:value}; if(token) body.token=token; await kvCall(body); }
+  async function kvMerge(key, fields, token){ var body={op:'merge', key:key, value:fields}; if(token) body.token=token; await kvCall(body); }
+  async function kvDel(key, token){ var body={op:'del', key:key}; if(token) body.token=token; await kvCall(body); }
+  async function idToken(){ try{ return fbUser ? await fbUser.getIdToken() : null; }catch(_){ return null; } }
+  async function googleKeyOf(uid){ return 'g:' + await sha256hex('kg-google:' + uid); }
+  /* ================= 振り分け（主軸→保険） ================= */
+  async function flush(uid,g) {
+    if (running) return false;
+    running=true;
+    try {
+      if(queueRead(uid).length) {
+        if(syncReady()) {
+          var token=await idToken(); if(!token) throw new Error('ログイン情報が確認できませんでした');
+          var key=await googleKeyOf(uid);
+          var q=queueRead(uid);
+          await kvCall({op:'favops', key:key, token:token, ops:q});
+          // 送信中に追加された操作を失わない: 送った分だけ先頭から落とす
+          var now=queueRead(uid); now.splice(0,q.length); queueWrite(uid,now);
+        } else if(client) {
+          await fsApplyOps(uid, queueRead, queueWrite);
+        } else {
+          return false;
+        }
+      }
+      return sameUser(uid,g) && !queueRead(uid).length;
+    } catch(e) { noteCloudFail(); text('同期できていません。端末内には保存済みです。通信を確認して「クラウドから再読み込み」を押してください。'); return false; }
+    finally { running=false; }
+  }
+  async function pull(uid) {
+    if(cloudBlocked()){ var be=new Error('クラウド同期は一時停止中です'); be.code='kg-cloud-down'; throw be; }
+    if(syncReady()) {
+      try {
+        var token=await idToken(); if(!token) throw new Error('ログイン情報が確認できませんでした');
+        var v=await kvGet(await googleKeyOf(uid), token);
+        noteCloudOk();
+        var f=(v && v.favorites) || {};
+        return {event:Array.isArray(f.event)?f.event:[], artist:Array.isArray(f.artist)?f.artist:[]};
+      } catch(e) { if(!client) throw e; /* 保険から読む */ }
+    }
+    var data=await fsPull(uid);
     noteCloudOk();
     return data;
+  }
+  function backendMissing(){ var e=new Error('接続の準備中です'); e.code='kg-no-backend'; return e; }
+  async function memberDoc(acct) {
+    if(syncReady()) { try { return await kvGet('m:'+acct); } catch(e) { if(!client) throw e; } }
+    if(client) { var snap=await fsTimeout(client.getDoc(client.doc(client.db,'memberdata',acct)), 'データの読み込みがタイムアウトしました'); return snap.exists() ? (snap.data()||{}) : null; }
+    throw backendMissing();
+  }
+  async function memberWriteFields(acct, fields) {
+    if(syncReady()) {
+      await kvMerge('m:'+acct, fields);
+      if(client) { try { await fsTimeout(client.setDoc(client.doc(client.db,'memberdata',acct), fields, {merge:true}), '同期がタイムアウトしました'); } catch(e) {} }
+      return;
+    }
+    if(client) { await fsTimeout(client.setDoc(client.doc(client.db,'memberdata',acct), fields, {merge:true}), '保存がタイムアウトしました'); return; }
+    throw backendMissing();
+  }
+  async function memberPushFavorites(acct) { var local=bridge.read(); await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now()}); }
+  async function memberSetMeta(acct, fields) { await memberWriteFields(acct, fields); }
+  function idxCollection(prefix){ return prefix==='c:' ? 'codes' : 'recovery'; }
+  async function idxGet(prefix, hash) {
+    if(syncReady()) { try { var v=await kvGet(prefix+hash); return v ? (v.acct||null) : null; } catch(e) { if(!client) throw e; } }
+    if(client) { var snap=await fsTimeout(client.getDoc(client.doc(client.db, idxCollection(prefix), hash)), '読み込みがタイムアウトしました'); return snap.exists() ? ((snap.data()||{}).acct||null) : null; }
+    return null;
+  }
+  async function idxSet(prefix, hash, acct) {
+    if(syncReady()) {
+      await kvSet(prefix+hash, {acct:acct});
+      if(client) { try { await fsTimeout(client.setDoc(client.doc(client.db, idxCollection(prefix), hash), {acct:acct}), '保存がタイムアウトしました'); } catch(e) {} }
+      return;
+    }
+    if(client) { await fsTimeout(client.setDoc(client.doc(client.db, idxCollection(prefix), hash), {acct:acct}), '保存がタイムアウトしました'); return; }
+    throw backendMissing();
+  }
+  async function idxDel(prefix, hash) {
+    try { if(syncReady()) await kvDel(prefix+hash); } catch(e) {}
+    try { if(client) await fsTimeout(client.deleteDoc(client.doc(client.db, idxCollection(prefix), hash)), '削除がタイムアウトしました'); } catch(e) {}
+  }
+  async function udGoogleGet(uid) {
+    if(syncReady()) {
+      try { var token=await idToken(); if(token) { var v=await kvGet(await googleKeyOf(uid), token); return v ? (v.userdata||null) : null; } }
+      catch(e) { if(!client) throw e; }
+    }
+    if(client) { var snap=await fsTimeout(client.getDoc(client.doc(client.db,'users',uid,'userdata','main')), '読み込みがタイムアウトしました'); return snap.exists() ? ((snap.data()||{}).data||null) : null; }
+    return null;
+  }
+  async function udGoogleSet(uid, data) {
+    if(syncReady()) {
+      var token=await idToken(); if(!token) throw new Error('ログイン情報が確認できませんでした');
+      await kvMerge(await googleKeyOf(uid), {userdata:data, udUpdatedAt:Date.now()}, token);
+      if(client) { try { await fsTimeout(client.setDoc(client.doc(client.db,'users',uid,'userdata','main'), {data:data, updatedAt:Date.now()}), '同期がタイムアウトしました'); } catch(e) {} }
+      return;
+    }
+    if(client) { await fsTimeout(client.setDoc(client.doc(client.db,'users',uid,'userdata','main'), {data:data, updatedAt:Date.now()}), '同期がタイムアウトしました'); return; }
+    throw backendMissing();
   }
   async function setupSession(session) {
     generation++; var g=generation;
@@ -102,6 +224,7 @@
     if (localStorage.getItem(currentMarker)===uid) {
       text('アカウントのデータを確認しています…');
       if(!await flush(uid,g)) return;
+      fsDrain(uid);
       try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; text('同期済み。'); udPullMerge(); }
       catch(e) { noteCloudFail(); text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
     } else { choiceMode='google'; parts(false,false,false,true); text('同期方法を選んでください。'); bootChoicePending=true; renderState(); }
@@ -110,11 +233,12 @@
     if(!user) return; var uid=user.id,g=generation; text('データを確認しています…');
     try {
       if(!await flush(uid,g)) return;
+      fsDrain(uid);
       var cloud=await pull(uid); if(!sameUser(uid,g)) return;
       if(merge) {
         var local=bridge.read(), operations=[];
         ['event','artist'].forEach(function(k){ var present=new Set(cloud[k]); local[k].forEach(function(v){if(!present.has(v)){operations.push({op:'add',kind:k,value:v});present.add(v);}}); cloud[k]=Array.from(present); });
-        enqueue(uid,operations); if(!await flush(uid,g)) return;
+        enqueue(uid,operations); fsEnqueue(uid,operations); if(!await flush(uid,g)) return; fsDrain(uid);
       }
       if(!sameUser(uid,g)) return;
       bridge.replace(cloud); localStorage.setItem(currentMarker,uid); initialized=true;
@@ -123,7 +247,7 @@
   }
   $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
   $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
-  $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail();text('同期に失敗しました。端末内のデータは保持されています。');} };
+  $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail();text('同期に失敗しました。端末内のデータは保持されています。');} };
   $('kg-signout').onclick=async function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。アカウントのデータは残ります。'))return; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); bridge.replace({event:[],artist:[]}); };
   window.addEventListener('kg:favorites-change',function(e){
     if(member && memberReady && !(user && initialized)) { scheduleMemberPush(); return; }
@@ -133,12 +257,13 @@
     b.forEach(function(v){if(!a.has(v))ops.push({op:'add',kind:kind,value:String(v)});});
     a.forEach(function(v){if(!b.has(v))ops.push({op:'delete',kind:kind,value:String(v)});});
     if(!ops.length)return;
-    try{enqueue(uid,ops);}catch(err){text('同期待ちの保存に失敗しました。');showModal();return;}
-    text('同期中…'); if(!running) flush(uid,g).then(function(ok){if(ok && sameUser(uid,g))text('同期済み。');});
+    try{enqueue(uid,ops); fsEnqueue(uid,ops);}catch(err){text('同期待ちの保存に失敗しました。');showModal();return;}
+    text('同期中…'); if(!running) flush(uid,g).then(function(ok){ if(ok && sameUser(uid,g)) text('同期済み。'); fsDrain(uid); });
   });
   /* 会員コード方式（Kotaの提案、2026-11-23）：サイト発行のコードが鍵。個人情報なし。
-     アカウント本体は memberdata/{acct}（ランダムID、1人1文書）。
-     コードの索引は codes/{SHA-256(コード)}、復旧の索引は recovery/{SHA-256(質問:回答)}。
+     アカウント本体は m:{アカウントID}（ランダムID、1人1行）。
+     コードの索引は c:{SHA-256(コード)}、復旧の索引は r:{SHA-256(質問:回答)}。
+     保存先は主軸＝アカウント用シート、保険＝Firestore（memberdata/codes/recovery）。
      コードを失くしても、本人が決めた質問と回答でログインし、コードを再発行できる。 */
   var CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   function newCode(){ var a=new Uint8Array(20); crypto.getRandomValues(a); var s=''; for(var i=0;i<20;i++){ s+=CODE_ALPHABET[a[i]%CODE_ALPHABET.length]; if(i%5===4&&i<19)s+='-'; } return s; }
@@ -148,20 +273,17 @@
   async function sha256hex(t){ var buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join(''); }
   function codeHashOf(code){ return sha256hex('kg-code:'+normCode(code)); }
   function recoveryHashOf(q,a){ return sha256hex('kg-recovery:'+normQA(q)+':'+normQA(a)); }
-  function memberRef(acct){ return client.doc(client.db,'memberdata',acct); }
-  async function memberDoc(acct){ var snap=await fsTimeout(client.getDoc(memberRef(acct)), 'データの読み込みがタイムアウトしました'); return snap.exists() ? (snap.data()||{}) : null; }
   function cloudOf(d){ return {event:Array.isArray(d.events)?d.events:[], artist:Array.isArray(d.artists)?d.artists:[]}; }
-  async function memberPushFavorites(acct){ var local=bridge.read(); await fsTimeout(client.setDoc(memberRef(acct), {events:local.event, artists:local.artist, updatedAt:Date.now()}, {merge:true}), '同期がタイムアウトしました'); }
-  async function memberSetMeta(acct, fields){ await fsTimeout(client.setDoc(memberRef(acct), fields, {merge:true}), '保存がタイムアウトしました'); }
   function saveMemberSession(){ if(member) localStorage.setItem('kg_member_session_v2', JSON.stringify({acct:member.acct, code:member.code||null})); }
   function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has) $('kg-code-display').textContent = member.code ? member.code : '（未設定）'; }
   function scheduleMemberPush(){ if(!member||!memberReady)return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member)return; memberPushFavorites(member.acct).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
   /* ---------- その他の端末データの同期（v105で追加） ----------
      推し・お気に入り以外の端末データ（行きたい／気になる／マイリスト／
      フォロー／好み／保存した絞り込み／学習／終了表示）も端末をまたげるよう、
-     1つのまとまりとして同期する。保存先: 会員コード=memberdata の userdata 欄、
-     Google=users/{uid}/userdata/main。取り込みは原則「統合」（和集合）で、
-     端末のデータを勝手に消さない。反映は localStorage へ書いて1回だけ再読込 */
+     1つのまとまりとして同期する。保存先: 会員コード=アカウント本体の userdata 欄、
+     Google=主軸はシートの g:{uidハッシュ} 行、保険は users/{uid}/userdata/main。
+     取り込みは原則「統合」（和集合）で、端末のデータを勝手に消さない。
+     反映は localStorage へ書いて1回だけ再読込 */
   var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended'};
   function udArr(v){ return Array.isArray(v)? v : []; }
   function udParse(k, fb){ try{ var v=localStorage.getItem(k); return v==null? fb : JSON.parse(v); }catch(e){ return fb; } }
@@ -229,7 +351,7 @@
     udBusy=true;
     try{
       if(member && memberReady){ await memberSetMeta(member.acct, {userdata:data, udUpdatedAt:Date.now()}); udLastSig=sig; noteCloudOk(); }
-      else if(user && initialized){ await fsTimeout(client.setDoc(client.doc(client.db,'users',user.id,'userdata','main'), {data:data, updatedAt:Date.now()}), '同期がタイムアウトしました'); udLastSig=sig; noteCloudOk(); }
+      else if(user && initialized){ await udGoogleSet(user.id, data); udLastSig=sig; noteCloudOk(); }
     }catch(e){ noteCloudFail(); /* 失敗しても端末内データは無事。次回の定期チェックで再送する */ }
     finally{ udBusy=false; }
   }
@@ -246,7 +368,7 @@
     try{
       var cloud=null;
       if(member && memberReady){ var d=await memberDoc(member.acct); cloud=d? d.userdata : null; }
-      else if(user && initialized){ var snap=await fsTimeout(client.getDoc(client.doc(client.db,'users',user.id,'userdata','main')), '読み込みがタイムアウトしました'); cloud=snap.exists()? (snap.data()||{}).data : null; }
+      else if(user && initialized){ cloud=await udGoogleGet(user.id); }
       else return;
       noteCloudOk();
       udArmWatchers();
@@ -257,7 +379,7 @@
       udLastSig=udSig();
       try{
         if(member && memberReady) await memberSetMeta(member.acct, {userdata:merged, udUpdatedAt:Date.now()});
-        else if(user && initialized) await fsTimeout(client.setDoc(client.doc(client.db,'users',user.id,'userdata','main'), {data:merged, updatedAt:Date.now()}), '同期がタイムアウトしました');
+        else if(user && initialized) await udGoogleSet(user.id, merged);
       }catch(e){}
       if(before!==udLastSig && !sessionStorage.getItem('kg_ud_reloaded')){
         sessionStorage.setItem('kg_ud_reloaded','1');
@@ -288,14 +410,15 @@
       text('同期済み（会員コード）。'); udPullMerge();
     } catch(e){ text('同期に失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。'); }
   }
+  function noBackend(){ return !syncReady() && !client; }
   $('kg-code-issue').onclick=async function(){
-    if(!client){ text('接続の準備中です。少し待ってからお試しください。'); return; }
+    if(noBackend()){ text('接続の準備中です。少し待ってからお試しください。'); return; }
     if(member){ text('すでに会員コードでログイン中です。'); return; }
     try {
       var acct=newAcct(); var code=newCode(); var ch=await codeHashOf(code);
       var local=bridge.read();
-      await fsTimeout(client.setDoc(memberRef(acct), {events:local.event, artists:local.artist, updatedAt:Date.now(), codeHash:ch}), '発行がタイムアウトしました。データベースの準備ができていない可能性があります');
-      await fsTimeout(client.setDoc(client.doc(client.db,'codes',ch), {acct:acct}), '発行がタイムアウトしました。データベースの準備ができていない可能性があります');
+      await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now(), codeHash:ch});
+      await idxSet('c:', ch, acct);
       member={acct:acct, code:code}; saveMemberSession();
       localStorage.setItem('kg_member_selected_v2', acct);
       memberReady=true; renderMember();
@@ -303,54 +426,54 @@
     } catch(e){ member=null; text('コードを発行できませんでした（'+((e&&e.code)||'エラー')+'）。接続できないか、データベースの準備ができていない可能性があります。通信を確認してもう一度お試しください。'); }
   };
   $('kg-code-login').onclick=async function(){
-    if(!client){ text('接続の準備中です。少し待ってからお試しください。'); return; }
+    if(noBackend()){ text('接続の準備中です。少し待ってからお試しください。'); return; }
     var code=$('kg-code-input').value;
     if(normCode(code).length<20){ text('コードの形式が違うようです。'); return; }
     try {
       var ch=await codeHashOf(code);
-      var snap=await fsTimeout(client.getDoc(client.doc(client.db,'codes',ch)), 'ログインがタイムアウトしました');
-      if(!snap.exists()){ text('そのコードが見つかりませんでした。'); return; }
-      if(!await activateMember(snap.data().acct, code)) text('データが見つかりませんでした。');
+      var acct=await idxGet('c:', ch);
+      if(!acct){ text('そのコードが見つかりませんでした。'); return; }
+      if(!await activateMember(acct, code)) text('データが見つかりませんでした。');
     } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); }
   };
   $('kg-recovery-login').onclick=async function(){
-    if(!client){ text('接続の準備中です。少し待ってからお試しください。'); return; }
+    if(noBackend()){ text('接続の準備中です。少し待ってからお試しください。'); return; }
     var q=$('kg-rec-q').value, a=$('kg-rec-a').value;
     if(!normQA(q)||!normQA(a)){ text('質問と回答の両方を入力してください。'); return; }
     try {
       var rh=await recoveryHashOf(q,a);
-      var snap=await fsTimeout(client.getDoc(client.doc(client.db,'recovery',rh)), 'ログインがタイムアウトしました');
-      if(!snap.exists()){ text('質問と回答が一致するアカウントが見つかりませんでした。'); return; }
-      var ok=await activateMember(snap.data().acct, null);
+      var acct=await idxGet('r:', rh);
+      if(!acct){ text('質問と回答が一致するアカウントが見つかりませんでした。'); return; }
+      var ok=await activateMember(acct, null);
       if(!ok){ text('データが見つかりませんでした。'); return; }
       if(memberReady) text('質問と回答でログインしました。コードは未設定です。「コードを再発行」で新しいコードを作ってください。');
     } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); }
   };
   $('kg-code-copy').onclick=function(){ if(!member||!member.code)return; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(member.code).then(function(){ text('コードをコピーしました。'); }, function(){ text('コピーできませんでした。コードをメモしてください。'); }); } };
   $('kg-code-reissue').onclick=async function(){
-    if(!member||!client) return;
+    if(!member||noBackend()) return;
     if(!confirm('新しいコードを発行します。今までのコードは使えなくなります。よろしいですか？')) return;
     try {
       var d=await memberDoc(member.acct);
       var code=newCode(); var ch=await codeHashOf(code);
-      await fsTimeout(client.setDoc(client.doc(client.db,'codes',ch), {acct:member.acct}), '再発行がタイムアウトしました');
-      if(d && d.codeHash && d.codeHash!==ch){ try{ await fsTimeout(client.deleteDoc(client.doc(client.db,'codes',d.codeHash))); }catch(_){} }
+      await idxSet('c:', ch, member.acct);
+      if(d && d.codeHash && d.codeHash!==ch){ await idxDel('c:', d.codeHash); }
       await memberSetMeta(member.acct, {codeHash:ch});
       member.code=code; saveMemberSession(); renderMember();
       text('新しいコードを発行しました。控えてください。');
     } catch(e){ text('再発行できませんでした（'+((e&&e.code)||'エラー')+'）。'); }
   };
   $('kg-qa-save').onclick=async function(){
-    if(!member||!client) return;
+    if(!member||noBackend()) return;
     var q=$('kg-qa-q').value, a=$('kg-qa-a').value;
     if(!normQA(q)||!normQA(a)){ text('質問と回答の両方を入力してください。'); return; }
     try {
       var d=await memberDoc(member.acct);
       var rh=await recoveryHashOf(q,a);
-      var existing=await fsTimeout(client.getDoc(client.doc(client.db,'recovery',rh)), '保存がタイムアウトしました');
-      if(existing.exists() && existing.data().acct!==member.acct){ text('その質問と回答の組み合わせは、すでに使われています。質問か回答を少し変えてください。'); return; }
-      if(d && d.recoveryHash && d.recoveryHash!==rh){ try{ await fsTimeout(client.deleteDoc(client.doc(client.db,'recovery',d.recoveryHash))); }catch(_){} }
-      await fsTimeout(client.setDoc(client.doc(client.db,'recovery',rh), {acct:member.acct}), '保存がタイムアウトしました');
+      var existingAcct=await idxGet('r:', rh);
+      if(existingAcct && existingAcct!==member.acct){ text('その質問と回答の組み合わせは、すでに使われています。質問か回答を少し変えてください。'); return; }
+      if(d && d.recoveryHash && d.recoveryHash!==rh){ await idxDel('r:', d.recoveryHash); }
+      await idxSet('r:', rh, member.acct);
       await memberSetMeta(member.acct, {recoveryHash:rh});
       $('kg-qa-a').value='';
       text('質問と回答を保存しました。コードを失くしても、この質問と回答でログインできます。');
@@ -460,7 +583,21 @@
     }
     finally{button.disabled=false;}
   };
-  if(!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) { parts(true,false,false,false); text('ログイン機能は準備中です。'); return; }
+  /* 会員コードの起動処理: 主軸（シート）が設定されていれば Firebase を待たずに
+     セッション復元する。保険（Firestore）だけの設定でも、Firebase 初期化後に再試行する */
+  function bootMember(){
+    if(bootMember.done) return; bootMember.done=true;
+    $('kg-member').hidden=false;
+    try{ localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1'); }catch(_){}
+    var savedSession=null; try{ savedSession=JSON.parse(localStorage.getItem('kg_member_session_v2')||'null'); }catch(_){}
+    if(savedSession && savedSession.acct){ activateMember(savedSession.acct, savedSession.code||null, true).catch(function(){ bootMember.done=false; /* 到達できない場合は後の初期化で再試行 */ }); }
+  }
+  if(syncReady()) bootMember();
+  if(!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) {
+    if(!syncReady()) { parts(true,false,false,false); text('ログイン機能は準備中です。'); }
+    else { text('会員コードでのログインが使えます。'); renderAdmin(); }
+    return;
+  }
   parts(false,false,false,false); text('ログイン機能を読み込んでいます…');
   (async function(){
     try {
@@ -469,13 +606,10 @@
       var db=await fsTimeout(import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js'), '読み込みがタイムアウトしました');
       var instance=app.initializeApp(cfg);
       client=Object.assign({},db,auth,{auth:auth.getAuth(instance),db:db.getFirestore(instance)});
-      auth.onAuthStateChanged(client.auth,function(u){setupSession(u ? {user:{id:u.uid,email:u.email}} : null);});
+      auth.onAuthStateChanged(client.auth,function(u){ fbUser=u||null; setupSession(u ? {user:{id:u.uid,email:u.email}} : null); });
       if(auth.getRedirectResult){ auth.getRedirectResult(client.auth).catch(function(err){ text('ログインできませんでした（'+((err&&err.code)||'不明なエラー')+'）。もう一度お試しください。'); }); }
-      $('kg-member').hidden=false;
-      try{ localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1'); }catch(_){}
-      var savedSession=null; try{ savedSession=JSON.parse(localStorage.getItem('kg_member_session_v2')||'null'); }catch(_){}
-      if(savedSession && savedSession.acct){ activateMember(savedSession.acct, savedSession.code||null, true).catch(function(){ /* 復元できない場合は未ログインのまま */ }); }
+      bootMember();
       renderAdmin();
-    } catch(e){parts(true,false,false,false);text('ログイン機能を読み込めませんでした（'+((e&&e.message)||'エラー')+'）。通信と設定をご確認ください。');}
+    } catch(e){ if(!syncReady()){ parts(true,false,false,false); text('ログイン機能を読み込めませんでした（'+((e&&e.message)||'エラー')+'）。通信と設定をご確認ください。'); } }
   })();
 })();
