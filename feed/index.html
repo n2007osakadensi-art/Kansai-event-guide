@@ -1293,9 +1293,10 @@ function start(){
     setTimeout(kgFeedRestore, 50);
   }
   function kgFeedRestore(){
-    var st=null; try{ st=JSON.parse(localStorage.getItem("kg_feed_ui_v1")||"null"); }catch(e){}
+    var raw=null; try{ raw=localStorage.getItem("kg_feed_ui_v1"); }catch(e){}
+    var st=null; try{ st=JSON.parse(raw||"null"); }catch(e){}
     if(!st){ kgFeedDiagSet({rf:0}); return; }
-    kgFeedDiagSet({rf:1, ra:"", re:"", rq:st.q||"", ri:st.idx||0});
+    kgFeedDiagSet({rf:1, ra:"", re:"", rq:st.q||"", ri:st.idx||0, rr:String(raw||"").slice(0,50), fq0:feedQuery||"", stage:"start"});
     var applied=[];
     try{
       if(st.q && feedQuery!==st.q){
@@ -1303,11 +1304,13 @@ function start(){
         if(inp) inp.value=st.q;
         feedQuery=st.q;
         applied.push("q");
+        kgFeedDiagSet({stage:"qset"});
         renderFeed(false);
+        kgFeedDiagSet({stage:"qrender"});
       }
       var ix=Math.max(0, Math.min(st.idx||0, feedItems.length-1));
       if(ix>0){ curIdx=ix; var fe=document.getElementById("feed"); if(fe) fe.scrollTop=ix*fe.clientHeight; updateCount(); applied.push("idx"); }
-      kgFeedDiagSet({ra:applied.join(",")});
+      kgFeedDiagSet({ra:applied.join(","), stage:"end"});
       setTimeout(function(){
         if(st.q && feedQuery!==st.q){
           var inp2=document.getElementById("feedSearchInput");
