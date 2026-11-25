@@ -9,7 +9,7 @@
 1. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/HANDOVER.md
 2. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/OPERATIONS.md
 
-イベントの記載ルールは `docs/event-listing-rules.md` が正本です。
+イベントの記載ルールは `docs/event-listing-rules.md` が正本です。書き込みから表示までの手順は `docs/workflow.md`、サイト設計の定義・ルールは `docs/site-design-rules.md` もあわせて読んでください。
 
 【イベント調査を頼まれた場合】
 
