@@ -582,3 +582,8 @@
 - 入口プログラム account-sync/Code.gs と設置手順 ACCOUNT_SHEET_SETUP.md を追加。account-config.js に syncEndpoint（未設定＝従来どおり端末内保存のみで無害）
 - LOGIN_SETUP.md は保険（Firestore）用として位置づけ直し（残作業はDB作成のみ）
 - 実地確認は Kota のシート設置＋URL受領後に実施（会員コード発行→別環境でログイン→同期）
+## 2026-11-25 v146 アカウント同期の接続先を設定（シート主軸が稼働開始）
+- account-config.js の syncEndpoint に、アカウント用シートの入口（Apps Script ウェブアプリ）のURLを設定。シート id 1Rwvlts_kS6RmwRN_0cWMt1fDyVnltzvi0QZz4jIdDBs（kv タブ）
+- 入口の動作確認済み: get/set/merge/del の往復、シートへの実着、不正な鍵の拒否、テスト行の削除まで確認
+- 注意: 最初に発行された別デプロイのURL（…FAazS/exec）は関数未設置で無効。稼働中のURLは account-config.js の値が正
+- 保険の Firestore は未作成のまま（作成され次第、二重書き込みの保険側が自動で効き始める）
