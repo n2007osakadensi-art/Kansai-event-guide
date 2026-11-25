@@ -13,6 +13,7 @@
 5. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/workflow.md （書き込み → 反映 → 表示のワークフロー。画像を含む）
 6. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/site-design-rules.md （サイト設計の定義・ルール）
 7. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/data-dictionary.md （データの項目定義と用語集）
+8. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/search-system.md （検索の仕組み: 照合・サジェスト・辞書・改善の循環）
 
 【イベント調査を頼まれた場合】
 
