@@ -151,7 +151,7 @@
      1つのまとまりとして同期する。保存先: 会員コード=memberdata の userdata 欄、
      Google=users/{uid}/userdata/main。取り込みは原則「統合」（和集合）で、
      端末のデータを勝手に消さない。反映は localStorage へ書いて1回だけ再読込 */
-  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended'};
+  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended',myPosts:'kg_trial_my_posts_v1'};
   function udArr(v){ return Array.isArray(v)? v : []; }
   function udParse(k, fb){ try{ var v=localStorage.getItem(k); return v==null? fb : JSON.parse(v); }catch(e){ return fb; } }
   function udReadLocal(){
@@ -163,6 +163,7 @@
       prefs:udParse(UD_KEYS.prefs,null),
       profiles:udArr(udParse(UD_KEYS.profiles,[])),
       learned:udParse(UD_KEYS.learned,null),
+      myPosts:udArr(udParse(UD_KEYS.myPosts,[])),
       showEnded:localStorage.getItem(UD_KEYS.showEnded)==='1'
     };
   }
@@ -193,6 +194,10 @@
     var ll=local.learned||{}, cl=cloud.learned||{}, learned={};
     ['cats','artists','areas'].forEach(function(k){ learned[k]={}; var a=ll[k]||{}, b=cl[k]||{}; Object.keys(a).forEach(function(n){ learned[k][n]=a[n]; }); Object.keys(b).forEach(function(n){ learned[k][n]=Math.max(Number(learned[k][n])||0, Number(b[n])||0); }); });
     out.learned=learned;
+    var posts=(local.myPosts||[]).map(udClone), pseen=new Set(posts.map(function(p){ return p&&p.id; }));
+    (cloud.myPosts||[]).forEach(function(row){ if(row&&typeof row.id==='string'&&!pseen.has(row.id)){ pseen.add(row.id); posts.push(udClone(row)); } });
+    posts.sort(function(a,b){ return (Number(b.ts)||0)-(Number(a.ts)||0); });
+    out.myPosts=posts.slice(0,1000);
     out.showEnded=!!(local.showEnded||cloud.showEnded);
     return out;
   }
@@ -205,6 +210,7 @@
       if(d.prefs) localStorage.setItem(UD_KEYS.prefs, JSON.stringify(d.prefs));
       localStorage.setItem(UD_KEYS.profiles, JSON.stringify(d.profiles||[]));
       if(d.learned) localStorage.setItem(UD_KEYS.learned, JSON.stringify(d.learned));
+      localStorage.setItem(UD_KEYS.myPosts, JSON.stringify(d.myPosts||[]));
       localStorage.setItem(UD_KEYS.showEnded, d.showEnded? '1':'0');
     }catch(e){}
   }

@@ -15,6 +15,7 @@
     lists:'kg_trial_lists_v1',
     follows:'kg_trial_follows_v1',
     performers:'kg_trial_fav_performers_v1',
+    myPosts:'kg_trial_my_posts_v1',
     profiles:'kg_filter_profiles_v1',
     preferences:'kg_trial_prefs_v1',
     learned:'kg_trial_learn_v1',
@@ -109,6 +110,19 @@
     if(!v||typeof v!=='object'||Array.isArray(v)) return {venues:[],organizers:[]};
     return { venues:stringArray(v.venues||[],'フォロー中の会場',5000), organizers:stringArray(v.organizers||[],'フォロー中の主催',5000) };
   }
+  function safePosts(value){
+    if(value==null) return [];
+    if(!Array.isArray(value)||value.length>1000) throw new Error('自分の投稿の形式または件数が上限を超えています。');
+    var out=[],seen=new Set();
+    value.forEach(function(row){
+      if(!row||typeof row!=='object'||Array.isArray(row)||typeof row.id!=='string'||!row.id||row.id.length>100||typeof row.text!=='string'||!row.text.trim()||row.text.length>500) throw new Error('自分の投稿に読み取れない項目があります。');
+      if(seen.has(row.id)) return;
+      seen.add(row.id);
+      out.push({id:row.id,text:row.text,ts:Number.isFinite(Number(row.ts))?Number(row.ts):0});
+    });
+    out.sort(function(a,b){return b.ts-a.ts;});
+    return out;
+  }
   function unionStrings(a,b){ var s=new Set(a||[]); (b||[]).forEach(function(x){ s.add(x); }); return Array.from(s); }
   function readCurrent(){
     var eventIds=parseStored(KEYS.favorites,[]),performers=parseStored(KEYS.performers,[]);
@@ -124,6 +138,7 @@
       filterProfiles:safeProfiles(profiles),
       preferences:safePrefs(preferences),
       learned:safeLearned(learned),
+      myPosts:safePosts(parseStored(KEYS.myPosts,[])),
       showEnded:localStorage.getItem(KEYS.showEnded)==='1'
     };
   }
@@ -146,6 +161,7 @@
       filterProfiles:safeProfiles(d.filterProfiles),
       preferences:safePrefs(d.preferences),
       learned:safeLearned(d.learned),
+      myPosts:Array.isArray(d.myPosts)?safePosts(d.myPosts):[],
       showEnded:d.showEnded
     };
   }
@@ -188,6 +204,13 @@
     if(out.length>200) throw new Error('統合後のマイリストが200件を超えます。不要なリストを削除するか、「置き換える」を選んでください。');
     return out;
   }
+  function mergePosts(a,b){
+    var out=(a||[]).map(function(x){return deepClone(x);}),seen=new Set(out.map(function(x){return x.id;}));
+    (b||[]).forEach(function(row){ if(!seen.has(row.id)){ seen.add(row.id); out.push(deepClone(row)); } });
+    out.sort(function(x,y){return y.ts-x.ts;});
+    if(out.length>1000) out=out.slice(0,1000);
+    return out;
+  }
   function mergeData(a,b){
     return {
       favorites:union(a.favorites,b.favorites),
@@ -199,6 +222,7 @@
       filterProfiles:mergeProfiles(a.filterProfiles,b.filterProfiles),
       preferences:mergePrefs(a.preferences,b.preferences),
       learned:mergeLearned(a.learned,b.learned),
+      myPosts:mergePosts(a.myPosts,b.myPosts),
       showEnded:a.showEnded||b.showEnded
     };
   }
@@ -206,7 +230,7 @@
     return 'お気に入り '+d.favorites.length+'件・推し '+d.performers.length+'件・保存条件 '+d.filterProfiles.length+'件';
   }
   function countSummary(d){
-    return 'お気に入り '+d.favorites.length+'件、行きたい '+(d.want||[]).length+'件、気になる '+(d.interest||[]).length+'件、マイリスト '+(d.lists||[]).length+'件、推し '+d.performers.length+'件、フォロー 会場'+((d.follows||{}).venues||[]).length+'件・主催'+((d.follows||{}).organizers||[]).length+'件、保存した絞り込み '+d.filterProfiles.length+'件、好み設定 '+(d.preferences.onboarded?'あり':'なし');
+    return 'お気に入り '+d.favorites.length+'件、行きたい '+(d.want||[]).length+'件、気になる '+(d.interest||[]).length+'件、マイリスト '+(d.lists||[]).length+'件、推し '+d.performers.length+'件、フォロー 会場'+((d.follows||{}).venues||[]).length+'件・主催'+((d.follows||{}).organizers||[]).length+'件、保存した絞り込み '+d.filterProfiles.length+'件、好み設定 '+(d.preferences.onboarded?'あり':'なし')+'、自分の投稿 '+(d.myPosts||[]).length+'件';
   }
   function writeData(d){
     var values={};
@@ -219,6 +243,7 @@
     values[KEYS.profiles]=JSON.stringify(d.filterProfiles);
     values[KEYS.preferences]=JSON.stringify(d.preferences);
     values[KEYS.learned]=JSON.stringify(d.learned);
+    values[KEYS.myPosts]=JSON.stringify(d.myPosts||[]);
     values[KEYS.showEnded]=d.showEnded?'1':'0';
     var before={};
     Object.keys(values).forEach(function(k){before[k]=localStorage.getItem(k);});
