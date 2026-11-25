@@ -890,7 +890,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v113';
+  window.__kgShell='v114';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -7884,9 +7884,10 @@ function tlMeOshiHTML(){
     return 0;
   });
   var show=tlMeOshiAll? names : names.slice(0,8);
+  var td=todayStr();
   var rows=show.map(function(p){
     var st=stats[p];
-    var meta=st? ('次回 '+(+st.next.slice(5,7))+'/'+(+st.next.slice(8,10))+' ・ '+st.count+'件') : '今後の予定なし';
+    var meta=!st? '今後の予定なし' : (st.next<td? ('開催中 ・ '+st.count+'件') : ('次回 '+(+st.next.slice(5,7))+'/'+(+st.next.slice(8,10))+' ・ '+st.count+'件'));
     return '<button type="button" class="tl-me-orow" data-tlme-oshi="'+esc(p)+'"><span class="tl-me-orow-n">★ '+esc(p)+'</span><span class="tl-me-orow-m">'+esc(meta)+'</span></button>';
   }).join("");
   var more=names.length>8? '<button type="button" class="tl-me-more" data-tlme-oshi-all="1">'+(tlMeOshiAll? '一部だけ表示' : '推しをすべて見る（全'+names.length+'組）')+'</button>' : '';
