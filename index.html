@@ -939,7 +939,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v131';
+  window.__kgShell='v132';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -8637,7 +8637,8 @@ function refreshTlLogin(){
           tlGo(0); return;
         }
         if(dt<600){
-          var r=stage.getBoundingClientRect();
+          var slideEl=stage.querySelector(".tl-slide");
+          var r=(slideEl||stage).getBoundingClientRect();
           var d2=(e.clientX-r.left) < r.width*0.35 ? -1 : 1;
           tlGo(tlState.idx + d2); tlFlash(d2); return;
         }
