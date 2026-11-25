@@ -13,6 +13,7 @@
     want:'kg_trial_want_events_v1',
     interest:'kg_trial_interest_events_v1',
     plan:'kg_trial_plan_v1',
+    plans:'kg_trial_plans_v1',
     lists:'kg_trial_lists_v1',
     follows:'kg_trial_follows_v1',
     performers:'kg_trial_fav_performers_v1',

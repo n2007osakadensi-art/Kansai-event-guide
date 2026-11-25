@@ -448,6 +448,11 @@
   .plan-next{margin:10px 0 4px;border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
   .plan-next-label{font-size:12.5px;font-weight:800;color:var(--muted);margin-bottom:2px}
   .tag-conf{background:#b3261e;color:#fff}
+  .plan-patterns{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+  .plan-pat{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 12px;font-weight:700;font-size:13px;min-height:38px;cursor:pointer;font-family:inherit}
+  .plan-pat.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .plan-pat.add{border-style:dashed;color:var(--muted)}
+  .plan-pat.util{color:var(--muted)}
   .plan-cand{display:flex;align-items:stretch;gap:8px;margin-top:6px}
   .plan-cand-main{flex:1;display:flex;gap:10px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;color:inherit;min-width:0}
   .plan-cand-add{flex:none;border-radius:10px;border:1.5px solid var(--accent);color:var(--accent);background:var(--surface);font-weight:800;padding:0 14px;cursor:pointer;min-height:44px}
@@ -899,7 +904,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v118';
+  window.__kgShell='v119';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -940,7 +945,7 @@
      退避して初期状態で起動できるようにする（本体は消さず kg_quarantine_ に残す） */
   (function(){
     var checks={
-      'kg_trial_fav_events_v1':'arr','kg_trial_fav_performers_v1':'arr','kg_trial_lists_v1':'arr','kg_trial_plan_v1':'arr',
+      'kg_trial_fav_events_v1':'arr','kg_trial_fav_performers_v1':'arr','kg_trial_lists_v1':'arr','kg_trial_plan_v1':'arr','kg_trial_plans_v1':'obj',
       'kg_trial_prefs_v1':'obj','kg_trial_learn_v1':'obj',
       'kg_filter_profiles_v1':'arr','kg_member_session_v2':'obj'
     };
@@ -1254,6 +1259,7 @@
       <button class="btn-ghost" id="icsBtn" type="button">カレンダー（.ics）をダウンロード</button>
       <button class="btn-ghost" id="shioriBtn" type="button">しおり用テキストを作る</button>
     </div>
+    <div id="planPatterns" class="plan-patterns"></div>
     <div id="planBody"></div>
     <div id="planEmpty" class="state" hidden="">
       <h2>プランに入れる予定がまだありません</h2>
@@ -1551,7 +1557,41 @@ var favEvents = loadSet(LS_FAV);
 var favPerfs = loadSet(LS_OSHI);
 var wantEvents = loadSet(LS_WANT);
 var intEvents = loadSet(LS_INT);
-var planIds = loadSet(LS_PLAN);
+var LS_PLANS="kg_trial_plans_v1";
+var planPatterns=[], planActiveId=null;
+var planIds=new Set();
+function activePattern(){ return planPatterns.find(function(p){ return p.id===planActiveId; }) || planPatterns[0] || null; }
+function loadPlans(){
+  var raw=null; try{ raw=JSON.parse(localStorage.getItem(LS_PLANS)||"null"); }catch(e){}
+  planPatterns=[];
+  if(raw && raw.patterns && raw.patterns.length){
+    planPatterns=raw.patterns.filter(function(p){ return p && p.id && Array.isArray(p.ids); }).map(function(p){ return {id:String(p.id), name:String(p.name||"プラン"), ids:p.ids.map(String)}; });
+    planActiveId=raw.active;
+  }
+  if(!planPatterns.length){
+    planPatterns=[{id:"p1", name:"プラン1", ids:Array.from(loadSet(LS_PLAN))}];
+    planActiveId="p1";
+  }
+  if(!planPatterns.some(function(p){ return p.id===planActiveId; })) planActiveId=planPatterns[0].id;
+  var ap=activePattern();
+  planIds=new Set(ap? ap.ids : []);
+}
+function savePlans(){
+  var ap=activePattern(); if(ap) ap.ids=Array.from(planIds);
+  try{ localStorage.setItem(LS_PLANS, JSON.stringify({patterns:planPatterns, active:planActiveId})); }catch(e){}
+  saveSet(LS_PLAN, planIds);
+}
+loadPlans();
+function renderPlanPatterns(){
+  var box=document.getElementById("planPatterns"); if(!box) return;
+  var ap=activePattern();
+  box.innerHTML=planPatterns.map(function(p){
+    return '<button type="button" class="plan-pat'+(ap&&p.id===ap.id?" on":"")+'" data-plan-pat="'+esc(p.id)+'">'+esc(p.name)+'（'+p.ids.length+'）</button>';
+  }).join("")
+  +'<button type="button" class="plan-pat add" data-plan-pat-new="1">＋ 新しいプラン</button>'
+  +(ap? '<button type="button" class="plan-pat util" data-plan-pat-rename="1">名前変更</button>' : '')
+  +(planPatterns.length>1? '<button type="button" class="plan-pat util" data-plan-pat-del="1">このプランを削除</button>' : '');
+}
 
 /* ---------- gviz parsing ---------- */
 function cellText(cell){
@@ -4171,6 +4211,7 @@ function buildPlanSlots(){
   return slots;
 }
 function renderPlan(){
+  renderPlanPatterns();
   var slots=buildPlanSlots();
   els.planEmpty.hidden = slots.length>0;
   document.getElementById("copyPlanBtn").disabled = slots.length===0;
@@ -4530,7 +4571,7 @@ function openModal(ev){
     + '<button class="mini-btn interest'+(isInt?" on":"")+'" type="button" id="modalInt">'+(isInt?"✓ 気になる":"気になる")+'</button>'
     + '<button class="mini-btn" type="button" id="modalShare">共有</button>'
     + '<button class="mini-btn" type="button" id="modalList">'+(inListsCount? "✓ リスト（"+inListsCount+"）" : "＋ リスト")+'</button>'
-    + '<button class="mini-btn'+(isPlan?" on":"")+'" type="button" id="modalPlan">'+(isPlan?"✓ 回しプラン":"＋ 回しプラン")+'</button>'
+    + '<button class="mini-btn'+(isPlan?" on":"")+'" type="button" id="modalPlan">'+(isPlan?"✓ 回しプラン":"＋ 回しプラン")+(planPatterns.length>1 && activePattern()? "："+esc(activePattern().name) : "")+'</button>'
     + ((ev.date===todayStr() && !isEnded(ev) && !/^【中止】/.test(ev.title||""))? '<button class="mini-btn" type="button" id="modalRoute">このイベントの後で回せる現場</button>' : '')
     + '</div>'
     + relatedEventsHTML(ev)
@@ -4842,7 +4883,7 @@ function togglePlan(id){
   id=String(id);
   if(planIds.has(id)){ planIds.delete(id); toast("回しプランから外しました"); }
   else { planIds.add(id); toast("回しプランに入れました"); }
-  saveSet(LS_PLAN, planIds);
+  savePlans();
 }
 function toggleWant(id){
   if(wantEvents.has(id)){ wantEvents.delete(id); toast("「行きたい」から外しました"); }
@@ -6136,6 +6177,13 @@ els.planBody.addEventListener("click", function(e){
   var ev=allEvents.find(function(x){ return String(x.id)===b.getAttribute("data-open"); }); if(ev) openModal(ev);
 });
 document.getElementById("planFindBtn").addEventListener("click", function(){ view="routefit"; render(); window.scrollTo(0,0); });
+document.getElementById("planPatterns").addEventListener("click", function(e){
+  var sw=e.target.closest("[data-plan-pat]");
+  if(sw){ var pid=sw.getAttribute("data-plan-pat"); if(pid!==planActiveId){ savePlans(); planActiveId=pid; var apx=activePattern(); planIds=new Set(apx? apx.ids : []); savePlans(); render(); } return; }
+  if(e.target.closest("[data-plan-pat-new]")){ savePlans(); var np={id:"p"+Date.now(), name:"プラン"+(planPatterns.length+1), ids:[]}; planPatterns.push(np); planActiveId=np.id; planIds=new Set(); savePlans(); render(); return; }
+  if(e.target.closest("[data-plan-pat-rename]")){ var ap2=activePattern(); if(!ap2) return; var nm=prompt("プランの名前", ap2.name); if(nm && nm.trim()){ ap2.name=nm.trim().slice(0,30); savePlans(); render(); } return; }
+  if(e.target.closest("[data-plan-pat-del]")){ var ap3=activePattern(); if(!ap3) return; if(!confirm("「"+ap3.name+"」を削除しますか？（中身の予定も消えます）")) return; planPatterns=planPatterns.filter(function(p){ return p.id!==ap3.id; }); if(!planPatterns.length) planPatterns=[{id:"p1", name:"プラン1", ids:[]}]; planActiveId=planPatterns[0].id; planIds=new Set(planPatterns[0].ids); savePlans(); render(); return; }
+});
 document.getElementById("copyPlanBtn").addEventListener("click", function(){
   var text=planText();
   function done(){ toast("回しプランをコピーしました"); }
@@ -6342,7 +6390,7 @@ function evCachePut(events, lite){
    端末では、推し・お気に入り・アンケート回答・ログイン状態が毎回消えてしまう。
    対象キーは保存のたびに IndexedDB へ控えを取り、起動時に localStorage 側に
    無いものを控えから復元する（どんな端末でも安定して使えることへの対策） */
-var MIRROR_KEYS=["kg_trial_fav_events_v1","kg_trial_plan_v1","kg_trial_fav_performers_v1","kg_trial_lists_v1","kg_trial_prefs_v1","kg_trial_learn_v1","kg_trial_show_ended","kg_filter_profiles_v1","kg_member_session_v2","kg_member_selected_v2","kg_member_selected_v1","kg_member_code_v1","kg_account_selected_user_v1","kg_admin_mode_v1","kg_admin_hash_v1","kg_guest_mode_v1"];
+var MIRROR_KEYS=["kg_trial_fav_events_v1","kg_trial_plan_v1","kg_trial_plans_v1","kg_trial_fav_performers_v1","kg_trial_lists_v1","kg_trial_prefs_v1","kg_trial_learn_v1","kg_trial_show_ended","kg_filter_profiles_v1","kg_member_session_v2","kg_member_selected_v2","kg_member_selected_v1","kg_member_code_v1","kg_account_selected_user_v1","kg_admin_mode_v1","kg_admin_hash_v1","kg_guest_mode_v1"];
 var MIRROR_PREFIXES=["kg_account_pending_v1_"];
 var MIRROR_IDB_KEY="local-mirror-v1";
 var mirrorRestoring=false, mirrorTimer=null;
@@ -6394,7 +6442,7 @@ function restoreLocalMirror(){
   });
 }
 function resyncLocalState(){
-  favEvents=loadSet(LS_FAV); favPerfs=loadSet(LS_OSHI); planIds=loadSet(LS_PLAN);
+  favEvents=loadSet(LS_FAV); favPerfs=loadSet(LS_OSHI); loadPlans();
   myLists=loadMyLists();
   prefs=loadPrefs(); learn=loadLearn();
   try{ showEnded=localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
@@ -7875,7 +7923,7 @@ function renderTlMe(){
     +'<button type="button" data-tlme="follow"><strong>'+(follows.venues.length+follows.organizers.length)+'</strong><span>フォロー</span></button>'
     +'</div>'
     +(tlMeOshiOpen? '<div class="tl-me-oshi-panel">'+tlMeOshiHTML()+'</div>' : '')
-    +'<button type="button" class="tl-me-secbtn" data-tlme-sec="plan"><span>今日の回し</span><span class="tl-me-secbtn-n">'+todaySlots.length+'件 '+(tlMeSec.plan?'⌄':'›')+'</span></button>'
+    +'<button type="button" class="tl-me-secbtn" data-tlme-sec="plan"><span>今日の回し'+(planPatterns.length>1 && activePattern()? '（'+esc(activePattern().name)+'）' : '')+'</span><span class="tl-me-secbtn-n">'+todaySlots.length+'件 '+(tlMeSec.plan?'⌄':'›')+'</span></button>'
     +(tlMeSec.plan? (planRows? '<div class="tl-me-slots">'+planRows+'</div>' : '<p class="tl-me-empty">'+(planIds.size? '今日のプランはありません。' : '今日のプランはまだありません。イベントの詳細から「回しプラン」に入れられます。')+'</p>')+(todaySlots.length>4? '<button type="button" class="tl-me-more" data-tlme="plan">今日のプランを全部見る（'+todaySlots.length+'件）</button>' : '') : '')
     +'<button type="button" class="tl-me-secbtn" data-tlme-sec="fav"><span>お気に入りの管理</span><span class="tl-me-secbtn-n">'+favEvents.size+'件 '+(tlMeSec.fav?'⌄':'›')+'</span></button>'
     +(tlMeSec.fav? tlMeFavHTML() : '')
@@ -8513,7 +8561,7 @@ window.addEventListener("storage",function(e){
   if(e.storageArea!==localStorage)return;
   var all=e.key===null;
   if(all||e.key===LS_FAV)favEvents=loadSet(LS_FAV);
-  if(all||e.key===LS_PLAN)planIds=loadSet(LS_PLAN);
+  if(all||e.key===LS_PLAN||e.key===LS_PLANS)loadPlans();
   if(all||e.key===LS_OSHI)favPerfs=loadSet(LS_OSHI);
   if(all||e.key===LS_PREFS)prefs=loadPrefs();
   if(all||e.key===LS_LEARN)learn=loadLearn();
@@ -8522,7 +8570,7 @@ window.addEventListener("storage",function(e){
   if(all||e.key===LS_LISTS){ myLists=loadMyLists(); if(allEvents.length && view==="lists") render(); else if(allEvents.length) renderCountsOnly(); }
   if(all||e.key===LS_FOLLOWS){ follows=loadFollows(); }
   if(all||e.key==="kg_filter_profiles_v1")window.dispatchEvent(new Event("kg:profiles-refresh"));
-  if(all||e.key===LS_FAV||e.key===LS_PLAN||e.key===LS_OSHI||e.key===LS_PREFS||e.key===LS_LEARN||e.key==="kg_trial_show_ended")if(allEvents.length)render();
+  if(all||e.key===LS_FAV||e.key===LS_PLAN||e.key===LS_PLANS||e.key===LS_OSHI||e.key===LS_PREFS||e.key===LS_LEARN||e.key==="kg_trial_show_ended")if(allEvents.length)render();
 });
 
 window.KGEditorBridge = {
