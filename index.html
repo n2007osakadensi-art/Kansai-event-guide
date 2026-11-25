@@ -235,7 +235,7 @@
   .tl-backbar{display:inline-block;border:1.5px solid var(--accent);color:var(--accent);background:var(--surface);border-radius:999px;padding:8px 16px;font-weight:800;font-size:14px;min-height:42px;cursor:pointer;font-family:inherit;margin-bottom:12px}
   /* プロフィールシート: タイムラインの中で開くSNS風プロフィール（v90） */
   .overlay.prof-above{z-index:140}
-  .psheet{position:fixed;inset:0;z-index:130;display:none;background:rgba(10,10,12,.55)}
+  .psheet{position:fixed;inset:0;z-index:150;display:none;background:rgba(10,10,12,.55)}
   .psheet.open{display:block}
   .psheet-panel{position:absolute;left:0;right:0;bottom:0;top:5%;background:var(--surface);color:var(--ink);border-radius:20px 20px 0 0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
   @media(min-width:700px){.psheet-panel{left:50%;right:auto;width:640px;margin-left:-320px}}
@@ -953,7 +953,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v137';
+  window.__kgShell='v138';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3271,7 +3271,7 @@ function artistEvents(name){
   return (idx[name]||[]).slice();
 }
 /* ---------- bundled profile DB (ガイド側の会場DB・アーティストプロフィール) ---------- */
-var venueProfiles={}, artistProfiles={}, readingByName={}, dictByName={}, artistCats={}, artistCatCache={}, dictRevMap=null, profilesLoaded=false, profilesLoading=null;
+var venueProfiles={}, artistProfiles={}, organizerProfiles={}, readingByName={}, dictByName={}, artistCats={}, artistCatCache={}, dictRevMap=null, profilesLoaded=false, profilesLoading=null;
 var dirPrefFilter="すべて", dirAreaFilter="すべて", dirTypeFilter="すべて";
 var dirArtistSort="count", dirArtistInitial="すべて";
 var venueProfByName={};
@@ -3285,6 +3285,13 @@ function indexVenueProfiles(){
     var clean=stripVenueSuffix(k); if(clean && !venueProfByName[clean]) venueProfByName[clean]=p;
     if(p.n){ var c2=stripVenueSuffix(p.n); if(c2 && !venueProfByName[c2]) venueProfByName[c2]=p; }
   });
+}
+function organizerProfileFor(name){
+  if(!name) return null;
+  if(organizerProfiles[name]) return organizerProfiles[name];
+  var hit=null;
+  Object.keys(organizerProfiles).forEach(function(k){ var p=organizerProfiles[k]; if(p && (p.al||[]).indexOf(name)>=0) hit=p; });
+  return hit;
 }
 function venueProfileFor(name){
   if(!name) return null;
@@ -3848,6 +3855,7 @@ function renderDetailInner(){
       + profStatsHTML("organizer", evs, upcoming)
       +(upcoming.length? '<p style="margin-top:4px">次の開催：'+esc(fmtDate(upcoming[0].date))+'「'+esc(upcoming[0].title)+'」</p>' : '<p style="margin-top:4px">開催予定のイベントはまだ掲載されていません。</p>')
       +'<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailFollowBtn" style="border-color:var(--accent);color:'+(followHas("organizer",name)?"#fff":"var(--accent)")+';'+(followHas("organizer",name)?"background:var(--accent)":"")+'">'+(followHas("organizer",name)?"フォロー中":"フォローする")+'</button></div>'
+      + (function(){ var oprof=organizerProfileFor(name); if(!oprof) return ""; var oh=[psHandleOf(oprof.x), psHandleOf(oprof.i)].filter(Boolean).join(" ・ "); var ol=""; if(oprof.w) ol+='<a class="link-btn lb-web" href="'+esc(oprof.w)+'" target="_blank" rel="noopener">公式サイト</a>'; if(oprof.x) ol+='<a class="link-btn lb-x" href="'+esc(oprof.x)+'" target="_blank" rel="noopener">X</a>'; if(oprof.i) ol+='<a class="link-btn lb-ig" href="'+esc(oprof.i)+'" target="_blank" rel="noopener">Instagram</a>'; return (oprof.p? '<p class="prof-text">'+esc(oprof.p)+'</p>' : "")+(oh? '<p class="ps-handle">'+esc(oh)+'</p>' : "")+(ol? '<div class="link-row">'+ol+'</div>' : ""); })()
       +'<p class="prof-note">フォローすると、この主催のイベントがタイムラインの「フォロー中」に流れます。</p>'
       +'<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailListBtn">リストに追加</button></div>'
       +'</div>';
@@ -4761,21 +4769,28 @@ function openModal(ev){
     var pvB=els.modal.querySelector("#galPrev"); if(pvB) pvB.addEventListener("click", function(){ galGo(galIdx-1); });
     var nxB=els.modal.querySelector("#galNext"); if(nxB) nxB.addEventListener("click", function(){ galGo(galIdx+1); });
   }
+  /* タイムライン／プロフィールシートから開いた詳細では、その場で
+     プロフィールシートを開く（タイムラインを閉じない、v138）。
+     一覧から開いた詳細では従来どおり名簿の詳細ページへ */
+  var modalFromTl = els.overlay.classList.contains("tl-above") || els.overlay.classList.contains("prof-above");
   els.modal.querySelectorAll("[data-perf]").forEach(function(b){
     b.addEventListener("click", function(){
       var name=b.getAttribute("data-perf");
+      if(modalFromTl){ openProfSheet("artist", name); return; }
       closeModal();
       openDirDetail("artist", name);
     });
   });
   els.modal.querySelectorAll("[data-venue-open]").forEach(function(b){
     b.addEventListener("click", function(){
+      if(modalFromTl){ openProfSheet("venue", b.getAttribute("data-venue-open")); return; }
       closeModal();
       openDirDetail("venue", b.getAttribute("data-venue-open"));
     });
   });
   els.modal.querySelectorAll("[data-org-open]").forEach(function(b){
     b.addEventListener("click", function(){
+      if(modalFromTl){ openProfSheet("organizer", b.getAttribute("data-org-open")); return; }
       closeModal();
       openDirDetail("organizer", b.getAttribute("data-org-open"));
     });
@@ -6830,7 +6845,7 @@ function mergeProfileObj(base, over){
 function loadSheetProfiles(){
   if(sheetProfilesLoaded) return;
   sheetProfilesLoaded=true;
-  var pending=3, changed=false;
+  var pending=4, changed=false;
   function step(){
     if(--pending>0 || !changed) return;
     indexVenueProfiles();
@@ -6856,6 +6871,7 @@ function loadSheetProfiles(){
   }
   profTab("artists", artistProfiles);
   profTab("venues", venueProfiles);
+  profTab("organizers", organizerProfiles);
   fetchSheetRows("readings", function(rows){
     if(rows){ var seen={}; rows.forEach(function(r, ri){
       if(ri===0 || !r) return;
@@ -8309,7 +8325,7 @@ function openProfSheet(kind, name){
 function closeProfSheet(){
   profSheetState.open=false;
   var sh=document.getElementById("profSheet"); if(sh) sh.classList.remove("open");
-  if(typeof tlState!=="undefined" && tlState.open){ document.body.style.overflow="hidden"; tlSchedule(); }
+  if(typeof tlState!=="undefined" && tlState.open){ document.body.style.overflow="hidden"; if(!els.overlay.classList.contains("open")) tlSchedule(); }
   else if(!els.overlay.classList.contains("open")) document.body.style.overflow="";
 }
 (function(){ var sh=document.getElementById("profSheet"); if(sh) sh.addEventListener("click", function(e){ if(e.target===sh) closeProfSheet(); }); })();
@@ -8344,7 +8360,7 @@ function renderProfSheet(){
   upcoming.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
   past.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?1:-1; return 0; });
   profSheetState.all=upcoming.concat(past);
-  var prof = kind==="artist" ? artistProfileFor(name) : kind==="venue" ? venueProfileFor(name) : null;
+  var prof = kind==="artist" ? artistProfileFor(name) : kind==="venue" ? venueProfileFor(name) : organizerProfileFor(name);
   var wrapCls = kind==="artist" ? "prof-artist" : kind==="venue" ? "prof-venue" : "prof-org";
   var coverStyle="";
   if(kind==="venue" && prof && prof.hi) coverStyle=' style="background-image:url(\''+esc(prof.hi)+'\')"';
@@ -8354,6 +8370,7 @@ function renderProfSheet(){
   var handle="";
   if(kind==="artist" && prof){ handle=[psHandleOf(prof.x), psHandleOf(prof.i)].filter(Boolean).join(" ・ "); }
   if(kind==="venue" && prof){ handle=[psHandleOf(prof.x), psHandleOf(prof.ig)].filter(Boolean).join(" ・ "); }
+  if(kind==="organizer" && prof){ handle=[psHandleOf(prof.x), psHandleOf(prof.i)].filter(Boolean).join(" ・ "); }
   var followed=psFollowed(kind, name);
   var followLabel = kind==="artist" ? (followed? "★ 推し登録中" : "☆ 推しに登録") : (followed? "フォロー中" : "フォローする");
   var h='<div class="'+wrapCls+'"><div class="ps-closebar"><button type="button" class="ps-back" id="psBack">← タイムラインに戻る</button><button type="button" class="ps-close" id="psClose" aria-label="閉じる">✕</button></div>'
@@ -8414,7 +8431,11 @@ function renderProfSheet(){
   if(peb) peb.addEventListener("click", function(){ if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name); });
 }
 function psRowHTML(ev, idx){
-  return '<button type="button" class="ps-row" data-ps-ev="'+idx+'"><span class="pd">'+esc(fmtDate(ev.date))+'</span><span class="pt">'+esc(ev.title)+'<span class="pv">'+esc([ev.timeLabel, ev.venue].filter(Boolean).join(" ・ "))+'</span></span></button>';
+  var parts=[ev.timeLabel];
+  if(profSheetState.kind==="artist") parts.push(ev.venue);
+  else if(profSheetState.kind==="venue"){ if(ev._perfList && ev._perfList.length) parts.push(ev._perfList.slice(0,4).join("、")+(ev._perfList.length>4?" ほか":"")); }
+  else { parts.push(ev.venue); if(ev._perfList && ev._perfList.length) parts.push(ev._perfList.slice(0,4).join("、")+(ev._perfList.length>4?" ほか":"")); }
+  return '<button type="button" class="ps-row" data-ps-ev="'+idx+'"><span class="pd">'+esc(fmtDate(ev.date))+'</span><span class="pt">'+esc(ev.title)+'<span class="pv">'+esc(parts.filter(Boolean).join(" ・ "))+'</span></span></button>';
 }
 function psInfoHTML(kind, name, prof, upcoming, evs){
   var h="";
@@ -8455,6 +8476,14 @@ function psInfoHTML(kind, name, prof, upcoming, evs){
       h+='<div class="link-row"><a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
     }
   } else {
+    if(prof){
+      if(prof.p) h+='<p class="prof-text">'+esc(prof.p)+'</p>';
+      var olinks="";
+      if(prof.w) olinks+='<a class="link-btn lb-web" href="'+esc(prof.w)+'" target="_blank" rel="noopener">公式サイト</a>';
+      if(prof.x) olinks+='<a class="link-btn lb-x" href="'+esc(prof.x)+'" target="_blank" rel="noopener">X</a>';
+      if(prof.i) olinks+='<a class="link-btn lb-ig" href="'+esc(prof.i)+'" target="_blank" rel="noopener">Instagram</a>';
+      if(olinks) h+='<div class="link-row">'+olinks+'</div>';
+    }
     h+='<p>'+(upcoming.length? '次の開催：'+esc(fmtDate(upcoming[0].date))+'「'+esc(upcoming[0].title)+'」' : '開催予定のイベントはまだ掲載されていません。')+'</p>';
   }
   /* 活動の傾向（掲載データからの事実集計のみ。順位づけや人気の表現はしない） */
