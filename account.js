@@ -21,7 +21,7 @@
     '<div id="kg-account-choice" hidden><p><strong>この端末のデータをどうしますか？</strong></p><p>統合すると、この端末の推しとお気に入りがアカウントに追加されます。共有端末や別の方のデータなら「アカウントのデータを使う」を選んでください。</p><button id="kg-merge" type="button">この端末のデータを統合</button> <button id="kg-use-cloud" type="button">アカウントのデータを使う</button></div>' +
     '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
     '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。端末やブラウザを変えても、コードを入れれば推し・お気に入りが維持できます。メールアドレスなどの個人情報は登録しません。</p><button id="kg-code-issue" type="button">会員コードを発行する</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、設定しておいた質問と回答でログインできます（ログイン後、コードを再発行できます）。</p><p><input id="kg-rec-q" type="text" placeholder="あなたの質問" autocomplete="off" style="min-width:200px;padding:6px"><br><input id="kg-rec-a" type="text" placeholder="その回答" autocomplete="off" style="min-width:200px;padding:6px"> <button id="kg-recovery-login" type="button">質問と回答でログイン</button></p></div>' +
-    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><p style="font-size:13px">コードを失くしたとき用に、質問と回答を設定できます（自分で決めた質問と、その回答）。</p><p><input id="kg-qa-q" type="text" placeholder="質問（例：初めて行ったライブは？）" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-qa-a" type="text" placeholder="回答" autocomplete="off" style="min-width:220px;padding:6px"> <button id="kg-qa-save" type="button">質問と回答を保存</button></p><button id="kg-code-logout" type="button">この端末からログアウト</button></div></div>' +
+    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button><span id="kg-code-reissue-confirm" hidden> <span style="font-size:13px">新しいコードを発行します。今までのコードは使えなくなります。</span> <button id="kg-code-reissue-yes" type="button">発行する</button> <button id="kg-code-reissue-no" type="button">やめる</button></span></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><p style="font-size:13px">コードを失くしたとき用に、質問と回答を設定できます（自分で決めた質問と、その回答）。</p><p><input id="kg-qa-q" type="text" placeholder="質問（例：初めて行ったライブは？）" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-qa-a" type="text" placeholder="回答" autocomplete="off" style="min-width:220px;padding:6px"> <button id="kg-qa-save" type="button">質問と回答を保存</button></p><button id="kg-code-logout" type="button">この端末からログアウト</button><span id="kg-code-logout-confirm" hidden> <span style="font-size:13px">この端末内の推し・お気に入りを消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。</span> <button id="kg-code-logout-yes" type="button">ログアウトする</button> <button id="kg-code-logout-no" type="button">やめる</button></span></div></div>' +
     '<div id="kg-guest"><hr><p><strong>ゲスト利用</strong>（一時的な端末向け）</p>' +
     '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
     '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button><span id="kg-guest-end-confirm" hidden> <span style="font-size:13px">この端末のデータを消去しますか？</span> <button id="kg-guest-end-yes" type="button">消去する</button> <button id="kg-guest-end-no" type="button">やめる</button></span></div></div>' +
@@ -414,6 +414,7 @@
   $('kg-code-issue').onclick=async function(){
     if(noBackend()){ text('接続の準備中です。少し待ってからお試しください。'); return; }
     if(member){ text('すでに会員コードでログイン中です。'); return; }
+    var ibtn=this; ibtn.disabled=true;
     try {
       var acct=newAcct(); var code=newCode(); var ch=await codeHashOf(code);
       var local=bridge.read();
@@ -421,25 +422,29 @@
       await idxSet('c:', ch, acct);
       member={acct:acct, code:code}; saveMemberSession();
       localStorage.setItem('kg_member_selected_v2', acct);
-      memberReady=true; renderMember();
+      memberReady=true; renderMember(); renderState();
       text('会員コードを発行しました。コードを控えてください。質問と回答を設定すると、コードを失くしても戻れます。');
-    } catch(e){ member=null; text('コードを発行できませんでした（'+((e&&e.code)||'エラー')+'）。接続できないか、データベースの準備ができていない可能性があります。通信を確認してもう一度お試しください。'); }
+    } catch(e){ member=null; text('コードを発行できませんでした（'+((e&&e.code)||'エラー')+'）。接続できないか、データベースの準備ができていない可能性があります。通信を確認してもう一度お試しください。'); } finally { ibtn.disabled=false; }
   };
   $('kg-code-login').onclick=async function(){
+    if(this.disabled) return;
     if(noBackend()){ text('接続の準備中です。少し待ってからお試しください。'); return; }
     var code=$('kg-code-input').value;
     if(normCode(code).length<20){ text('コードの形式が違うようです。'); return; }
+    var lbtn=this; lbtn.disabled=true;
     try {
       var ch=await codeHashOf(code);
       var acct=await idxGet('c:', ch);
       if(!acct){ text('そのコードが見つかりませんでした。'); return; }
       if(!await activateMember(acct, code)) text('データが見つかりませんでした。');
-    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); }
+    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); } finally { lbtn.disabled=false; }
   };
   $('kg-recovery-login').onclick=async function(){
+    if(this.disabled) return;
     if(noBackend()){ text('接続の準備中です。少し待ってからお試しください。'); return; }
     var q=$('kg-rec-q').value, a=$('kg-rec-a').value;
     if(!normQA(q)||!normQA(a)){ text('質問と回答の両方を入力してください。'); return; }
+    var rbtn=this; rbtn.disabled=true;
     try {
       var rh=await recoveryHashOf(q,a);
       var acct=await idxGet('r:', rh);
@@ -447,12 +452,15 @@
       var ok=await activateMember(acct, null);
       if(!ok){ text('データが見つかりませんでした。'); return; }
       if(memberReady) text('質問と回答でログインしました。コードは未設定です。「コードを再発行」で新しいコードを作ってください。');
-    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); }
+    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); } finally { rbtn.disabled=false; }
   };
   $('kg-code-copy').onclick=function(){ if(!member||!member.code)return; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(member.code).then(function(){ text('コードをコピーしました。'); }, function(){ text('コピーできませんでした。コードをメモしてください。'); }); } };
-  $('kg-code-reissue').onclick=async function(){
-    if(!member||noBackend()) return;
-    if(!confirm('新しいコードを発行します。今までのコードは使えなくなります。よろしいですか？')) return;
+  $('kg-code-reissue').onclick=function(){ if(!member||noBackend()) return; $('kg-code-reissue-confirm').hidden=false; };
+  $('kg-code-reissue-no').onclick=function(){ $('kg-code-reissue-confirm').hidden=true; };
+  $('kg-code-reissue-yes').onclick=async function(){
+    $('kg-code-reissue-confirm').hidden=true;
+    if(!member||noBackend()||this.disabled) return;
+    var ribtn=this; ribtn.disabled=true;
     try {
       var d=await memberDoc(member.acct);
       var code=newCode(); var ch=await codeHashOf(code);
@@ -461,7 +469,7 @@
       await memberSetMeta(member.acct, {codeHash:ch});
       member.code=code; saveMemberSession(); renderMember();
       text('新しいコードを発行しました。控えてください。');
-    } catch(e){ text('再発行できませんでした（'+((e&&e.code)||'エラー')+'）。'); }
+    } catch(e){ text('再発行できませんでした（'+((e&&e.code)||'エラー')+'）。'); } finally { ribtn.disabled=false; }
   };
   $('kg-qa-save').onclick=async function(){
     if(!member||noBackend()) return;
@@ -479,9 +487,11 @@
       text('質問と回答を保存しました。コードを失くしても、この質問と回答でログインできます。');
     } catch(e){ text('保存できませんでした（'+((e&&e.code)||'エラー')+'）。'); }
   };
-  $('kg-code-logout').onclick=function(){
+  $('kg-code-logout').onclick=function(){ if(!member)return; $('kg-code-logout-confirm').hidden=false; };
+  $('kg-code-logout-no').onclick=function(){ $('kg-code-logout-confirm').hidden=true; };
+  $('kg-code-logout-yes').onclick=function(){
+    $('kg-code-logout-confirm').hidden=true;
     if(!member)return;
-    if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。よろしいですか？'))return;
     localStorage.removeItem('kg_member_session_v2'); localStorage.removeItem('kg_member_selected_v2'); localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1');
     try{ sessionStorage.removeItem('kg_ud_reloaded'); }catch(_){}
     member=null; memberReady=false; pendingMemberCloud=null; renderMember(); renderState();
