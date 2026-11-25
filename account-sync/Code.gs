@@ -2,6 +2,10 @@
 // 設置先: アカウント用スプレッドシート（非公開）の「拡張機能 → Apps Script」
 // 役割: サイトからの読み書きを、鍵（またはGoogleログインのトークン）が
 //       合った行だけに限定して仲介する。一覧を返す操作は無い。
+// 2026-11-25 改訂: 読み取りはロックを取らない。書き込みも、トークン検証
+// （外部通信）を済ませてから短くロックする。全リクエストを1つのロックで
+// 直列化していた旧版は、遅い応答があると後続が全てタイムアウトして
+// 詰まることが実地で確認されたため。
 var PROJECT_ID = 'kansai-event-guide';
 var SHEET_NAME = 'kv';
 var MAX_VALUE = 900000;
@@ -13,10 +17,20 @@ function doGet() {
 function doPost(e) {
   try {
     var req = JSON.parse(e.postData.contents);
+    var op = String(req.op || '');
+    var key = String(req.key || '');
+    // 鍵チェック（g: はトークン検証＝外部通信を含む）はロックの外で先に行う
+    checkKey_(req, key);
+    if (op === 'get') {
+      // 読み取りはロックなし（書き込みと競合しても行単位の読みで足りる）
+      var sh = sheet_();
+      var v = getVal_(sh, findRow_(sh, key));
+      return json_({ ok: true, found: v !== null, value: v });
+    }
     var lock = LockService.getScriptLock();
-    lock.waitLock(20000);
+    lock.waitLock(15000);
     try {
-      return json_(handle_(req));
+      return json_(handleWrite_(req, key));
     } finally {
       lock.releaseLock();
     }
@@ -89,16 +103,11 @@ function checkKey_(req, key) {
   }
 }
 
-function handle_(req) {
+// 書き込み系。ロックの中で呼ぶこと（行の再検索もロック内で行う）。
+function handleWrite_(req, key) {
   var op = String(req.op || '');
-  var key = String(req.key || '');
-  checkKey_(req, key);
   var sh = sheet_();
   var row = findRow_(sh, key);
-  if (op === 'get') {
-    var v = getVal_(sh, row);
-    return { ok: true, found: v !== null, value: v };
-  }
   if (op === 'set') {
     setVal_(sh, row, key, req.value || {});
     return { ok: true };

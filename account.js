@@ -107,13 +107,26 @@
   function syncReady(){ return !!SYNC_URL; }
   async function kvCall(body) {
     if(!SYNC_URL){ var e0=new Error('同期の接続先が未設定です'); e0.code='kg-no-endpoint'; throw e0; }
-    var p=(async function(){
-      var res=await fetch(SYNC_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(body)});
-      var j=null; try{ j=await res.json(); }catch(_){}
-      if(!j || !j.ok){ var e=new Error((j&&j.error)||('HTTP '+res.status)); e.code=(j&&j.code)||'kg-sync'; throw e; }
-      return j;
-    })();
-    return fsTimeout(p, '同期がタイムアウトしました');
+    // 入口側が混んでいる（ロック待ち）・一時的に遅い場合は、間隔をあけて
+    // 最大3回まで試す。恒常的な失敗は最後のエラーをそのまま投げる。
+    var waits=[0, 2500, 5000], lastErr=null;
+    for(var ai=0; ai<waits.length; ai++){
+      if(waits[ai]) await new Promise(function(r){ setTimeout(r, waits[ai]); });
+      try {
+        var p=(async function(){
+          var res=await fetch(SYNC_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(body)});
+          var j=null; try{ j=await res.json(); }catch(_){}
+          if(!j || !j.ok){ var e=new Error((j&&j.error)||('HTTP '+res.status)); e.code=(j&&j.code)||'kg-sync'; if(/Lock/.test(e.message)) e.code='kg-busy'; throw e; }
+          return j;
+        })();
+        return await fsTimeout(p, '同期がタイムアウトしました');
+      } catch(e) {
+        lastErr=e;
+        var retryable = e && (e.code==='kg-busy' || e.code==='kg-timeout' || /^HTTP 5/.test(e.message||''));
+        if(!retryable) throw e;
+      }
+    }
+    throw lastErr;
   }
   async function kvGet(key, token){ var body={op:'get', key:key}; if(token) body.token=token; var j=await kvCall(body); return j.found ? j.value : null; }
   async function kvSet(key, value, token){ var body={op:'set', key:key, value:value}; if(token) body.token=token; await kvCall(body); }
@@ -145,6 +158,7 @@
     finally { running=false; }
   }
   async function pull(uid) {
+    var sheetErr=null;
     if(cloudBlocked()){ var be=new Error('クラウド同期は一時停止中です'); be.code='kg-cloud-down'; throw be; }
     if(syncReady()) {
       try {
@@ -153,16 +167,15 @@
         noteCloudOk();
         var f=(v && v.favorites) || {};
         return {event:Array.isArray(f.event)?f.event:[], artist:Array.isArray(f.artist)?f.artist:[]};
-      } catch(e) { if(!client) throw e; /* 保険から読む */ }
+      } catch(e) { if(!client) throw e; sheetErr=e; /* 保険から読む */ }
     }
-    var data=await fsPull(uid);
-    noteCloudOk();
-    return data;
+    try { var data=await fsPull(uid); noteCloudOk(); return data; } catch(e2) { throw sheetErr||e2; }
   }
   function backendMissing(){ var e=new Error('接続の準備中です'); e.code='kg-no-backend'; return e; }
   async function memberDoc(acct) {
-    if(syncReady()) { try { return await kvGet('m:'+acct); } catch(e) { if(!client) throw e; } }
-    if(client) { var snap=await fsTimeout(client.getDoc(client.doc(client.db,'memberdata',acct)), 'データの読み込みがタイムアウトしました'); return snap.exists() ? (snap.data()||{}) : null; }
+    var sheetErr=null;
+    if(syncReady()) { try { return await kvGet('m:'+acct); } catch(e) { if(!client) throw e; sheetErr=e; } }
+    if(client) { try { var snap=await fsTimeout(client.getDoc(client.doc(client.db,'memberdata',acct)), 'データの読み込みがタイムアウトしました'); return snap.exists() ? (snap.data()||{}) : null; } catch(e2) { throw sheetErr||e2; } }
     throw backendMissing();
   }
   async function memberWriteFields(acct, fields) {
@@ -178,8 +191,9 @@
   async function memberSetMeta(acct, fields) { await memberWriteFields(acct, fields); }
   function idxCollection(prefix){ return prefix==='c:' ? 'codes' : 'recovery'; }
   async function idxGet(prefix, hash) {
-    if(syncReady()) { try { var v=await kvGet(prefix+hash); return v ? (v.acct||null) : null; } catch(e) { if(!client) throw e; } }
-    if(client) { var snap=await fsTimeout(client.getDoc(client.doc(client.db, idxCollection(prefix), hash)), '読み込みがタイムアウトしました'); return snap.exists() ? ((snap.data()||{}).acct||null) : null; }
+    var sheetErr=null;
+    if(syncReady()) { try { var v=await kvGet(prefix+hash); return v ? (v.acct||null) : null; } catch(e) { if(!client) throw e; sheetErr=e; } }
+    if(client) { try { var snap=await fsTimeout(client.getDoc(client.doc(client.db, idxCollection(prefix), hash)), '読み込みがタイムアウトしました'); return snap.exists() ? ((snap.data()||{}).acct||null) : null; } catch(e2) { throw sheetErr||e2; } }
     return null;
   }
   async function idxSet(prefix, hash, acct) {
@@ -196,11 +210,12 @@
     try { if(client) await fsTimeout(client.deleteDoc(client.doc(client.db, idxCollection(prefix), hash)), '削除がタイムアウトしました'); } catch(e) {}
   }
   async function udGoogleGet(uid) {
+    var sheetErr=null;
     if(syncReady()) {
       try { var token=await idToken(); if(token) { var v=await kvGet(await googleKeyOf(uid), token); return v ? (v.userdata||null) : null; } }
-      catch(e) { if(!client) throw e; }
+      catch(e) { if(!client) throw e; sheetErr=e; }
     }
-    if(client) { var snap=await fsTimeout(client.getDoc(client.doc(client.db,'users',uid,'userdata','main')), '読み込みがタイムアウトしました'); return snap.exists() ? ((snap.data()||{}).data||null) : null; }
+    if(client) { try { var snap=await fsTimeout(client.getDoc(client.doc(client.db,'users',uid,'userdata','main')), '読み込みがタイムアウトしました'); return snap.exists() ? ((snap.data()||{}).data||null) : null; } catch(e2) { throw sheetErr||e2; } }
     return null;
   }
   async function udGoogleSet(uid, data) {
