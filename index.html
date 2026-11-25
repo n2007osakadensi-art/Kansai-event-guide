@@ -953,7 +953,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v136';
+  window.__kgShell='v137';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -7939,7 +7939,7 @@ function tlChipsHTML(ev){
 }
 function tlMediaHTML(ev){
   var ph='<span>'+esc(ev.category||"イベント")+'</span>';
-  if(ev.imageUrl) return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" data-fbk="'+esc(ev.id)+':0" data-fbmode="remove" onerror="evImgErr(this)"></div>';
+  if(ev.imageUrl) return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" draggable="false" data-fbk="'+esc(ev.id)+':0" data-fbmode="remove" onerror="evImgErr(this)"></div>';
   return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'</div>';
 }
 /* カードからアーティスト／会場／主催のプロフィールへ入る導線（v89） */
@@ -8699,8 +8699,8 @@ function refreshTlLogin(){
       if(sx==null) return;
       var dx=e.clientX-sx, dy=e.clientY-sy, dt=Date.now()-stT; sx=null; sy=null;
       if(Math.abs(dx)>48 && Math.abs(dx)>Math.abs(dy)*1.4){ var d1=dx<0?1:-1; tlGo(tlState.idx + d1); tlFlash(d1); return; }
-      /* タップ: ボタン類を優先し、それ以外はストーリー式に左=前へ／右=次へ（v128） */
-      if(Math.abs(dx)<12 && Math.abs(dy)<12){
+      /* タップ: ボタン類を優先し、それ以外はストーリー式に左=前へ／右=次へ（v128。判定幅は v137 で 24px に緩和） */
+      if(Math.abs(dx)<24 && Math.abs(dy)<24){
         var prof = e.target && e.target.closest ? e.target.closest("[data-tl-prof]") : null;
         var postBtn = e.target && e.target.closest ? e.target.closest("[data-tl-post]") : null;
         var again = e.target && e.target.closest ? e.target.closest("[data-tl-again]") : null;
