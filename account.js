@@ -280,6 +280,7 @@
   $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail();text('同期に失敗しました。端末内のデータは保持されています。');} };
   $('kg-signout').onclick=async function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。アカウントのデータは残ります。'))return; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); bridge.replace({event:[],artist:[]}); };
   window.addEventListener('kg:favorites-change',function(e){
+    udPushNow();
     if(member && memberReady && !(user && initialized)) { scheduleMemberPush(); return; }
     if(!user || !initialized)return;
     var uid=user.id,g=generation,d=e.detail,kind=d.key===bridge.keys.event?'event':d.key===bridge.keys.artist?'artist':null;
@@ -314,7 +315,7 @@
      Google=主軸はシートの g:{uidハッシュ} 行、保険は users/{uid}/userdata/main。
      取り込みは原則「統合」（和集合）で、端末のデータを勝手に消さない。
      反映は localStorage へ書いて1回だけ再読込 */
-  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended'};
+  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended',plans:'kg_trial_plans_v1',plan:'kg_trial_plan_v1'};
   function udArr(v){ return Array.isArray(v)? v : []; }
   function udParse(k, fb){ try{ var v=localStorage.getItem(k); return v==null? fb : JSON.parse(v); }catch(e){ return fb; } }
   function udReadLocal(){
@@ -326,7 +327,8 @@
       prefs:udParse(UD_KEYS.prefs,null),
       profiles:udArr(udParse(UD_KEYS.profiles,[])),
       learned:udParse(UD_KEYS.learned,null),
-      showEnded:localStorage.getItem(UD_KEYS.showEnded)==='1'
+      showEnded:localStorage.getItem(UD_KEYS.showEnded)==='1',
+      plans:udParse(UD_KEYS.plans,null)
     };
   }
   function udSig(){ try{ return JSON.stringify(udReadLocal()); }catch(e){ return ''; } }
@@ -346,7 +348,8 @@
     });
     out.lists=lists;
     out.follows={ venues:udUnion((local.follows||{}).venues,(cloud.follows||{}).venues), organizers:udUnion((local.follows||{}).organizers,(cloud.follows||{}).organizers) };
-    var lp=local.prefs||{}, cp=cloud.prefs||{}, prefs={};
+    var lp=local.prefs||{}, cp=cloud.prefs||{}, prefs=udClone(cp);
+    Object.keys(lp).forEach(function(k){ prefs[k]=lp[k]; });
     ['cats','artists','prefs','areas','dismissed'].forEach(function(k){ prefs[k]=udUnion(lp[k],cp[k]); });
     ['onboarded','free','weekend','collab'].forEach(function(k){ prefs[k]=!!(lp[k]||cp[k]); });
     out.prefs=prefs;
@@ -357,6 +360,17 @@
     ['cats','artists','areas'].forEach(function(k){ learned[k]={}; var a=ll[k]||{}, b=cl[k]||{}; Object.keys(a).forEach(function(n){ learned[k][n]=a[n]; }); Object.keys(b).forEach(function(n){ learned[k][n]=Math.max(Number(learned[k][n])||0, Number(b[n])||0); }); });
     out.learned=learned;
     out.showEnded=!!(local.showEnded||cloud.showEnded);
+    var pats=(local.plans&&Array.isArray(local.plans.patterns)? local.plans.patterns:[]).map(udClone);
+    ((cloud.plans&&cloud.plans.patterns)||[]).forEach(function(row){
+      if(!row || row.id==null) return;
+      var i=pats.findIndex(function(x){ return String(x.id)===String(row.id); });
+      if(i>=0){ pats[i].ids=udUnion(pats[i].ids,row.ids); if(!pats[i].name && row.name) pats[i].name=row.name; }
+      else pats.push(udClone(row));
+    });
+    var act=(local.plans&&local.plans.active)||null;
+    if(!pats.some(function(p){ return String(p.id)===String(act); })) act=(cloud.plans&&cloud.plans.active)||null;
+    if(!pats.some(function(p){ return String(p.id)===String(act); })) act=pats.length? pats[0].id : null;
+    out.plans={patterns:pats, active:act};
     return out;
   }
   function udWriteLocal(d){
@@ -369,6 +383,11 @@
       localStorage.setItem(UD_KEYS.profiles, JSON.stringify(d.profiles||[]));
       if(d.learned) localStorage.setItem(UD_KEYS.learned, JSON.stringify(d.learned));
       localStorage.setItem(UD_KEYS.showEnded, d.showEnded? '1':'0');
+      if(d.plans && Array.isArray(d.plans.patterns)){
+        localStorage.setItem(UD_KEYS.plans, JSON.stringify(d.plans));
+        var ap=d.plans.patterns.find(function(p){ return String(p.id)===String(d.plans.active); }) || d.plans.patterns[0];
+        localStorage.setItem(UD_KEYS.plan, JSON.stringify(ap? (ap.ids||[]) : []));
+      }
     }catch(e){}
   }
   var udBusy=false, udLastSig='';
@@ -394,6 +413,7 @@
   async function udPullMerge(){
     /* ログイン確定後に呼ぶ: クラウド側の userdata を端末へ統合し、
        変化があれば1回だけ再読み込みして画面へ反映する */
+    udArmWatchers();
     if(cloudBlocked()) return;
     try{
       var cloud=null;
@@ -415,7 +435,7 @@
         sessionStorage.setItem('kg_ud_reloaded','1');
         location.reload();
       }
-    }catch(e){ noteCloudFail(); /* 読めなくても端末内データで継続する */ }
+    }catch(e){ noteCloudFail(); /* 読めなくても端末内データで継続する。詰まりで失敗した場合は少し待って1回だけ自動でやり直す（v154） */ if(!udPullMerge.retried){ udPullMerge.retried=true; setTimeout(function(){ udPullMerge(); }, 30000); } }
   }
   async function activateMember(acct, code, fromRestore){
     var d = await memberDoc(acct);
@@ -457,7 +477,7 @@
       await idxSet('c:', ch, acct);
       member={acct:acct, code:code}; saveMemberSession();
       localStorage.setItem('kg_member_selected_v2', acct);
-      memberReady=true; renderMember(); renderState();
+      memberReady=true; renderMember(); renderState(); udPullMerge();
       text('会員コードを発行しました。コードを控えてください。質問と回答を設定すると、コードを失くしても戻れます。');
     } catch(e){ member=null; text('コードを発行できませんでした（'+((e&&e.code)||'エラー')+'）。接続できないか、データベースの準備ができていない可能性があります。通信を確認してもう一度お試しください。'); } finally { ibtn.disabled=false; }
   };
