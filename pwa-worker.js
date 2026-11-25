@@ -6,7 +6,7 @@
 'use strict';
 
 var CACHE_PREFIX='kg-event-guide-shell-';
-var CACHE_NAME=CACHE_PREFIX+'v128';
+var CACHE_NAME=CACHE_PREFIX+'v129';
 var SHELL_FILES=[
   './index.html',
   './app.webmanifest',

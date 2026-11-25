@@ -926,7 +926,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v128';
+  window.__kgShell='v129';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3888,12 +3888,12 @@ function renderDetailInner(){
       var fi=arr.indexOf(name);
       if(fi>=0){ arr.splice(fi,1); toast("フォローを外しました："+name); } else { arr.push(name); toast("フォローしました："+name); }
     }
-    saveFollows(); renderDetail();
+    saveFollows(); renderDetail(); if(tlState.open || tlState.suspended) renderTlMe();
   });
   var ob=document.getElementById("detailOshiBtn");
   if(ob) ob.addEventListener("click", function(){
     if(favPerfs.has(name)){ favPerfs.delete(name); toast("推しから外しました："+name); } else { favPerfs.add(name); toast("推しに登録しました："+name); }
-    saveSet(LS_OSHI, favPerfs); renderDetail(); renderCountsOnly();
+    saveSet(LS_OSHI, favPerfs); renderDetail(); renderCountsOnly(); if(tlState.open || tlState.suspended) renderTlMe();
   });
   els.detailBody.querySelectorAll("[data-team]").forEach(function(b){
     b.addEventListener("click", function(){ teamFilter=b.getAttribute("data-team"); renderDetail(); });
@@ -8256,6 +8256,7 @@ function psToggleFollow(){
     if(fi>=0){ arr.splice(fi,1); toast("フォローを外しました："+name); } else { arr.push(name); toast("フォローしました："+name); }
     saveFollows();
   }
+  if(tlState.open || tlState.suspended) renderTlMe();
   renderProfSheet();
 }
 function renderProfSheet(){
