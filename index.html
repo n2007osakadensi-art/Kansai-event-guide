@@ -370,6 +370,10 @@
   .tl-me-sec{font-size:12px;font-weight:800;opacity:.75;margin:12px 0 5px}
   .tl-me-chips{display:flex;gap:6px;flex-wrap:wrap}
   .tl-me-chip{border:1.5px solid rgba(244,242,236,.4);background:transparent;color:#f4f2ec;border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:700;min-height:34px;cursor:pointer;font-family:inherit}
+  .tl-me-orows{display:flex;flex-direction:column;gap:5px}
+  .tl-me-orow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:rgba(244,242,236,.07);border:1px solid rgba(244,242,236,.18);color:#f4f2ec;border-radius:9px;padding:8px 11px;cursor:pointer;font-family:inherit;min-height:44px}
+  .tl-me-orow-n{flex:1;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl-me-orow-m{flex:none;font-size:12px;opacity:.8}
   .tl-me-slots{display:flex;flex-direction:column;gap:5px}
   .tl-me-slot{display:flex;gap:9px;align-items:baseline;width:100%;text-align:left;background:rgba(244,242,236,.07);border:1px solid rgba(244,242,236,.18);color:#f4f2ec;border-radius:9px;padding:7px 10px;cursor:pointer;font-family:inherit}
   .tl-me-slot-t{flex:none;font-weight:800;font-size:12.5px}
@@ -886,7 +890,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v112';
+  window.__kgShell='v113';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -7813,8 +7817,6 @@ function renderTlMe(){
   }
   var acct=document.getElementById("kg-account-open");
   var state=acct? acct.textContent : "";
-  var chips=Array.from(favPerfs).slice(0,12).map(function(p){ return '<button type="button" class="tl-me-chip" data-tlme-oshi="'+esc(p)+'">★ '+esc(p)+'</button>'; }).join("");
-  if(favPerfs.size>12) chips+='<button type="button" class="tl-me-chip" data-tlme="oshi">＋'+(favPerfs.size-12)+'組</button>';
   var planRows=todaySlots.slice(0,4).map(function(s){
     return '<button type="button" class="tl-me-slot" data-tlme-open="'+esc(String(s.id))+'"><span class="tl-me-slot-t">'+esc(s.time||"時間未定")+'</span><span class="tl-me-slot-a">'+esc(s.act)+'</span><span class="tl-me-slot-s">'+esc(s.title)+'</span></button>';
   }).join("");
@@ -7829,7 +7831,7 @@ function renderTlMe(){
     +'<button type="button" data-tlme="follow"><strong>'+(follows.venues.length+follows.organizers.length)+'</strong><span>フォロー</span></button>'
     +'</div>'
     +'<div class="tl-me-sec">推し</div>'
-    +(chips? '<div class="tl-me-chips">'+chips+'</div>' : '<p class="tl-me-empty">まだ推しが登録されていません。イベントの詳細で出演者をタップすると登録できます。</p>')
+    + tlMeOshiHTML()
     +'<div class="tl-me-sec">今日の回し</div>'
     +(planRows? '<div class="tl-me-slots">'+planRows+'</div>' : '<p class="tl-me-empty">今日のプランはまだありません。</p>')
     +(todaySlots.length>4? '<button type="button" class="tl-me-more" data-tlme="plan">今日のプランを全部見る（'+todaySlots.length+'件）</button>' : '')
@@ -7837,6 +7839,58 @@ function renderTlMe(){
     + tlMeFavHTML()
     +'<div class="tl-me-sec">リスト（ブックマーク）</div>'
     + tlMeListsHTML();
+}
+/* 推しの一覧表示（v113）: チップの折り返しは組数が増えると圧迫するため、
+   リストと同じ1行ずつの見せ方にする。次回出演が近い順に並べ、最初は8組、
+   「すべて見る」で全組をその場に広げる */
+var tlMeOshiAll=false;
+function tlMeOshiStats(){
+  var stats={}, cache={};
+  function resolve(p){
+    if(p in cache) return cache[p];
+    var hit=null;
+    favPerfs.forEach(function(f){
+      if(hit) return;
+      if(p===f){ hit=f; return; }
+      var pr=artistProfileFor(p), fr=artistProfileFor(f);
+      if(pr && fr && pr===fr){ hit=f; return; }
+      if(groupMembers(p).indexOf(f)>=0 || groupMembers(f).indexOf(p)>=0) hit=f;
+    });
+    cache[p]=hit; return hit;
+  }
+  allEvents.forEach(function(ev){
+    if(isEnded(ev)) return;
+    var seen={};
+    (ev._perfList||[]).forEach(function(p){
+      if(!oshiNameHit(p)) return;
+      var f=resolve(p); if(!f || seen[f]) return; seen[f]=1;
+      var st=stats[f]||(stats[f]={count:0,next:""});
+      st.count++;
+      if(!st.next || ev.date<st.next) st.next=ev.date;
+    });
+  });
+  return stats;
+}
+function tlMeOshiHTML(){
+  if(!favPerfs.size) return '<p class="tl-me-empty">まだ推しが登録されていません。イベントの詳細で出演者をタップすると登録できます。</p>';
+  var stats=tlMeOshiStats();
+  var names=Array.from(favPerfs);
+  names.sort(function(a,b){
+    var sa=stats[a], sb=stats[b];
+    var na=sa? sa.next : "", nb=sb? sb.next : "";
+    if(na && nb){ if(na!==nb) return na<nb? -1 : 1; return sb.count-sa.count; }
+    if(na) return -1;
+    if(nb) return 1;
+    return 0;
+  });
+  var show=tlMeOshiAll? names : names.slice(0,8);
+  var rows=show.map(function(p){
+    var st=stats[p];
+    var meta=st? ('次回 '+(+st.next.slice(5,7))+'/'+(+st.next.slice(8,10))+' ・ '+st.count+'件') : '今後の予定なし';
+    return '<button type="button" class="tl-me-orow" data-tlme-oshi="'+esc(p)+'"><span class="tl-me-orow-n">★ '+esc(p)+'</span><span class="tl-me-orow-m">'+esc(meta)+'</span></button>';
+  }).join("");
+  var more=names.length>8? '<button type="button" class="tl-me-more" data-tlme-oshi-all="1">'+(tlMeOshiAll? '一部だけ表示' : '推しをすべて見る（全'+names.length+'組）')+'</button>' : '';
+  return '<div class="tl-me-orows">'+rows+'</div>'+more;
 }
 /* お気に入りの管理（v106）: 今後の分を最大8件、その場で詳細表示と解除ができる */
 function tlMeFavHTML(){
@@ -8230,6 +8284,8 @@ function refreshTlLogin(){
     if(uf){ toggleFav(uf.getAttribute("data-tlme-unfav")); toast("お気に入りから外しました"); tlState.items=buildTimelineItems(); tlBuildTicker(); tlApplyMode(); return; }
     var ob=e.target.closest("[data-tlme-open]");
     if(ob){ var ev=allEvents.find(function(x){ return String(x.id)===ob.getAttribute("data-tlme-open"); }); if(ev) tlOpenDetail(ev); return; }
+    var oa=e.target.closest("[data-tlme-oshi-all]");
+    if(oa){ tlMeOshiAll=!tlMeOshiAll; renderTlMe(); return; }
     var oc=e.target.closest("[data-tlme-oshi]");
     if(oc){ tlScopeArtist=oc.getAttribute("data-tlme-oshi"); tlScopeListId=null; tlScopePreset=null; tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode(); if(!tlState.items.length) toast("「"+tlScopeArtist+"」が出演する今後のイベントがありません"); return; }
     var eb=e.target.closest("[data-tlme-edit]");
