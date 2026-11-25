@@ -51,7 +51,7 @@
         var now=queueRead(uid); now.shift(); queueWrite(uid,now); q=now;
       }
       return sameUser(uid,g) && !queueRead(uid).length;
-    } catch(e) { text('同期できていません。端末内には保存済みです。通信を確認して「クラウドから再読み込み」を押してください。'); return false; }
+    } catch(e) { noteCloudFail(); text('同期できていません。端末内には保存済みです。通信を確認して「クラウドから再読み込み」を押してください。'); return false; }
     finally { running=false; }
   }
   function favoriteId(kind,value) {
@@ -66,7 +66,17 @@
       setTimeout(function () { var e = new Error(label || '通信がタイムアウトしました'); e.code = 'kg-timeout'; rej(e); }, 15000);
     })]);
   }
+  /* クラウド同期の自動停止（v110）: 接続できない状態（DB未作成・圏外など）で
+     自動リトライを繰り返すと端末に負荷がかかり続けるため、2回連続で失敗したら
+     そのセッションでは30分間、自動のクラウド通信を止める。手動の操作
+     （ログイン・発行・再読み込みボタン）は止めない。成功したら即解除する */
+  var cloudFails=0, cloudDownUntil=0;
+  try{ cloudDownUntil=+sessionStorage.getItem('kg_cloud_down_until')||0; }catch(e){}
+  function cloudBlocked(){ return Date.now()<cloudDownUntil; }
+  function noteCloudFail(){ cloudFails++; if(cloudFails>=2){ cloudDownUntil=Date.now()+30*60*1000; try{ sessionStorage.setItem('kg_cloud_down_until', String(cloudDownUntil)); }catch(e){} } }
+  function noteCloudOk(){ cloudFails=0; if(cloudDownUntil){ cloudDownUntil=0; try{ sessionStorage.removeItem('kg_cloud_down_until'); }catch(e){} } }
   async function pull(uid) {
+    if(cloudBlocked()){ var be=new Error('クラウド同期は一時停止中です'); be.code='kg-cloud-down'; throw be; }
     var data={event:[],artist:[]}, last=null, pageSize=500;
     var pages=0;
     while(true) {
@@ -78,6 +88,7 @@
       if(snapshot.docs.length<pageSize)break;
       last=snapshot.docs[snapshot.docs.length-1];
     }
+    noteCloudOk();
     return data;
   }
   async function setupSession(session) {
@@ -92,7 +103,7 @@
       text('アカウントのデータを確認しています…');
       if(!await flush(uid,g)) return;
       try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; text('同期済み。'); udPullMerge(); }
-      catch(e) { text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
+      catch(e) { noteCloudFail(); text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
     } else { choiceMode='google'; parts(false,false,false,true); text('同期方法を選んでください。'); bootChoicePending=true; renderState(); }
   }
   async function applyChoice(merge) {
@@ -108,11 +119,11 @@
       if(!sameUser(uid,g)) return;
       bridge.replace(cloud); localStorage.setItem(currentMarker,uid); initialized=true;
       parts(false,false,true,false); text('同期済み。'); udPullMerge();
-    } catch(e) { text('同期に失敗しました。端末内データは保持されています。もう一度お試しください。'); }
+    } catch(e) { noteCloudFail(); text('同期に失敗しました。端末内データは保持されています。もう一度お試しください。'); }
   }
   $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
   $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
-  $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){text('同期に失敗しました。端末内のデータは保持されています。');} };
+  $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail();text('同期に失敗しました。端末内のデータは保持されています。');} };
   $('kg-signout').onclick=async function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。アカウントのデータは残ります。'))return; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); bridge.replace({event:[],artist:[]}); };
   window.addEventListener('kg:favorites-change',function(e){
     if(member && memberReady && !(user && initialized)) { scheduleMemberPush(); return; }
@@ -211,14 +222,15 @@
   var udBusy=false, udLastSig='';
   async function udPushNow(){
     if(udBusy) return;
+    if(cloudBlocked()) return;
     var sig=udSig(); if(!sig || sig===udLastSig) return;
     var data=udReadLocal();
     try{ if(JSON.stringify(data).length>900000) return; }catch(e){ return; }
     udBusy=true;
     try{
-      if(member && memberReady){ await memberSetMeta(member.acct, {userdata:data, udUpdatedAt:Date.now()}); udLastSig=sig; }
-      else if(user && initialized){ await fsTimeout(client.setDoc(client.doc(client.db,'users',user.id,'userdata','main'), {data:data, updatedAt:Date.now()}), '同期がタイムアウトしました'); udLastSig=sig; }
-    }catch(e){ /* 失敗しても端末内データは無事。次回の定期チェックで再送する */ }
+      if(member && memberReady){ await memberSetMeta(member.acct, {userdata:data, udUpdatedAt:Date.now()}); udLastSig=sig; noteCloudOk(); }
+      else if(user && initialized){ await fsTimeout(client.setDoc(client.doc(client.db,'users',user.id,'userdata','main'), {data:data, updatedAt:Date.now()}), '同期がタイムアウトしました'); udLastSig=sig; noteCloudOk(); }
+    }catch(e){ noteCloudFail(); /* 失敗しても端末内データは無事。次回の定期チェックで再送する */ }
     finally{ udBusy=false; }
   }
   function udArmWatchers(){
@@ -230,11 +242,13 @@
   async function udPullMerge(){
     /* ログイン確定後に呼ぶ: クラウド側の userdata を端末へ統合し、
        変化があれば1回だけ再読み込みして画面へ反映する */
+    if(cloudBlocked()) return;
     try{
       var cloud=null;
       if(member && memberReady){ var d=await memberDoc(member.acct); cloud=d? d.userdata : null; }
       else if(user && initialized){ var snap=await fsTimeout(client.getDoc(client.doc(client.db,'users',user.id,'userdata','main')), '読み込みがタイムアウトしました'); cloud=snap.exists()? (snap.data()||{}).data : null; }
       else return;
+      noteCloudOk();
       udArmWatchers();
       if(!cloud){ udLastSig=''; await udPushNow(); return; }
       var before=udSig();
@@ -249,7 +263,7 @@
         sessionStorage.setItem('kg_ud_reloaded','1');
         location.reload();
       }
-    }catch(e){ /* 読めなくても端末内データで継続する */ }
+    }catch(e){ noteCloudFail(); /* 読めなくても端末内データで継続する */ }
   }
   async function activateMember(acct, code, fromRestore){
     var d = await memberDoc(acct);
