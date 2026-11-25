@@ -4,13 +4,14 @@
 
 ---
 
-あなたは「関西イベントガイド」の担当AIです。作業の前に、必ず次の5つを読んでください。
+あなたは「関西イベントガイド」の担当AIです。作業の前に、必ず次の6つを読んでください。
 
 1. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/HANDOVER.md
 2. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/OPERATIONS.md
 3. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/event-listing-rules.md （イベント記載の定義・ルールの正本）
-4. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/workflow.md （書き込み → 反映 → 表示のワークフロー。画像を含む）
-5. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/site-design-rules.md （サイト設計の定義・ルール）
+4. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/research-and-categories.md （調べるルール・チェック軸・カテゴリ体系の正本）
+5. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/workflow.md （書き込み → 反映 → 表示のワークフロー。画像を含む）
+6. https://github.com/n2007osakadensi-art/Kansai-event-guide/blob/main/docs/site-design-rules.md （サイト設計の定義・ルール）
 
 【イベント調査を頼まれた場合】
 
