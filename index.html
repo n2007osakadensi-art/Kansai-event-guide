@@ -813,7 +813,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v102';
+  window.__kgShell='v103';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1988,6 +1988,7 @@ function currentTicketUrlQuery(){
 /* ---------- app state ---------- */
 var allEvents=[], view="all", activeCat="すべて", query="";
 var exactTarget=null; /* 候補から選んだ条件 {kind:"event"|"artist"|"venue", value}。この条件のみで判定する */
+var endedRescue=false; /* 検索ヒットが終了分だけのとき、終了分を表示した救済が効いているか（v103） */
 var showEnded=false, periodPreset="all", dateFrom="", dateTo="", sortMode="dateAsc", hideLong=false;
 var selPrefs=new Set(), selAreas=new Set(), selPrices=new Set(), selThemes=new Set(), selVenues=new Set(), selPerfs=new Set();
 var selDows=new Set(), selTimeBands=new Set(), selDurations=new Set(), selOrganizers=new Set();
@@ -2370,7 +2371,12 @@ function exactMatch(ev, t){
 function contentPass(ev, opts){
   opts=opts||{};
   var exact=exactTarget;
-  if(!exact && !opts.ignoreEnded && !showEnded && isEnded(ev)) return false;
+  /* 終了済みの除外は、候補選択でも手入力でも同じに効かせる（v103）。
+     以前は候補を選んだ時だけ終了分が免除され、「候補を選ばないと
+     正常な検索結果にならない」状態になっていた。候補は補いであり、
+     検索の意味を変えてはいけない。検索ヒットが終了分だけの場合の
+     救済は filtered() 側で両経路に同じく効かせる */
+  if(!opts.ignoreEnded && !showEnded && isEnded(ev)) return false;
   if(hideLong && isLongRun(ev)) return false;
   if(activeCat!=="すべて" && evCategories(ev).indexOf(activeCat)<0) return false;
   if(selPrefs.size && selPrefs.has(ev.prefecture)===false) return false;
@@ -2397,6 +2403,18 @@ function contentPass(ev, opts){
   if(wantOnly && !wantEvents.has(String(ev.id))) return false;
   if(intOnly && !intEvents.has(String(ev.id))) return false;
   if(oshiOnly && !hasOshi(ev)) return false;
+  /* 期間は明示フィルタ（期間プリセット・日付指定）だけが効く。
+     検索語から期間・料金・曜日を読み取ることはしない。
+     候補選択でも手入力でも同じに効かせる（v103） */
+  var range=null;
+  if(!opts.ignorePeriod){
+    if(dateFrom||dateTo){ range=[dateFrom||"0000-01-01", dateTo||"9999-12-31"]; }
+    else if(periodPreset!=="all"){ range=periodRange(periodPreset); }
+  }
+  if(range){
+    if(!ev.date) return false;
+    if(ev.date>range[1] || effectiveEnd(ev)<range[0]) return false;
+  }
   if(exact) return exactMatch(ev, exact);
   var urlQ=currentTicketUrlQuery();
   if(urlQ!=null){
@@ -2414,17 +2432,7 @@ function contentPass(ev, opts){
     }
     return eventMatchesTicketUrl(ev.linkTicket, urlQ);
   }
-  /* 期間は明示フィルタ（期間プリセット・日付指定）だけが効く。
-     検索語から期間・料金・曜日を読み取ることはしない */
-  var range=null;
-  if(!opts.ignorePeriod){
-    if(dateFrom||dateTo){ range=[dateFrom||"0000-01-01", dateTo||"9999-12-31"]; }
-    else if(periodPreset!=="all"){ range=periodRange(periodPreset); }
-  }
-  if(range){
-    if(!ev.date) return false;
-    if(ev.date>range[1] || effectiveEnd(ev)<range[0]) return false;
-  }
+  /* 期間フィルタは候補・URL検索と同じものを上で適用済み（v103） */
   /* キーワード照合は入力文字列そのまま（1語として）部分一致のみ。
      スペースで分割して複数の条件にしたり、語を抜き出して別の条件に
      変えたりはしない */
@@ -2462,7 +2470,7 @@ function filtered(){
     if(listPreset) listSet=new Set(presetSet(listPreset));
     else { var al0=activeList(); listSet=al0?listEventIdSet(al0):new Set(); }
   }
-  var list=allEvents.filter(function(ev){
+  var passWith=function(ev, opts){
     if(listSet && !listSet.has(String(ev.id))) return false;
     if(view==="fav" && !favEvents.has(String(ev.id))) return false;
     if(view==="oshi" && !hasOshi(ev)) return false;
@@ -2475,8 +2483,17 @@ function filtered(){
       }
     }
     if(view==="expo" && !expoGroupOf(ev)) return false;
-    return contentPass(ev);
-  });
+    return contentPass(ev, opts);
+  };
+  var list=allEvents.filter(function(ev){ return passWith(ev); });
+  /* 救済（v103）: 検索（手入力・候補選択の両方）で、当たったイベントが
+     終了分だけだった場合は終了分も表示する。通常時は終了表示トグルの
+     設定どおりに隠す。候補を選んだ時だけ出る、という経路差は作らない */
+  endedRescue=false;
+  if(!list.length && !showEnded && (exactTarget || String(query||"").trim())){
+    var rescued=allEvents.filter(function(ev){ return passWith(ev, {ignoreEnded:true}); });
+    if(rescued.length){ list=rescued; endedRescue=true; }
+  }
   /* 並び替え（v53で修正）: どのモードでも終了済みは後ろに置く。
      日付順（近い順）= 終了済みを除き日付昇順／開始時刻順 = startMin で実際に
      ソートし早い・遅いで逆転、時刻なしは最後尾／おすすめ順 = 終了済みを
@@ -2713,6 +2730,7 @@ function renderFilterOpts(){
   /* フッターに現在の条件でのヒット件数をその場で出す */
   if(els.filterResultCount){
     var fc=allEvents.filter(function(ev){ return contentPass(ev); }).length;
+    if(!fc && !showEnded && (exactTarget || String(query||"").trim())) fc=allEvents.filter(function(ev){ return contentPass(ev, {ignoreEnded:true}); }).length; /* 救済表示と件数を揃える（v103） */
     els.filterResultCount.innerHTML="該当 <strong>"+fc.toLocaleString()+"</strong> 件";
   }
   if(els.filterScroll) els.filterScroll.scrollTop=panelST;
@@ -3871,7 +3889,7 @@ function renderInner(){
     + (exactTarget ? " ・ 候補で選択中：「"+esc(exactTarget.value)+"」"+(exactTarget.kind==="eventTitle" ? "（タイトルに含む全件）" : "のみ表示") : (query.trim() ? " ・ 検索：「"+esc(query.trim())+"」"+(currentTicketUrlQuery()!=null ? "（チケットURLで検索中）" : "") : ""))
     + (activeCat!=="すべて" ? " ・ カテゴリ："+esc(activeCat) : "")
     + (activeFilterCount()>0 ? " ・ 絞り込み "+activeFilterCount()+"条件" : "")
-    + (!showEnded && endedHidden>0 && !exactTarget ? " ・ 終了した"+endedHidden.toLocaleString()+"件は非表示中" : "");
+    + (endedRescue ? " ・ 検索に当たったのが終了したイベントのみのため、終了分を表示しています" : (!showEnded && endedHidden>0 ? " ・ 終了した"+endedHidden.toLocaleString()+"件は非表示中" : ""));
   if(episodeQueryOf(query) && Object.keys(currentGuideBadges).length) els.resultLine.innerHTML += " ・ 話数・回数はガイド集計（公式番号がない公演は開催順）";
   /* 検索が実行されたことが分かるよう、検索語が変わったときだけ件数と
      一覧に軽い動きを付ける（Kota指示 2026-11-23）。即時検索の速さはそのまま */
