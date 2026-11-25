@@ -124,6 +124,7 @@ https://docs.google.com/spreadsheets/d/1oUuy1PvoQgNa5f1HoXqMHgLUfdPW_ctVNxyHih0c
 - `docs/research-and-categories.md` — 調査ガイド（調べるルール・チェック軸・カテゴリ／ジャンル体系の正本）
 - `docs/data-dictionary.md` — データ辞書（イベント・シート・プロフィールの項目定義と用語集）
 - `docs/search-system.md` — 検索の仕組み（照合・正規化・辞書統合・サジェスト・救済照合・改善の循環・既知の課題）
+- `docs/external-ai-submission.md` — 外部AI向けの提出仕様（自動取り込みで画像込みで掲載まで完結させるための提出の形）
 - `docs/workflow.md` — 書き込み → 反映 → 表示のワークフロー（画像を含む）
 - `docs/site-design-rules.md` — サイト設計の定義・ルール（正本）
 - `docs/registration-procedure.md` — 本体への登録・更新の実務手順（全項目再送、画像の事故防止）
