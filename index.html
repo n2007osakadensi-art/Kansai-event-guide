@@ -904,7 +904,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v123';
+  window.__kgShell='v124';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -926,7 +926,7 @@
       if(d){ s+=' / 復元診断: 保存'+(d.sv||0)+'回'; if(d.se) s+=' 保存エラー:'+d.se; if(d.sq) s+=' 検索:'+d.sq; s+=' 復元:'+(d.rf?'あり':'なし'); if(d.ra) s+=' 適用:'+d.ra; if(d.re) s+=' 復元エラー:'+d.re; }
     }catch(e){}
     try{ var f=JSON.parse(localStorage.getItem('kg_feed_ui_diag_v1')||'null');
-      if(f){ s+=' / フィード復元: 保存'+(f.sv||0)+'回'; if(f.se) s+=' 保存エラー:'+f.se; s+=' 復元:'+(f.rf?'あり':'なし'); if(f.ra) s+=' 適用:'+f.ra; if(f.re) s+=' 復元エラー:'+f.re; }
+      if(f){ s+=' / フィード復元: 保存'+(f.sv||0)+'回'; if(f.se) s+=' 保存エラー:'+f.se; if(f.sq) s+=' 保存検索:'+f.sq; if(f.si) s+=' 保存位置:'+f.si; s+=' 復元:'+(f.rf?'あり':'なし'); if(f.rq) s+=' 復元検索:'+f.rq; if(f.ri) s+=' 復元位置:'+f.ri; if(f.ra) s+=' 適用:'+f.ra; if(f.re) s+=' 復元エラー:'+f.re; }
     }catch(e){}
     return s;
   }
