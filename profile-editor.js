@@ -5,7 +5,7 @@
    送信先はイベント編集と同じ受付口（editor-config.js）。 */
 (function () {
   var cfg = window.KG_EDITOR_CONFIG || {};
-  if (!cfg.endpoint) return;
+  if (!cfg.formAction) return;
   var css = ''
     + '.kp-overlay{position:fixed;inset:0;background:rgba(10,10,20,.55);z-index:1200;display:none;align-items:flex-start;justify-content:center;padding:10px;box-sizing:border-box}'
     + '.kp-overlay.open{display:flex}'
@@ -225,15 +225,22 @@
     payload._subject = '【プロフィール修正】' + (cur.kind === 'artist' ? 'アーティスト' : '会場') + '：' + cur.name;
     payload._template = 'table';
     payload._captcha = 'false';
+    /* 送信の実経路（v163）: イベント編集と同じ Google フォーム受付 */
+    async function kgSendPayload(payload, ctl) {
+      var body = new URLSearchParams();
+      body.set(cfg.formSubjectEntry, payload._subject || '【プロフィール修正】');
+      body.set(cfg.formPayloadEntry, JSON.stringify(payload));
+      await fetch(cfg.formAction, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString(), signal: ctl ? ctl.signal : undefined });
+      return true;
+    }
     var btn = $('kp-send'); btn.disabled = true;
     status('送信しています…');
     try {
       var ctl = ('AbortController' in window) ? new AbortController() : null;
       var timer = ctl ? setTimeout(function () { ctl.abort(); }, 25000) : null;
-      var res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload), signal: ctl ? ctl.signal : undefined });
+      var okSend = await kgSendPayload(payload, ctl);
       if (timer) clearTimeout(timer);
-      var data = await res.json().catch(function () { return null; });
-      if (data && (data.ok || data.success === 'true' || data.success === true)) status('送信しました。確認のうえガイドへ反映されます。');
+      if (okSend) status('送信しました。確認のうえガイドへ反映されます。');
       else status('送信できませんでした。時間をおいてお試しください。');
     } catch (e) {
       status('送信の確認ができませんでした（受付からの応答がありませんでした）。受付に届いている場合があるので、少し時間をおき、届いていないときだけ再送してください。');

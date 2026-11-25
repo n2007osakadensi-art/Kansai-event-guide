@@ -3,7 +3,7 @@
    正本の実物確認に基づく：セクション順、一括分割の区切り仕様、料金区分は
    自動判定の参考表示のみ、重複チェックと公開状態の項目は正本にも無いため
    追加しない。詳細は docs/editor-spec.md）。
-   送信先は受付メール kansai-event-info@muse.ai（FormSubmit AJAX経由）。
+   送信先は Google フォーム（v163〜。旧 FormSubmit 経路は応答劣化で廃止）。
    届いた内容は確認のうえスペース版ガイドへ登録され、シート同期経由で各面に
    反映される。シート events タブはガイド同期で全件上書きされるため、ここから
    直接は書かない。仕様: docs/editor-spec.md
@@ -512,6 +512,16 @@
       window.dispatchEvent(new CustomEvent('kg:pending-change'));
     } catch (_) {}
   }
+  /* 送信の実経路（v163）: Google フォームへ送る。no-cors のため応答内容は
+     読めないが、ネットワークエラーなく完了すれば Google に届いている。
+     旧 FormSubmit 経路は応答が約48秒に劣化し送信が成立しなくなったため廃止 */
+  async function kgSendPayload(payload, ctl) {
+    var body = new URLSearchParams();
+    body.set(cfg.formSubjectEntry, payload._subject || '【編集入力】');
+    body.set(cfg.formPayloadEntry, JSON.stringify(payload));
+    await fetch(cfg.formAction, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString(), signal: ctl ? ctl.signal : undefined });
+    return true;
+  }
   $('ke-send').onclick = async function () {
     var title = $('ke-title').value.trim(), date = $('ke-date').value;
     if (!title || !date) { status('タイトルと日付は必須です。'); return; }
@@ -564,16 +574,15 @@
       if (dropped.length) payload.preservedUnloadedFields = dropped;
     }
     if (!kgLoggedIn()) { applyEditorGate(); status('ログインが必要です。ログインしてから送信してください。入力内容は送信されていません。'); return; }
-    if (!cfg.endpoint) { status('送信先が未設定です（受付の準備中）。入力内容はまだ送信されていません。'); return; }
+    if (!cfg.formAction) { status('送信先が未設定です（受付の準備中）。入力内容はまだ送信されていません。'); return; }
     var sendBtn = $('ke-send'); sendBtn.disabled = true;
     status('送信しています…');
     try {
       var ctl = ('AbortController' in window) ? new AbortController() : null;
       var timer = ctl ? setTimeout(function () { ctl.abort(); }, 25000) : null;
-      var res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(payload), signal: ctl ? ctl.signal : undefined });
+      var okSend = await kgSendPayload(payload, ctl);
       if (timer) clearTimeout(timer);
-      var data = await res.json().catch(function () { return null; });
-      if (data && (data.ok || data.success === 'true' || data.success === true)) { savePending(payload); status('送信しました。確認のうえガイドへ反映されます。この端末では「反映待ち」として、送信した内容をそのまま表示しています。'); }
+      if (okSend) { savePending(payload); status('送信しました。確認のうえガイドへ反映されます。この端末では「反映待ち」として、送信した内容をそのまま表示しています。'); }
       else { status('送信できませんでした。時間をおいてお試しください。'); }
     } catch (e) { status('送信の確認ができませんでした（受付からの応答がありませんでした）。受付に届いている場合があるので、少し時間をおき、届いていないときだけ再送してください。'); }
     finally { sendBtn.disabled = false; }
