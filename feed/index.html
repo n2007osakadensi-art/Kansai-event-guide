@@ -81,7 +81,7 @@
   .fd-zv{display:block;color:rgba(255,255,255,.6);font-size:12px}
   .fd-zchips{display:flex;flex-wrap:wrap;gap:6px}
   .fd-zchip{padding:7px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#f4f2ec;font-size:13px;cursor:pointer}
-  .searchbar input{flex:1;min-width:0;min-height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(20,20,20,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-size:14.5px;font-family:inherit;padding:8px 16px;outline:none}
+  .searchbar input{flex:1;min-width:0;min-height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(20,20,20,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-size:16px;font-family:inherit;padding:8px 16px;outline:none}
   .searchbar input::placeholder{color:rgba(255,255,255,.65)}
   .searchbar #feedSearchClear{flex:none;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(20,20,20,.45);color:#fff;font-size:15px;cursor:pointer;font-family:inherit}
   .searchbar #feedSearchClear.hidden{display:none}
@@ -655,7 +655,7 @@ document.head.appendChild(script);
 }
 function loadFeedProfiles(){
 if(feedProfilesStarted) return; feedProfilesStarted=true;
-var bump=function(){ feedArtistProfCache={}; feedHayVer++; dictWordsFeed.memo={}; if(feedQuery || feedExactTarget) renderFeed(true); renderFeedSuggest();};
+var bump=function(){ feedArtistProfCache={}; feedHayVer++; dictWordsFeed.memo={}; if(feedQuery || feedExactTarget) renderFeed(true); renderFeedSuggest(); if(feedProfState.open) renderFeedProfile(); };
 try{
 fetch("../assets/artists.json").then(function(r){ return r.ok? r.json(): null;}).then(function(j){
 if(j && typeof j==="object" &&!Array.isArray(j)){ feedArtistProfiles=j; bump();}
@@ -1488,7 +1488,8 @@ function railHTML(ev){
     + '</div>';
 }
 function cardHTML(ev, idx){
-  var hasImg=!!ev.imageUrl;
+  var imgList=feedImageList(ev);
+  var hasImg=imgList.length>0;
   var perfs=ev._perfList||[];
   var perfLine=perfs.length? perfs.slice(0,4).join("、")+(perfs.length>4?" ほか":"") : "";
   var fb='<div class="fallback" style="background:'+catColor(ev.category)+'">'
@@ -1496,7 +1497,7 @@ function cardHTML(ev, idx){
     + '<div class="fb-title">'+esc(ev.title)+'</div>'
     + '<div class="fb-date">'+esc(dateLabel(ev))+(ev.timeLabel?' '+esc(ev.timeLabel):"")+'</div>'
     + '</div>';
-  var media=hasImg? '<img class="media" src="'+esc(ev.imageUrl)+'" alt="" '+(idx<2?"":'loading="lazy" ')+'data-fbk="'+esc(ev.id)+':0" onerror="evImgErr(this)">' : "";
+  var media=hasImg? '<img class="media" src="'+esc(imgList[0])+'" alt="" '+(idx<2?"":'loading="lazy" ')+'data-fbk="'+esc(ev.id)+':0" onerror="evImgErr(this)">' : "";
   var overlay='<div class="overlay">'
     + badgesHTML(ev)
     + (hasImg? '<h2 class="ev-title">'+esc(ev.title)+'</h2>'
@@ -1640,12 +1641,14 @@ function feedImageList(ev){
   return ev.imageUrl? [ev.imageUrl] : [];
 }
 function mergeFeedImages(map){
+  var changed=false;
   Object.keys(map||{}).forEach(function(id){
     var urls=(map[id]||[]).filter(function(u){ return typeof u==="string" && !!u; });
     if(!urls.length) return;
     var cur=feedEventImages[id];
-    if(!cur || urls.length>=cur.length) feedEventImages[id]=urls;
+    if(!cur || urls.length>=cur.length){ if(!cur || cur.join("\n")!==urls.join("\n")) changed=true; feedEventImages[id]=urls; }
   });
+  if(changed && typeof renderFeed==="function") renderFeed(true);
   if(detailEv && !detailSheet.classList.contains("hidden")) openFeedDetail(detailEv);
 }
 function loadFeedImages(){

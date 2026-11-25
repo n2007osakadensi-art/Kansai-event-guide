@@ -912,7 +912,7 @@
   .tl-zrow .zv{color:rgba(244,242,236,.65);font-size:12px}
   .tl-zchips{display:flex;gap:8px;flex-wrap:wrap}
   .tl-zchip{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#f4f2ec;border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer}
-  .tl-search input{flex:1;min-width:0;height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;padding:0 16px;font-size:14px;outline:none}
+  .tl-search input{flex:1;min-width:0;height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;padding:0 16px;font-size:16px;outline:none}
   .tl-search input::placeholder{color:rgba(255,255,255,.55)}
   .tl-search #tlSearchClear{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;font-size:14px;cursor:pointer}
   .tl-search-note{padding:4px 16px 0;font-size:12px;color:rgba(255,255,255,.78)}
@@ -953,7 +953,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v148';
+  window.__kgShell='v149';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2307,8 +2307,9 @@ function cardHTML(ev){
   var isWant=wantEvents.has(String(ev.id));
   var isInt=intEvents.has(String(ev.id));
   var oshi=hasOshi(ev);
-  var media = ev.imageUrl
-    ? '<img src="'+esc(ev.imageUrl)+'" alt="'+esc(ev.title)+' のフライヤー画像" loading="lazy" data-fallback="1" data-fbk="'+esc(ev.id)+':0" data-fbmode="card"><div class="ph hidden" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>'
+  var mediaList = eventImageList(ev);
+  var media = mediaList.length
+    ? '<img src="'+esc(mediaList[0])+'" alt="'+esc(ev.title)+' のフライヤー画像" loading="lazy" data-fallback="1" data-fbk="'+esc(ev.id)+':0" data-fbmode="card"><div class="ph hidden" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>'
     : '<div class="ph" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>';
   var ended=isEnded(ev), ongoing=isOngoing(ev), longRun=isLongRun(ev);
   var stateBadge = ended ? '<span class="badge-ended">終了</span>' : (ongoing && ev.dateEnd ? '<span class="badge-now">開催中</span>' : (ongoing ? '<span class="badge-now">本日開催</span>' : ""));
@@ -3326,13 +3327,27 @@ function fbResolveWaiters(){
   var ws=fbWaiters; fbWaiters=[];
   ws.forEach(function(img){ if(img.isConnected && img.dataset.fbWait){ delete img.dataset.fbWait; img.style.visibility=""; evImgErr(img); } });
 }
+function refreshImageSurfaces(){
+  /* 画像データが後から届いたら、開いている画面へその場で反映する。
+     一覧は再描画、タイムラインはスクロール位置を保って再描画、
+     ストーリーは現在のスライドだけ描き直す */
+  try{ if(typeof allEvents!=="undefined" && allEvents && allEvents.length) render(); }catch(e){}
+  try{
+    if(typeof tlState!=="undefined" && tlState.open){
+      if(prefs.tlMode==="feed"){ var f=tlEl("tlFeed"); var st=f?f.scrollTop:0; tlRenderFeed(); if(f) f.scrollTop=st; }
+      else if(tlState.idx<tlState.items.length) tlShow(tlState.idx);
+    }
+  }catch(e){}
+}
 function applyEventImages(map){
+  var changed=false;
   Object.keys(map).forEach(function(id){
     var urls=(map[id]||[]).filter(function(u){ return typeof u==="string" && !!u; });
     if(!urls.length) return;
     var cur=eventImages[id];
-    if(!cur || urls.length>=cur.length) eventImages[id]=urls;
+    if(!cur || urls.length>=cur.length){ if(!cur || cur.join("\n")!==urls.join("\n")) changed=true; eventImages[id]=urls; }
   });
+  if(changed) refreshImageSurfaces();
   /* 深いリンク等で読み込み前に詳細が開いていたら、ギャラリー付きで開き直す */
   if(currentEv && eventImageList(currentEv).length>=2 && !els.modal.querySelector("#galTrack")) openModal(currentEv);
 }
@@ -3402,6 +3417,8 @@ function loadProfiles(){
     if(res[4]){ dictByName=res[4]; dictWords.memo={}; buildDictRevMap(); }
     loadSheetDict();
     loadSheetProfiles();
+    if(profSheetState.open) renderProfSheet();
+    if(detailCtx) renderDetail();
     if(res[5]){ artistCats=res[5]; }
     artistCatCache={};
     profilesLoaded=true; profilesLoading=null;
@@ -7585,8 +7602,9 @@ function buildSignageData(){
 }
 function sgCardHTML(ev, opts){
   opts=opts||{};
-  var media = ev.imageUrl
-    ? '<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" data-fbk="'+esc(ev.id)+':0" data-fbmode="ph" onerror="evImgErr(this)"><div class="sg-ph" style="display:none;background:'+catColor(ev.category)+'"><span>'+esc(ev.category||"イベント")+'</span></div>'
+  var sgList = eventImageList(ev);
+  var media = sgList.length
+    ? '<img src="'+esc(sgList[0])+'" alt="" loading="lazy" data-fbk="'+esc(ev.id)+':0" data-fbmode="ph" onerror="evImgErr(this)"><div class="sg-ph" style="display:none;background:'+catColor(ev.category)+'"><span>'+esc(ev.category||"イベント")+'</span></div>'
     : '<div class="sg-ph" style="background:'+catColor(ev.category)+'"><span>'+esc(ev.category||"イベント")+'</span></div>';
   var metric="";
   if(opts.metric){
@@ -7928,7 +7946,8 @@ function tlChipsHTML(ev){
 }
 function tlMediaHTML(ev){
   var ph='<span>'+esc(ev.category||"イベント")+'</span>';
-  if(ev.imageUrl) return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'<img src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" draggable="false" data-fbk="'+esc(ev.id)+':0" data-fbmode="remove" onerror="evImgErr(this)"></div>';
+  var tlImgs=eventImageList(ev);
+  if(tlImgs.length) return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'<img src="'+esc(tlImgs[0])+'" alt="" loading="lazy" draggable="false" data-fbk="'+esc(ev.id)+':0" data-fbmode="remove" onerror="evImgErr(this)"></div>';
   return '<div class="tl-media noimg" style="background:'+catColor(ev.category)+'">'+ph+'</div>';
 }
 /* カードからアーティスト／会場／主催のプロフィールへ入る導線（v89） */
