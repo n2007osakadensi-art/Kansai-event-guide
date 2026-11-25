@@ -380,14 +380,6 @@
   .tl-me-unfav{flex:none;width:40px;border:1px solid rgba(244,242,236,.25);background:transparent;color:#f4f2ec;border-radius:9px;font-size:14px;cursor:pointer;font-family:inherit}
   .tl-me-empty{font-size:12.5px;opacity:.7;margin:2px 0 0}
   .tl-me-more{margin-top:7px;background:none;border:0;color:#f4f2ec;font-weight:700;font-size:12.5px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:4px 0}
-  .tl-me-postbox{display:flex;flex-direction:column;gap:7px;margin:2px 0 9px}
-  .tl-me-postbox textarea{width:100%;box-sizing:border-box;background:rgba(244,242,236,.08);border:1px solid rgba(244,242,236,.3);border-radius:10px;color:#f4f2ec;padding:9px 10px;font-family:inherit;font-size:14px;line-height:1.55;resize:vertical}
-  .tl-me-postbtn{align-self:flex-end;background:#f4f2ec;color:#0e0f12;border:0;border-radius:999px;padding:7px 18px;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;min-height:40px}
-  .tl-me-post{background:rgba(244,242,236,.06);border:1px solid rgba(244,242,236,.16);border-radius:10px;padding:8px 11px;margin-bottom:7px}
-  .tl-me-post-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
-  .tl-me-post-t{font-size:11.5px;opacity:.75}
-  .tl-me-post-del{background:none;border:0;color:#f4f2ec;opacity:.8;font-size:11.5px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:2px 0}
-  .tl-me-post-x{font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
   .tl-scope{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 2px;scrollbar-width:none;overscroll-behavior-x:contain}
   .tl-scope::-webkit-scrollbar{display:none}
   .tl-scope button{flex:0 0 auto;border:1.5px solid rgba(244,242,236,.4);background:transparent;color:#f4f2ec;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;min-height:36px;white-space:nowrap;cursor:pointer;font-family:inherit}
@@ -739,6 +731,25 @@
   .sg-banner .sgb-main strong{font-size:15.5px;white-space:nowrap}
   .sg-banner .sgb-text{color:rgba(244,242,236,.78)}
   .sg-banner button{flex:none;border:0;background:var(--accent);color:#fff;border-radius:999px;padding:10px 18px;font-weight:800;font-size:14px;min-height:44px}
+  .notice-strip{display:flex;align-items:center;gap:9px;background:var(--surface);border:1.5px solid var(--accent);border-radius:12px;padding:10px 14px;margin:0 0 14px;cursor:pointer;box-shadow:var(--shadow)}
+  .notice-strip.hidden{display:none}
+  .ns-kicker{flex:none;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--accent)}
+  .ns-badge{flex:none;background:var(--accent);color:#fff;font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 8px}
+  .ns-badge.hidden{display:none}
+  .ns-title{flex:1;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ns-go{flex:none;font-size:12.5px;color:var(--muted);font-weight:700}
+  .notice-overlay{position:fixed;inset:0;z-index:130;background:rgba(10,10,12,.55);display:flex;align-items:flex-start;justify-content:center;padding:18px 12px;overflow-y:auto}
+  .notice-overlay.hidden{display:none}
+  .notice-sheet{background:var(--surface);color:var(--ink);border-radius:14px;max-width:560px;width:100%;padding:16px 16px 8px;box-shadow:var(--shadow)}
+  .notice-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .notice-head h2{margin:0;font-size:16.5px}
+  .notice-head button{background:none;border:0;font-size:17px;cursor:pointer;color:var(--ink);padding:6px;min-width:40px;min-height:40px}
+  .notice-item{border-top:1px solid var(--line);padding:11px 0}
+  .notice-item .ni-date{font-size:12px;color:var(--muted)}
+  .notice-item h3{margin:3px 0 5px;font-size:15px}
+  .notice-item p{margin:0 0 6px;font-size:13.5px;line-height:1.65;white-space:pre-wrap}
+  .notice-item a{font-size:13.5px;font-weight:700}
+  .ni-empty{color:var(--muted);font-size:13.5px;padding:10px 0 16px}
   .sg-overlay{position:fixed;inset:0;z-index:120;background:#0e0f12;color:#f4f2ec;display:none;flex-direction:column}
   .sg-overlay.open{display:flex}
   .sg-top{display:flex;align-items:center;gap:12px;padding:12px clamp(14px,3vw,36px);border-bottom:1px solid rgba(255,255,255,.14);flex:none}
@@ -867,7 +878,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v107';
+  window.__kgShell='v108';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -908,7 +919,7 @@
      退避して初期状態で起動できるようにする（本体は消さず kg_quarantine_ に残す） */
   (function(){
     var checks={
-      'kg_trial_fav_events_v1':'arr','kg_trial_fav_performers_v1':'arr','kg_trial_lists_v1':'arr','kg_trial_my_posts_v1':'arr',
+      'kg_trial_fav_events_v1':'arr','kg_trial_fav_performers_v1':'arr','kg_trial_lists_v1':'arr',
       'kg_trial_prefs_v1':'obj','kg_trial_learn_v1':'obj',
       'kg_filter_profiles_v1':'arr','kg_member_session_v2':'obj'
     };
@@ -1079,6 +1090,8 @@
       <span class="sg-ticker-label">UPCOMING</span>
       <div class="sg-ticker-view"><div class="sg-ticker-track" id="homeTickerTrack" style="animation-duration: 623s;"><div class="sg-ticker-seq"><strong>9月18日（金）</strong> 「ATOM SHOP」期間限定POP UP SHOP（宝塚北SA） <span class="sg-tick-venue">＠ 宝塚北サービスエリア</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 神戸メリケンパークオリエンタルホテル イルミネーション <span class="sg-tick-venue">＠ 神戸メリケンパークオリエンタルホテル（神戸市中央区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 千のRockYou!! 2026 <span class="sg-tick-venue">＠ 大泉緑地 大芝生広場（堺市北区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 東寺 弘法市 <span class="sg-tick-venue">＠ 東寺（京都市南区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 四天王寺骨董市 <span class="sg-tick-venue">＠ 四天王寺境内 西重門前広場（大阪市天王寺区四天王寺1-11-18）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 木津川市2026秋の特別公開（岩船寺） <span class="sg-tick-venue">＠ 岩船寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> わくわくいちょう体操 <span class="sg-tick-venue">＠ 天理駅前広場コフフン</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 西明寺の紅葉と国宝本堂後陣仏像群 特別拝観 <span class="sg-tick-venue">＠ 西明寺（甲良町）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 鶏足寺（旧飯福寺）紅葉 <span class="sg-tick-venue">＠ 鶏足寺（長浜市）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 第39回浜坂みなとカニ祭り <span class="sg-tick-venue">＠ 浜坂漁港せり市場（新温泉町）</span><span class="sg-tick-sep">／</span><strong>8月1日（土）</strong> 歴史リアル謎解きゲーム「謎の城」in 郡山城「豊臣秀長 大和大納言と呼ばれた名君」 <span class="sg-tick-venue">＠ 郡山城および城下町エリア（大和郡山市）</span><span class="sg-tick-sep">／</span><strong>9月6日（日）</strong> 第11回 六甲山のキノコ展 in 森林植物園 <span class="sg-tick-venue">＠ 神戸市立森林植物園 森林展示館2階</span><span class="sg-tick-sep">／</span><strong>9月19日（土）</strong> 恐竜パーク（四季の郷公園） <span class="sg-tick-venue">＠ 四季の郷公園（和歌山市）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 木津川市2026秋の特別公開（浄瑠璃寺） <span class="sg-tick-venue">＠ 浄瑠璃寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 第6回特別展「尼崎の古墳」 <span class="sg-tick-venue">＠ 尼崎市立歴史博物館（尼崎市）</span><span class="sg-tick-sep">／</span><strong>10月2日（金）</strong> 歴史リアル謎解きゲーム「謎の城」in大阪城「豊臣秀吉と黄金の城 大坂城からはじまる天下人への道」 <span class="sg-tick-venue">＠ 大阪城公園（大阪市中央区）</span><span class="sg-tick-sep">／</span><strong>10月3日（土）</strong> 秋季特別展「銅鐸礼賛ー地宝を訪ねて 和歌山ー」 <span class="sg-tick-venue">＠ 南あわじ市滝川記念美術館 玉青館</span><span class="sg-tick-sep">／</span><strong>10月3日（土）</strong> 秋期企画展「湖・川が育む水との暮らし」 <span class="sg-tick-venue">＠ 野洲市歴史民俗博物館（野洲市）</span><span class="sg-tick-sep">／</span><strong>10月9日（金）</strong> 飛鳥資料館秋期特別展「世界遺産『飛鳥・藤原の宮都』と奈文研」 <span class="sg-tick-venue">＠ 飛鳥資料館（明日香村）</span><span class="sg-tick-sep">／</span><strong>10月10日（土）</strong> 大阪城天守閣 特別展「戦国のきょうだい」 <span class="sg-tick-venue">＠ 大阪城天守閣（大阪市中央区）</span><span class="sg-tick-sep">／</span><strong>10月24日（土）</strong> 筆跡でたどる田辺聖子 <span class="sg-tick-venue">＠ 田辺聖子文学館（東大阪市）</span><span class="sg-tick-sep">／</span><strong>10月27日（火）</strong> 日本の鬼の交流博物館秋季特別展「書だ！妖怪だ！展－妖怪書家 逢香展－」 <span class="sg-tick-venue">＠ 日本の鬼の交流博物館（福知山市）</span><span class="sg-tick-sep">／</span><strong>10月30日（金）</strong> 第72回堺市菊花大会 <span class="sg-tick-venue">＠ 大仙公園（堺市堺区）</span><span class="sg-tick-sep">／</span><strong>10月30日（金）</strong> 秋めく相楽宴2026 <span class="sg-tick-venue">＠ 相楽園（神戸市中央区）</span><span class="sg-tick-sep">／</span><strong>10月31日（土）</strong> 海住山寺 国宝五重塔の開扉と文化財特別公開 <span class="sg-tick-venue">＠ 海住山寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>10月31日（土）</strong> 和歌山市立博物館 特別展「川合小梅の世界 ―時代を記し、日々を描く―」 <span class="sg-tick-venue">＠ 和歌山市立博物館（和歌山市）</span><span class="sg-tick-sep">／</span><strong>11月1日（日）</strong> 如意輪寺 菊まつり <span class="sg-tick-venue">＠ 如意輪寺（吉野町）</span><span class="sg-tick-sep">／</span><strong>11月1日（日）</strong> 日吉大社もみじまつり <span class="sg-tick-venue">＠ 日吉大社（大津市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 第17回 やぶ紅葉まつり <span class="sg-tick-venue">＠ 養父神社（養父市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 【日本天台三総本山】秋の特別公開（比叡山延暦寺、西教寺、三井寺） <span class="sg-tick-venue">＠ 総本山 三井寺（中院エリア）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 第17回 やぶもみじまつり <span class="sg-tick-venue">＠ 養父神社（養父市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 秋の植木市（鶴見緑地） <span class="sg-tick-venue">＠ 花博記念公園鶴見緑地（大阪市鶴見区）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 源氏ろまん2026 宇治十帖スタンプラリー ～スマホで巡る～ <span class="sg-tick-venue">＠ 宇治市内21箇所（宇治市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 平城遷都－「飛鳥・藤原の宮都」から平城へ－（秋期特別展） <span class="sg-tick-venue">＠ 平城宮跡歴史公園（奈良市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 特別展「源氏物語 王朝のかがやき」 <span class="sg-tick-venue">＠ 京都国立博物館 平成知新館</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 北野天満宮 史跡御土居のもみじ苑公開・ライトアップ <span class="sg-tick-venue">＠ 北野天満宮（京都市上京区）</span><span class="sg-tick-sep">／</span><strong>11月12日（木）</strong> 大阪梅田ツインタワーズ・ノース コンコース クリスマスイルミネーション「Lumiere Ribbon Illumination」 <span class="sg-tick-venue">＠ 大阪梅田ツインタワーズ・ノース 1Fコンコース（大阪市北区）</span><span class="sg-tick-sep">／</span><strong>11月13日（金）</strong> 當麻寺中之坊 特別公開「村上裕二 龍游殿および太子殿 大障壁画」 <span class="sg-tick-venue">＠ 當麻寺 中之坊（葛城市・奈良）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 東福寺塔頭 天得院 秋の特別拝観（ライトアップ） <span class="sg-tick-venue">＠ 天得院（京都市東山区）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 秋の洋ラン展 <span class="sg-tick-venue">＠ 姫路市立手柄山温室植物園</span></div><div class="sg-ticker-seq" aria-hidden="true"><strong>9月18日（金）</strong> 「ATOM SHOP」期間限定POP UP SHOP（宝塚北SA） <span class="sg-tick-venue">＠ 宝塚北サービスエリア</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 神戸メリケンパークオリエンタルホテル イルミネーション <span class="sg-tick-venue">＠ 神戸メリケンパークオリエンタルホテル（神戸市中央区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 千のRockYou!! 2026 <span class="sg-tick-venue">＠ 大泉緑地 大芝生広場（堺市北区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 東寺 弘法市 <span class="sg-tick-venue">＠ 東寺（京都市南区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 四天王寺骨董市 <span class="sg-tick-venue">＠ 四天王寺境内 西重門前広場（大阪市天王寺区四天王寺1-11-18）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 木津川市2026秋の特別公開（岩船寺） <span class="sg-tick-venue">＠ 岩船寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> わくわくいちょう体操 <span class="sg-tick-venue">＠ 天理駅前広場コフフン</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 西明寺の紅葉と国宝本堂後陣仏像群 特別拝観 <span class="sg-tick-venue">＠ 西明寺（甲良町）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 鶏足寺（旧飯福寺）紅葉 <span class="sg-tick-venue">＠ 鶏足寺（長浜市）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 第39回浜坂みなとカニ祭り <span class="sg-tick-venue">＠ 浜坂漁港せり市場（新温泉町）</span><span class="sg-tick-sep">／</span><strong>8月1日（土）</strong> 歴史リアル謎解きゲーム「謎の城」in 郡山城「豊臣秀長 大和大納言と呼ばれた名君」 <span class="sg-tick-venue">＠ 郡山城および城下町エリア（大和郡山市）</span><span class="sg-tick-sep">／</span><strong>9月6日（日）</strong> 第11回 六甲山のキノコ展 in 森林植物園 <span class="sg-tick-venue">＠ 神戸市立森林植物園 森林展示館2階</span><span class="sg-tick-sep">／</span><strong>9月19日（土）</strong> 恐竜パーク（四季の郷公園） <span class="sg-tick-venue">＠ 四季の郷公園（和歌山市）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 木津川市2026秋の特別公開（浄瑠璃寺） <span class="sg-tick-venue">＠ 浄瑠璃寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 第6回特別展「尼崎の古墳」 <span class="sg-tick-venue">＠ 尼崎市立歴史博物館（尼崎市）</span><span class="sg-tick-sep">／</span><strong>10月2日（金）</strong> 歴史リアル謎解きゲーム「謎の城」in大阪城「豊臣秀吉と黄金の城 大坂城からはじまる天下人への道」 <span class="sg-tick-venue">＠ 大阪城公園（大阪市中央区）</span><span class="sg-tick-sep">／</span><strong>10月3日（土）</strong> 秋季特別展「銅鐸礼賛ー地宝を訪ねて 和歌山ー」 <span class="sg-tick-venue">＠ 南あわじ市滝川記念美術館 玉青館</span><span class="sg-tick-sep">／</span><strong>10月3日（土）</strong> 秋期企画展「湖・川が育む水との暮らし」 <span class="sg-tick-venue">＠ 野洲市歴史民俗博物館（野洲市）</span><span class="sg-tick-sep">／</span><strong>10月9日（金）</strong> 飛鳥資料館秋期特別展「世界遺産『飛鳥・藤原の宮都』と奈文研」 <span class="sg-tick-venue">＠ 飛鳥資料館（明日香村）</span><span class="sg-tick-sep">／</span><strong>10月10日（土）</strong> 大阪城天守閣 特別展「戦国のきょうだい」 <span class="sg-tick-venue">＠ 大阪城天守閣（大阪市中央区）</span><span class="sg-tick-sep">／</span><strong>10月24日（土）</strong> 筆跡でたどる田辺聖子 <span class="sg-tick-venue">＠ 田辺聖子文学館（東大阪市）</span><span class="sg-tick-sep">／</span><strong>10月27日（火）</strong> 日本の鬼の交流博物館秋季特別展「書だ！妖怪だ！展－妖怪書家 逢香展－」 <span class="sg-tick-venue">＠ 日本の鬼の交流博物館（福知山市）</span><span class="sg-tick-sep">／</span><strong>10月30日（金）</strong> 第72回堺市菊花大会 <span class="sg-tick-venue">＠ 大仙公園（堺市堺区）</span><span class="sg-tick-sep">／</span><strong>10月30日（金）</strong> 秋めく相楽宴2026 <span class="sg-tick-venue">＠ 相楽園（神戸市中央区）</span><span class="sg-tick-sep">／</span><strong>10月31日（土）</strong> 海住山寺 国宝五重塔の開扉と文化財特別公開 <span class="sg-tick-venue">＠ 海住山寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>10月31日（土）</strong> 和歌山市立博物館 特別展「川合小梅の世界 ―時代を記し、日々を描く―」 <span class="sg-tick-venue">＠ 和歌山市立博物館（和歌山市）</span><span class="sg-tick-sep">／</span><strong>11月1日（日）</strong> 如意輪寺 菊まつり <span class="sg-tick-venue">＠ 如意輪寺（吉野町）</span><span class="sg-tick-sep">／</span><strong>11月1日（日）</strong> 日吉大社もみじまつり <span class="sg-tick-venue">＠ 日吉大社（大津市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 第17回 やぶ紅葉まつり <span class="sg-tick-venue">＠ 養父神社（養父市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 【日本天台三総本山】秋の特別公開（比叡山延暦寺、西教寺、三井寺） <span class="sg-tick-venue">＠ 総本山 三井寺（中院エリア）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 第17回 やぶもみじまつり <span class="sg-tick-venue">＠ 養父神社（養父市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 秋の植木市（鶴見緑地） <span class="sg-tick-venue">＠ 花博記念公園鶴見緑地（大阪市鶴見区）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 源氏ろまん2026 宇治十帖スタンプラリー ～スマホで巡る～ <span class="sg-tick-venue">＠ 宇治市内21箇所（宇治市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 平城遷都－「飛鳥・藤原の宮都」から平城へ－（秋期特別展） <span class="sg-tick-venue">＠ 平城宮跡歴史公園（奈良市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 特別展「源氏物語 王朝のかがやき」 <span class="sg-tick-venue">＠ 京都国立博物館 平成知新館</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 北野天満宮 史跡御土居のもみじ苑公開・ライトアップ <span class="sg-tick-venue">＠ 北野天満宮（京都市上京区）</span><span class="sg-tick-sep">／</span><strong>11月12日（木）</strong> 大阪梅田ツインタワーズ・ノース コンコース クリスマスイルミネーション「Lumiere Ribbon Illumination」 <span class="sg-tick-venue">＠ 大阪梅田ツインタワーズ・ノース 1Fコンコース（大阪市北区）</span><span class="sg-tick-sep">／</span><strong>11月13日（金）</strong> 當麻寺中之坊 特別公開「村上裕二 龍游殿および太子殿 大障壁画」 <span class="sg-tick-venue">＠ 當麻寺 中之坊（葛城市・奈良）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 東福寺塔頭 天得院 秋の特別拝観（ライトアップ） <span class="sg-tick-venue">＠ 天得院（京都市東山区）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 秋の洋ラン展 <span class="sg-tick-venue">＠ 姫路市立手柄山温室植物園</span></div></div></div>
     </div>
+    <div class="notice-strip hidden" id="noticeStrip" role="button" tabindex="0" aria-label="お知らせを開く"><span class="ns-kicker">お知らせ</span><span class="ns-badge hidden" id="noticeNew">NEW</span><span class="ns-title" id="noticeTitle"></span><span class="ns-go">一覧 ›</span></div>
+    <div class="notice-overlay hidden" id="noticeOverlay" role="dialog" aria-modal="true" aria-label="お知らせ一覧"><div class="notice-sheet"><div class="notice-head"><h2>お知らせ</h2><button type="button" id="noticeClose" aria-label="閉じる">✕</button></div><div class="notice-list" id="noticeList"></div></div></div>
     <div class="sg-banner" id="sgBanner">
       <div class="sgb-main"><span class="sgb-kicker">DIGITAL SIGNAGE</span><strong>サイネージ表示</strong><span class="sgb-text" id="sgBannerText">全7,803件から、本日開催 926件・今週末・新着・人気などを大画面で自動ローテーション表示します。</span></div>
       <button type="button" id="sgStartBtn">サイネージを開始</button>
@@ -1512,9 +1525,6 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){retu
 var LS_FAV="kg_trial_fav_events_v1", LS_OSHI="kg_trial_fav_performers_v1", LS_WANT="kg_trial_want_events_v1", LS_INT="kg_trial_interest_events_v1";
 function loadSet(key){ try{ var a=JSON.parse(localStorage.getItem(key)||"[]"); return new Set(Array.isArray(a)?a.map(String):[]); }catch(e){ return new Set(); } }
 function saveSet(key,set){ try{ var before=JSON.parse(localStorage.getItem(key)||"[]"); var after=Array.from(set); localStorage.setItem(key, JSON.stringify(after)); window.dispatchEvent(new CustomEvent("kg:favorites-change",{detail:{key:key,before:before,after:after}})); }catch(e){ console.warn("端末内への保存に失敗しました",e); } }
-var LS_POSTS="kg_trial_my_posts_v1";
-var myPosts=(function(){ try{ var a=JSON.parse(localStorage.getItem(LS_POSTS)||"[]"); return Array.isArray(a)? a.filter(function(p){ return p && typeof p.text==="string"; }) : []; }catch(e){ return []; } })();
-function saveMyPosts(){ try{ localStorage.setItem(LS_POSTS, JSON.stringify(myPosts)); }catch(e){ console.warn("投稿の保存に失敗しました",e); } }
 var favEvents = loadSet(LS_FAV);
 var favPerfs = loadSet(LS_OSHI);
 var wantEvents = loadSet(LS_WANT);
@@ -6274,7 +6284,7 @@ function evCachePut(events, lite){
    端末では、推し・お気に入り・アンケート回答・ログイン状態が毎回消えてしまう。
    対象キーは保存のたびに IndexedDB へ控えを取り、起動時に localStorage 側に
    無いものを控えから復元する（どんな端末でも安定して使えることへの対策） */
-var MIRROR_KEYS=["kg_trial_fav_events_v1","kg_trial_fav_performers_v1","kg_trial_lists_v1","kg_trial_my_posts_v1","kg_trial_prefs_v1","kg_trial_learn_v1","kg_trial_show_ended","kg_filter_profiles_v1","kg_member_session_v2","kg_member_selected_v2","kg_member_selected_v1","kg_member_code_v1","kg_account_selected_user_v1","kg_admin_mode_v1","kg_admin_hash_v1","kg_guest_mode_v1"];
+var MIRROR_KEYS=["kg_trial_fav_events_v1","kg_trial_fav_performers_v1","kg_trial_lists_v1","kg_trial_prefs_v1","kg_trial_learn_v1","kg_trial_show_ended","kg_filter_profiles_v1","kg_member_session_v2","kg_member_selected_v2","kg_member_selected_v1","kg_member_code_v1","kg_account_selected_user_v1","kg_admin_mode_v1","kg_admin_hash_v1","kg_guest_mode_v1"];
 var MIRROR_PREFIXES=["kg_account_pending_v1_"];
 var MIRROR_IDB_KEY="local-mirror-v1";
 var mirrorRestoring=false, mirrorTimer=null;
@@ -6504,6 +6514,74 @@ function loadSheetDict(){
   script.src=sheetJsonpBase("検索辞書")+cbName+"&_="+Date.now();
   document.head.appendChild(script);
 }
+/* お知らせ配信（v108）: シート「お知らせ」タブを読み取り専用で読み、全ユーザーへ表示する。
+   書き込めるのはシートの編集権限を持つ管理者（と管理者の指示で書く Muse）だけ。
+   列は A=日時 / B=タイトル / C=本文 / D=リンクURL / E=リンク文言 */
+var noticesList=[], noticesStarted=false;
+function noticeParseKey(v){
+  if(v instanceof Date && !isNaN(v.getTime())) return String(v.getFullYear())+String(v.getMonth()+1).padStart(2,"0")+String(v.getDate()).padStart(2,"0")+String(v.getHours()).padStart(2,"0")+String(v.getMinutes()).padStart(2,"0");
+  var m=String(v||"").match(/(\d{4})\D(\d{1,2})\D(\d{1,2})(?:\D(\d{1,2}):(\d{2}))?/);
+  if(!m) return "";
+  return m[1]+String(+m[2]).padStart(2,"0")+String(+m[3]).padStart(2,"0")+String(+(m[4]||0)).padStart(2,"0")+(m[5]||"00");
+}
+function noticeDateText(v, f){
+  if(f) return String(f);
+  if(v instanceof Date && !isNaN(v.getTime())) return v.getFullYear()+"/"+(v.getMonth()+1)+"/"+v.getDate();
+  return String(v||"");
+}
+function renderNoticeStrip(){
+  var strip=document.getElementById("noticeStrip"); if(!strip) return;
+  if(!noticesList.length){ strip.classList.add("hidden"); return; }
+  var tt=document.getElementById("noticeTitle"); if(tt) tt.textContent=noticesList[0].title;
+  var seen=""; try{ seen=localStorage.getItem("kg_notice_seen_v1")||""; }catch(e){}
+  var nb=document.getElementById("noticeNew"); if(nb) nb.classList.toggle("hidden", !(noticesList[0].key>seen));
+  strip.classList.remove("hidden");
+}
+function openNotices(){
+  var list=document.getElementById("noticeList"); if(!list) return;
+  list.innerHTML=noticesList.length? noticesList.map(function(n){
+    return '<article class="notice-item"><div class="ni-date">'+esc(n.dateText)+'</div><h3>'+esc(n.title)+'</h3>'+(n.body? '<p>'+esc(n.body)+'</p>' : '')+(n.url? '<a href="'+esc(n.url)+'" target="_blank" rel="noopener">'+esc(n.urlLabel||"詳しく見る")+'</a>' : '')+'</article>';
+  }).join("") : '<p class="ni-empty">お知らせはまだありません。</p>';
+  var ov=document.getElementById("noticeOverlay"); if(ov) ov.classList.remove("hidden");
+  try{ localStorage.setItem("kg_notice_seen_v1", noticesList.length? noticesList[0].key : ""); }catch(e){}
+  var nb=document.getElementById("noticeNew"); if(nb) nb.classList.add("hidden");
+}
+function loadNotices(){
+  if(noticesStarted) return; noticesStarted=true;
+  var cbName="__kgNoticeCb"+(++loadSeq);
+  var settled=false;
+  var script=document.createElement("script");
+  var timer=setTimeout(function(){ finish(); }, 30000);
+  function finish(){ if(settled) return; settled=true; clearTimeout(timer); try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); }
+  window[cbName]=function(resp){
+    try{
+      var rows=(resp && resp.table && resp.table.rows)||[];
+      var out=[];
+      rows.forEach(function(r, ri){
+        if(ri===0 || !r || !r.c) return;
+        function cv(i){ var c=r.c[i]; if(!c) return ""; if(c.v!=null) return c.v; return ""; }
+        function cf(i){ var c=r.c[i]; return (c && c.f!=null && c.f!=="")? String(c.f) : ""; }
+        var title=String(cv(1)||"").trim(); if(!title) return;
+        out.push({ key:noticeParseKey(cv(0)), dateText:noticeDateText(cv(0), cf(0)), title:title, body:String(cv(2)||"").trim(), url:String(cv(3)||"").trim(), urlLabel:String(cv(4)||"").trim() });
+      });
+      out.sort(function(a,b){ return a.key<b.key? 1 : (a.key>b.key? -1 : 0); });
+      noticesList=out.slice(0,20);
+      renderNoticeStrip();
+    }catch(e){}
+    finish();
+  };
+  script.onerror=function(){ finish(); };
+  script.async=true;
+  script.src=sheetJsonpBase("お知らせ")+cbName+"&_="+Date.now();
+  document.head.appendChild(script);
+  var strip=document.getElementById("noticeStrip");
+  if(strip){ strip.addEventListener("click", openNotices); strip.addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openNotices(); } }); }
+  var cl=document.getElementById("noticeClose");
+  if(cl) cl.addEventListener("click", function(){ var ov=document.getElementById("noticeOverlay"); if(ov) ov.classList.add("hidden"); });
+  var ov=document.getElementById("noticeOverlay");
+  if(ov) ov.addEventListener("click", function(e){ if(e.target===ov) ov.classList.add("hidden"); });
+}
+loadNotices();
 /* プロフィールの自動反映（v92）: シートの artists / venues / readings タブを読み、
    同梱データへマージする。ガイドへ追加・修正してシート同期されれば、再pushなしで反映される。
    マージ方針はデータを失わない側: シートの非空値が勝ち、シートに無い項目（アイコン等）は同梱を保持。 */
@@ -7696,7 +7774,7 @@ function renderTlMe(){
   if(prefs.tlMode!=="feed"){
     el.innerHTML='<button type="button" class="tl-me-bar" data-tlme="feed">'
       +'<span class="tl-me-ava">★</span><span class="tl-me-bar-t">マイページ</span>'
-      +'<span class="tl-me-bar-s">推し '+favPerfs.size+'組 ・ プラン今日 '+todaySlots.length+'件 ・ リスト '+myLists.length+'件 ・ 投稿 '+myPosts.length+'件</span>'
+      +'<span class="tl-me-bar-s">推し '+favPerfs.size+'組 ・ プラン今日 '+todaySlots.length+'件 ・ リスト '+myLists.length+'件</span>'
       +'<span class="tl-me-bar-go">開く ›</span></button>';
     return;
   }
@@ -7717,8 +7795,6 @@ function renderTlMe(){
     +'<button type="button" data-tlme="lists"><strong>'+myLists.length+'</strong><span>リスト</span></button>'
     +'<button type="button" data-tlme="follow"><strong>'+(follows.venues.length+follows.organizers.length)+'</strong><span>フォロー</span></button>'
     +'</div>'
-    +'<div class="tl-me-sec">自分の投稿</div>'
-    + tlMePostsHTML()
     +'<div class="tl-me-sec">推し</div>'
     +(chips? '<div class="tl-me-chips">'+chips+'</div>' : '<p class="tl-me-empty">まだ推しが登録されていません。イベントの詳細で出演者をタップすると登録できます。</p>')
     +'<div class="tl-me-sec">今日の回し</div>'
@@ -7748,17 +7824,6 @@ function tlMeListsHTML(){
     return '<button type="button" class="tl-me-slot" data-tlme-list="'+esc(l.id)+'"><span class="tl-me-slot-a">'+esc(l.name)+'</span><span class="tl-me-slot-s">イベント '+n+'件（タップでタイムラインに表示）</span></button>';
   }).join("");
   return '<div class="tl-me-slots">'+rows+'</div><button type="button" class="tl-me-more" data-tlme="lists">リストの編集（名前変更・削除）</button>';
-}
-/* 自分の投稿（v107）: 端末内だけのテキスト投稿。プロフィールで書いて眺めるためのもの */
-function tlMePostsHTML(){
-  var form='<div class="tl-me-postbox"><textarea id="tlMePostText" rows="3" maxlength="500" placeholder="今日の現場のこと、気づいたことなど（この端末の中だけに保存されます）"></textarea><button type="button" class="tl-me-postbtn" data-tlme-post="1">投稿する</button></div>';
-  if(!myPosts.length) return form+'<p class="tl-me-empty">まだ投稿がありません。上の欄から書けます。</p>';
-  var rows=myPosts.slice(0,20).map(function(p){
-    var d=new Date(p.ts||0);
-    var when=isNaN(d.getTime())? "" : (d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
-    return '<div class="tl-me-post"><div class="tl-me-post-h"><span class="tl-me-post-t">'+esc(when)+'</span><button type="button" class="tl-me-post-del" data-tlme-post-del="'+esc(String(p.id))+'">削除</button></div><div class="tl-me-post-x">'+esc(p.text)+'</div></div>';
-  }).join("");
-  return form+'<div class="tl-me-posts">'+rows+'</div>'+(myPosts.length>20? '<p class="tl-me-empty">最近の20件を表示しています（全'+myPosts.length+'件）。</p>' : '');
 }
 function tlApplyMode(){
   renderTlMe();
@@ -8118,10 +8183,6 @@ function refreshTlLogin(){
   if(mf) mf.addEventListener("click", function(){ tlSetMode("feed"); });
   var meEl=tlEl("tlMe");
   if(meEl) meEl.addEventListener("click", function(e){
-    var pd=e.target.closest("[data-tlme-post-del]");
-    if(pd){ var pid=pd.getAttribute("data-tlme-post-del"); myPosts=myPosts.filter(function(p){ return String(p.id)!==pid; }); saveMyPosts(); renderTlMe(); toast("投稿を削除しました"); return; }
-    var pb=e.target.closest("[data-tlme-post]");
-    if(pb){ var ta=document.getElementById("tlMePostText"); var tx=ta? ta.value.trim() : ""; if(!tx){ toast("本文が空です"); return; } myPosts.unshift({id:"p"+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36), text:tx.slice(0,500), ts:Date.now()}); if(myPosts.length>1000) myPosts=myPosts.slice(0,1000); saveMyPosts(); renderTlMe(); toast("投稿しました"); return; }
     var uf=e.target.closest("[data-tlme-unfav]");
     if(uf){ toggleFav(uf.getAttribute("data-tlme-unfav")); toast("お気に入りから外しました"); tlState.items=buildTimelineItems(); tlBuildTicker(); tlApplyMode(); return; }
     var ob=e.target.closest("[data-tlme-open]");

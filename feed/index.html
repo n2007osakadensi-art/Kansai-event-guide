@@ -73,6 +73,20 @@
   .searchbar button.hidden{display:none}
   .search-note{max-width:560px;margin:0 auto;padding:0 16px 8px;font-size:12.5px;color:rgba(255,255,255,.9);text-shadow:0 1px 4px rgba(0,0,0,.6)}
   .search-note.hidden{display:none}
+  .notice-strip{display:flex;align-items:center;gap:8px;width:calc(100% - 28px);max-width:532px;margin:0 auto 8px;min-height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(20,20,20,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-family:inherit;font-size:13.5px;padding:7px 14px;cursor:pointer;text-align:left}
+  .notice-strip.hidden{display:none}
+  .notice-strip .ns-kicker{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.1em;color:#f2c14e}
+  .notice-strip .ns-badge{flex:none;background:#e0342b;color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:2px 7px}
+  .notice-strip .ns-badge.hidden{display:none}
+  .notice-strip .ns-title{flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .notice-strip .ns-go{flex:none;opacity:.85}
+  .notice-list{padding:4px 2px 10px}
+  .notice-item{border-top:1px solid rgba(255,255,255,.14);padding:11px 0}
+  .notice-item:first-child{border-top:0}
+  .notice-item .ni-date{font-size:12px;opacity:.7}
+  .notice-item h3{margin:3px 0 5px;font-size:15px}
+  .notice-item p{margin:0 0 6px;font-size:13.5px;line-height:1.65;white-space:pre-wrap}
+  .notice-item a{font-weight:700}
   .scopebar button{flex:0 0 auto;border:1px solid rgba(255,255,255,.45);background:rgba(20,20,20,.38);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;min-height:34px;white-space:nowrap;cursor:pointer;font-family:inherit;text-shadow:0 1px 4px rgba(0,0,0,.5)}
   .scopebar button.on{background:#f4f2ec;color:#141414;border-color:#f4f2ec;text-shadow:none}
   /* リスト選択シート */
@@ -119,12 +133,18 @@
 <div class="scopebar" id="scopeBar" role="group" aria-label="フィードに流す範囲の切り替え"></div>
 <div class="searchbar"><input id="feedSearchInput" type="search" inputmode="search" placeholder="イベント・会場・出演者で検索" autocomplete="off" aria-label="イベントを検索"><button type="button" id="feedSearchClear" class="hidden" aria-label="検索を解除">✕</button></div>
 <div class="search-note hidden" id="feedSearchNote"></div>
+<button type="button" class="notice-strip hidden" id="noticeStrip"><span class="ns-kicker">お知らせ</span><span class="ns-badge hidden" id="noticeNew">NEW</span><span class="ns-title" id="noticeTitle"></span><span class="ns-go">›</span></button>
 </header>
 
 <div class="lp-backdrop hidden" id="lpBackdrop"></div>
 <div class="lp-sheet hidden" id="lpSheet" role="dialog" aria-modal="true" aria-label="リストに追加">
   <div class="lp-head"><h2 id="lpTitle">リストに追加</h2><button class="lp-close" type="button" id="lpClose" aria-label="閉じる">✕</button></div>
   <div id="lpBody"></div>
+</div>
+<div class="lp-backdrop hidden" id="noticeBackdrop"></div>
+<div class="lp-sheet hidden" id="noticeSheet" role="dialog" aria-modal="true" aria-label="お知らせ一覧">
+  <div class="lp-head"><h2>お知らせ</h2><button class="lp-close" type="button" id="noticeClose" aria-label="閉じる">✕</button></div>
+  <div id="noticeList" class="notice-list"></div>
 </div>
 <main class="feed" id="feed" style="display:none"></main>
 <div class="state" id="state"><div class="spinner" aria-hidden="true"></div><div>読み込み中…</div></div>
@@ -535,6 +555,78 @@ function loadFeedDict(){
     script.onerror=function(){ finish(); };
     script.async=true;
     script.src=sheetJsonpBase("検索辞書")+cbName+"&_="+Date.now();
+    document.head.appendChild(script);
+  }catch(e){}
+}
+/* ---------- お知らせ配信: シート「お知らせ」タブ（管理者だけが書き込める）を読み取り専用で表示 ---------- */
+var feedNotices=[], feedNoticesStarted=false;
+function noticeParseKey(v){
+  if(v instanceof Date && !isNaN(v.getTime())) return String(v.getFullYear())+String(v.getMonth()+1).padStart(2,"0")+String(v.getDate()).padStart(2,"0")+String(v.getHours()).padStart(2,"0")+String(v.getMinutes()).padStart(2,"0");
+  var m=String(v||"").match(/(\d{4})\D(\d{1,2})\D(\d{1,2})(?:\D(\d{1,2}):(\d{2}))?/);
+  if(!m) return "";
+  return m[1]+String(+m[2]).padStart(2,"0")+String(+m[3]).padStart(2,"0")+String(+(m[4]||0)).padStart(2,"0")+(m[5]||"00");
+}
+function noticeDateText(v, f){
+  if(f) return String(f);
+  if(v instanceof Date && !isNaN(v.getTime())) return v.getFullYear()+"/"+(v.getMonth()+1)+"/"+v.getDate();
+  return String(v||"");
+}
+function renderFeedNoticeStrip(){
+  var strip=document.getElementById("noticeStrip"); if(!strip) return;
+  if(!feedNotices.length){ strip.classList.add("hidden"); return; }
+  var tt=document.getElementById("noticeTitle"); if(tt) tt.textContent=feedNotices[0].title;
+  var seen=""; try{ seen=localStorage.getItem("kg_notice_seen_v1")||""; }catch(e){}
+  var nb=document.getElementById("noticeNew"); if(nb) nb.classList.toggle("hidden", !(feedNotices[0].key>seen));
+  strip.classList.remove("hidden");
+}
+function openFeedNotices(){
+  var list=document.getElementById("noticeList"); if(!list) return;
+  list.innerHTML=feedNotices.length? feedNotices.map(function(n){
+    return '<article class="notice-item"><div class="ni-date">'+esc(n.dateText)+'</div><h3>'+esc(n.title)+'</h3>'+(n.body? '<p>'+esc(n.body)+'</p>' : '')+(n.url? '<a href="'+esc(n.url)+'" target="_blank" rel="noopener">'+esc(n.urlLabel||"詳しく見る")+'</a>' : '')+'</article>';
+  }).join("") : '<p>お知らせはまだありません。</p>';
+  var sh=document.getElementById("noticeSheet"), bd=document.getElementById("noticeBackdrop");
+  if(sh) sh.classList.remove("hidden"); if(bd) bd.classList.remove("hidden");
+  try{ localStorage.setItem("kg_notice_seen_v1", feedNotices.length? feedNotices[0].key : ""); }catch(e){}
+  var nb=document.getElementById("noticeNew"); if(nb) nb.classList.add("hidden");
+}
+function closeFeedNotices(){
+  var sh=document.getElementById("noticeSheet"), bd=document.getElementById("noticeBackdrop");
+  if(sh) sh.classList.add("hidden"); if(bd) bd.classList.add("hidden");
+}
+function loadFeedNotices(){
+  if(feedNoticesStarted) return; feedNoticesStarted=true;
+  var strip=document.getElementById("noticeStrip");
+  if(strip) strip.addEventListener("click", openFeedNotices);
+  var cl=document.getElementById("noticeClose");
+  if(cl) cl.addEventListener("click", closeFeedNotices);
+  var bd=document.getElementById("noticeBackdrop");
+  if(bd) bd.addEventListener("click", closeFeedNotices);
+  try{
+    var cbName="__kgFeedNoticeCb"+Date.now();
+    var settled=false;
+    var script=document.createElement("script");
+    var timer=setTimeout(function(){ finish(); }, 30000);
+    function finish(){ if(settled) return; settled=true; clearTimeout(timer); try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); }
+    window[cbName]=function(resp){
+      try{
+        var rows=(resp && resp.table && resp.table.rows)||[];
+        var out=[];
+        rows.forEach(function(r, ri){
+          if(ri===0 || !r || !r.c) return;
+          function cv(i){ var c=r.c[i]; if(!c) return ""; if(c.v!=null) return c.v; return ""; }
+          function cf(i){ var c=r.c[i]; return (c && c.f!=null && c.f!=="")? String(c.f) : ""; }
+          var title=String(cv(1)||"").trim(); if(!title) return;
+          out.push({ key:noticeParseKey(cv(0)), dateText:noticeDateText(cv(0), cf(0)), title:title, body:String(cv(2)||"").trim(), url:String(cv(3)||"").trim(), urlLabel:String(cv(4)||"").trim() });
+        });
+        out.sort(function(a,b){ return a.key<b.key? 1 : (a.key>b.key? -1 : 0); });
+        feedNotices=out.slice(0,20);
+        renderFeedNoticeStrip();
+      }catch(e){}
+      finish();
+    };
+    script.onerror=function(){ finish(); };
+    script.async=true;
+    script.src=sheetJsonpBase("お知らせ")+cbName+"&_="+Date.now();
     document.head.appendChild(script);
   }catch(e){}
 }
@@ -1133,6 +1225,7 @@ if("serviceWorker" in navigator){
   try{ navigator.serviceWorker.register("./feed-worker.js", {updateViaCache:"none"}).catch(function(){}); }catch(e){}
 }
 loadFeedDict();
+loadFeedNotices();
 start();
 })();
 </script>
