@@ -878,7 +878,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v108';
+  window.__kgShell='v109';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4906,6 +4906,7 @@ var activeListId=null; /* リストビューで選択中のリストid（未選�
 var listsEdit=null;    /* リストバーの編集状態 {mode:"new"|"rename"|"delask"} */
 var tlScopeListId=null; /* タイムラインのスコープ（null=すべて）。保存しない */
 var tlScopePreset=null; /* タイムラインの固定スコープ（"fav"|"want"|"int"、v80）。リストとは排他 */
+var tlScopeArtist=null; /* 範囲: 特定の推し1組（v109）。リスト・固定スコープとは排他 */
 function findList(id){ return myLists.find(function(l){ return l.id===id; })||null; }
 function activeList(){
   var l=activeListId?findList(activeListId):null;
@@ -5002,7 +5003,7 @@ function presetSet(p){
   if(p==="int") return intEvents;
   return new Set();
 }
-function presetLabel(p){ return p==="fav" ? "お気に入り" : p==="want" ? "行きたい" : p==="int" ? "気になる" : ""; }
+function presetLabel(p){ return p==="fav" ? "お気に入り" : p==="want" ? "行きたい" : p==="int" ? "気になる" : p==="oshi" ? "推しが出る" : p==="plan" ? "回しプラン" : ""; }
 function presetCount(p){
   var s=presetSet(p), n=0;
   allEvents.forEach(function(ev){ if(s.has(String(ev.id))) n++; });
@@ -7659,6 +7660,25 @@ function buildTimelineItems(){
     var lset=sl?listEventIdSet(sl):new Set();
     up=up.filter(function(ev){ return lset.has(String(ev.id)); });
   }
+  /* 推し1組の範囲（v109）: その推しが出るイベントだけを日付順に流す */
+  if(tlScopeArtist){
+    up=up.filter(function(ev){ return oshiFocusHit(ev, tlScopeArtist); });
+    up.sort(tlByDate);
+    return up.slice(0,60);
+  }
+  /* 推しが出る／回しプランの範囲（v109） */
+  if(tlScopePreset==="oshi"){
+    up=up.filter(function(ev){ return hasOshi(ev); });
+    up.sort(tlByDate);
+    return up.slice(0,60);
+  }
+  if(tlScopePreset==="plan"){
+    var slots=buildSlots(), ord={};
+    slots.forEach(function(s){ var k=String(s.id); var tm=/(\d{1,2}):(\d{2})/.exec(s.time||""); var key=s.date+"_"+(tm? (+tm[1])*60+(+tm[2]) : 9999); if(!(k in ord) || key<ord[k]) ord[k]=key; });
+    up=up.filter(function(ev){ return String(ev.id) in ord; });
+    up.sort(function(a,b){ var ka=ord[String(a.id)], kb=ord[String(b.id)]; return ka<kb? -1 : (ka>kb? 1 : tlByDate(a,b)); });
+    return up.slice(0,60);
+  }
   /* 固定スコープ（お気に入り・行きたい・気になる・フォロー中）もタイムラインに流せる（v80/v81） */
   if(tlScopePreset){
     if(tlScopePreset==="follow"){
@@ -7818,12 +7838,12 @@ function tlMeFavHTML(){
 }
 /* リスト（ブックマーク）の管理（v106）: タップでそのリストをタイムラインに流す */
 function tlMeListsHTML(){
-  if(!myLists.length) return '<p class="tl-me-empty">リストはまだありません。</p><button type="button" class="tl-me-more" data-tlme="lists">リストを作る・編集する</button>';
+  if(!myLists.length) return '<p class="tl-me-empty">リストはまだありません。</p><button type="button" class="tl-me-more" data-tlme-edit="1">リストを作る・編集する</button>';
   var rows=myLists.map(function(l){
     var n=(l.events||[]).length;
     return '<button type="button" class="tl-me-slot" data-tlme-list="'+esc(l.id)+'"><span class="tl-me-slot-a">'+esc(l.name)+'</span><span class="tl-me-slot-s">イベント '+n+'件（タップでタイムラインに表示）</span></button>';
   }).join("");
-  return '<div class="tl-me-slots">'+rows+'</div><button type="button" class="tl-me-more" data-tlme="lists">リストの編集（名前変更・削除）</button>';
+  return '<div class="tl-me-slots">'+rows+'</div><button type="button" class="tl-me-more" data-tlme-edit="1">リストの編集（名前変更・削除）</button>';
 }
 function tlApplyMode(){
   renderTlMe();
@@ -7863,11 +7883,12 @@ function renderTlScope(){
   var el=tlEl("tlScope"); if(!el) return;
   if(tlScopeListId && !findList(tlScopeListId)){ tlScopeListId=null; }
   el.classList.remove("hidden");
-  var anySel=!!(tlScopeListId||tlScopePreset);
+  var anySel=!!(tlScopeListId||tlScopePreset||tlScopeArtist);
   el.innerHTML='<button type="button" data-tlscope="" class="'+(anySel?"":"on")+'">すべて</button>'
-    + ["fav","want","int"].map(function(p){ return '<button type="button" data-tlscope="p:'+p+'" class="'+(tlScopePreset===p?"on":"")+'">'+esc(presetLabel(p))+'</button>'; }).join("")
+    + ["fav","want","int","oshi","plan"].map(function(p){ return '<button type="button" data-tlscope="p:'+p+'" class="'+(tlScopePreset===p?"on":"")+'">'+esc(presetLabel(p))+'</button>'; }).join("")
     + '<button type="button" data-tlscope="p:follow" class="'+(tlScopePreset==="follow"?"on":"")+'">フォロー中</button>'
-    + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("");
+    + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("")
+    + (tlScopeArtist? '<button type="button" data-tlscope-artist="1" class="on">推し：'+esc(tlScopeArtist)+' ✕</button>' : '');
   renderTlSort();
 }
 function renderTlSort(){
@@ -7883,7 +7904,7 @@ function openTimeline(){
   if(!allEvents.length){ toast("データの読み込みが終わってから開始できます"); return; }
   tlState.suspended=false; tlState.baseView=view;
   /* スコープは開くたび「すべて」から始める（v66） */
-  tlScopeListId=null; tlScopePreset=null;
+  tlScopeListId=null; tlScopePreset=null; tlScopeArtist=null;
   renderTlScope();
   tlState.items=buildTimelineItems();
   if(!tlState.items.length){ toast("表示できるイベントがありません"); return; }
@@ -8188,7 +8209,9 @@ function refreshTlLogin(){
     var ob=e.target.closest("[data-tlme-open]");
     if(ob){ var ev=allEvents.find(function(x){ return String(x.id)===ob.getAttribute("data-tlme-open"); }); if(ev) tlOpenDetail(ev); return; }
     var oc=e.target.closest("[data-tlme-oshi]");
-    if(oc){ oshiFocus=oc.getAttribute("data-tlme-oshi"); closeTimeline(); view="oshi"; render(); window.scrollTo(0,0); return; }
+    if(oc){ tlScopeArtist=oc.getAttribute("data-tlme-oshi"); tlScopeListId=null; tlScopePreset=null; tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode(); if(!tlState.items.length) toast("「"+tlScopeArtist+"」が出演する今後のイベントがありません"); return; }
+    var eb=e.target.closest("[data-tlme-edit]");
+    if(eb){ closeTimeline(); view="lists"; render(); window.scrollTo(0,0); return; }
     var lb=e.target.closest("[data-tlme-list]");
     if(lb){ tlScopeListId=lb.getAttribute("data-tlme-list"); tlScopePreset=null; tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode(); return; }
     var b=e.target.closest("[data-tlme]"); if(!b) return;
@@ -8199,12 +8222,26 @@ function refreshTlLogin(){
       if(!tlState.items.length) toast("フォロー中の新着はありません");
       return;
     }
+    if(v==="oshi"||v==="fav"||v==="plan"){
+      tlScopePreset=v; tlScopeListId=null; tlScopeArtist=null; tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode();
+      if(!tlState.items.length) toast(v==="oshi"? "推しが出演する今後のイベントがありません" : v==="fav"? "お気に入りの今後のイベントがありません" : "回しプランはまだありません");
+      return;
+    }
+    if(v==="lists"){
+      if(!myLists.length){ toast("リストはまだありません"); return; }
+      tlScopeListId=String(myLists[0].id); tlScopePreset=null; tlScopeArtist=null; tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode();
+      if(myLists.length>1) toast("リスト『"+myLists[0].name+"』を表示中。切り替えは上の範囲バーから");
+      return;
+    }
     closeTimeline(); view=v; render(); window.scrollTo(0,0);
   });
   var scopeEl=tlEl("tlScope");
   if(scopeEl) scopeEl.addEventListener("click", function(e){
+    var ac=e.target.closest("[data-tlscope-artist]");
+    if(ac){ tlScopeArtist=null; tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode(); return; }
     var b=e.target.closest("[data-tlscope]"); if(!b) return;
     var v=b.getAttribute("data-tlscope");
+    tlScopeArtist=null;
     if(v && v.indexOf("p:")===0){ tlScopePreset=v.slice(2); tlScopeListId=null; }
     else { tlScopeListId = v ? v : null; tlScopePreset=null; }
     tlState.items=buildTimelineItems();
