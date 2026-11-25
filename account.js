@@ -65,7 +65,7 @@
   var cloudFails=0, cloudDownUntil=0;
   try{ cloudDownUntil=+sessionStorage.getItem('kg_cloud_down_until')||0; }catch(e){}
   function cloudBlocked(){ return Date.now()<cloudDownUntil; }
-  function noteCloudFail(){ cloudFails++; if(cloudFails>=2){ cloudDownUntil=Date.now()+30*60*1000; try{ sessionStorage.setItem('kg_cloud_down_until', String(cloudDownUntil)); }catch(e){} } }
+  function noteCloudFail(){ cloudFails++; if(cloudFails>=4){ cloudDownUntil=Date.now()+10*60*1000; try{ sessionStorage.setItem('kg_cloud_down_until', String(cloudDownUntil)); }catch(e){} } }
   function noteCloudOk(){ cloudFails=0; if(cloudDownUntil){ cloudDownUntil=0; try{ sessionStorage.removeItem('kg_cloud_down_until'); }catch(e){} } }
   /* ================= 保険側: Firestore ================= */
   async function fsApplyOps(uid, readFn, writeFn) {
@@ -141,6 +141,15 @@
   async function kvSet(key, value, token){ var body={op:'set', key:key, value:value}; if(token) body.token=token; await kvCall(body); }
   async function kvMerge(key, fields, token){ var body={op:'merge', key:key, value:fields}; if(token) body.token=token; await kvCall(body); }
   async function kvDel(key, token){ var body={op:'del', key:key}; if(token) body.token=token; await kvCall(body); }
+  /* アカウント文書の短期キャッシュ（v156）: ログイン直後は同じ文書
+     （m:/g:）を お気に入り取得・userdata取得・書き戻し判定で何度も読む。
+     入口は全リクエスト直列＋ロックで1回が重いため、30秒以内の再読は
+     通信せず、書き込みはキャッシュへも反映して整合を保つ */
+  var docCache={};
+  function docCacheGet(key){ var c=docCache[key]; return (c && (Date.now()-c.at)<30000) ? c.value : undefined; }
+  function docCachePut(key, v){ docCache[key]={value:v, at:Date.now()}; }
+  function docCacheMerge(key, fields){ var c=docCache[key]; if(c && c.value && typeof c.value==='object'){ Object.keys(fields).forEach(function(k){ c.value[k]=fields[k]; }); c.at=Date.now(); } }
+  function docCacheDrop(key){ delete docCache[key]; }
   async function idToken(){ try{ return fbUser ? await fbUser.getIdToken() : null; }catch(_){ return null; } }
   async function googleKeyOf(uid){ return 'g:' + await sha256hex('kg-google:' + uid); }
   /* ================= 振り分け（主軸→保険） ================= */
@@ -154,6 +163,7 @@
           var key=await googleKeyOf(uid);
           var q=queueRead(uid);
           await kvCall({op:'favops', key:key, token:token, ops:q});
+          docCacheDrop(key);
           // 送信中に追加された操作を失わない: 送った分だけ先頭から落とす
           var now=queueRead(uid); now.splice(0,q.length); queueWrite(uid,now);
         } else if(client) {
@@ -172,7 +182,9 @@
     if(syncReady()) {
       try {
         var token=await idToken(); if(!token) throw new Error('ログイン情報が確認できませんでした');
-        var v=await kvGet(await googleKeyOf(uid), token);
+        var gk=await googleKeyOf(uid);
+        var v=docCacheGet(gk);
+        if(v===undefined){ v=await kvGet(gk, token); docCachePut(gk, v); }
         noteCloudOk();
         var f=(v && v.favorites) || {};
         return {event:Array.isArray(f.event)?f.event:[], artist:Array.isArray(f.artist)?f.artist:[]};
@@ -195,21 +207,24 @@
   }
   function backendMissing(){ var e=new Error('接続の準備中です'); e.code='kg-no-backend'; return e; }
   async function memberDoc(acct) {
+    var ck='m:'+acct, cached=docCacheGet(ck);
+    if(cached!==undefined) return cached;
     var sheetErr=null;
-    if(syncReady()) { try { return await kvGet('m:'+acct); } catch(e) { if(!client) throw e; sheetErr=e; } }
-    if(client) { try { var snap=await fsTimeout(client.getDoc(client.doc(client.db,'memberdata',acct)), 'データの読み込みがタイムアウトしました'); return snap.exists() ? (snap.data()||{}) : null; } catch(e2) { throw sheetErr||e2; } }
+    if(syncReady()) { try { var v=await kvGet(ck); docCachePut(ck, v); return v; } catch(e) { if(!client) throw e; sheetErr=e; } }
+    if(client) { try { var snap=await fsTimeout(client.getDoc(client.doc(client.db,'memberdata',acct)), 'データの読み込みがタイムアウトしました'); var dv=snap.exists() ? (snap.data()||{}) : null; docCachePut(ck, dv); return dv; } catch(e2) { throw sheetErr||e2; } }
     throw backendMissing();
   }
   async function memberWriteFields(acct, fields) {
     if(syncReady()) {
       await kvMerge('m:'+acct, fields);
+      docCacheMerge('m:'+acct, fields);
       if(client) { try { await fsTimeout(client.setDoc(client.doc(client.db,'memberdata',acct), fields, {merge:true}), '同期がタイムアウトしました'); } catch(e) {} }
       return;
     }
     if(client) { await fsTimeout(client.setDoc(client.doc(client.db,'memberdata',acct), fields, {merge:true}), '保存がタイムアウトしました'); return; }
     throw backendMissing();
   }
-  async function memberPushFavorites(acct) { var local=bridge.read(); await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now()}); }
+  async function memberPushFavorites(acct) { var local=bridge.read(); var c=docCacheGet('m:'+acct); if(c && JSON.stringify(c.events||[])===JSON.stringify(local.event) && JSON.stringify(c.artists||[])===JSON.stringify(local.artist)) return; await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now()}); }
   async function memberSetMeta(acct, fields) { await memberWriteFields(acct, fields); }
   function idxCollection(prefix){ return prefix==='c:' ? 'codes' : 'recovery'; }
   async function idxGet(prefix, hash) {
@@ -234,7 +249,7 @@
   async function udGoogleGet(uid) {
     var sheetErr=null;
     if(syncReady()) {
-      try { var token=await idToken(); if(token) { var v=await kvGet(await googleKeyOf(uid), token); return v ? (v.userdata||null) : null; } }
+      try { var token=await idToken(); if(token) { var gk2=await googleKeyOf(uid); var v=docCacheGet(gk2); if(v===undefined){ v=await kvGet(gk2, token); docCachePut(gk2, v); } return v ? (v.userdata||null) : null; } }
       catch(e) { if(!client) throw e; sheetErr=e; }
     }
     if(client) { try { var snap=await fsTimeout(client.getDoc(client.doc(client.db,'users',uid,'userdata','main')), '読み込みがタイムアウトしました'); return snap.exists() ? ((snap.data()||{}).data||null) : null; } catch(e2) { throw sheetErr||e2; } }
@@ -243,7 +258,9 @@
   async function udGoogleSet(uid, data) {
     if(syncReady()) {
       var token=await idToken(); if(!token) throw new Error('ログイン情報が確認できませんでした');
-      await kvMerge(await googleKeyOf(uid), {userdata:data, udUpdatedAt:Date.now()}, token);
+      var gk3=await googleKeyOf(uid);
+      await kvMerge(gk3, {userdata:data, udUpdatedAt:Date.now()}, token);
+      docCacheMerge(gk3, {userdata:data, udUpdatedAt:Date.now()});
       if(client) { try { await fsTimeout(client.setDoc(client.doc(client.db,'users',uid,'userdata','main'), {data:data, updatedAt:Date.now()}), '同期がタイムアウトしました'); } catch(e) {} }
       return;
     }
@@ -442,10 +459,14 @@
       var merged=udMerge(udReadLocal(), cloud);
       udWriteLocal(merged);
       udLastSig=udSig();
-      try{
-        if(member && memberReady) await memberSetMeta(member.acct, {userdata:merged, udUpdatedAt:Date.now()});
-        else if(user && initialized) await udGoogleSet(user.id, merged);
-      }catch(e){}
+      /* 統合結果がクラウドと同一なら書き戻さない（v156）: 変化なしの
+         書き込みは入口のロックを無駄に取り、詰まりを悪化させる */
+      if(JSON.stringify(merged)!==JSON.stringify(cloud)){
+        try{
+          if(member && memberReady) await memberSetMeta(member.acct, {userdata:merged, udUpdatedAt:Date.now()});
+          else if(user && initialized) await udGoogleSet(user.id, merged);
+        }catch(e){}
+      }
       if(before!==udLastSig && !sessionStorage.getItem('kg_ud_reloaded')){
         sessionStorage.setItem('kg_ud_reloaded','1');
         location.reload();
