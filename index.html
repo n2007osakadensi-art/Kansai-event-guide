@@ -957,7 +957,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v163';
+  window.__kgShell='v164';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -5533,6 +5533,17 @@ function mergePendingEvents(sheetEvents){
   if(pruned) savePendings(kept);
   return out||sheetEvents;
 }
+window.KGPendingReflected = function(p){
+  try{
+    var src = lastSheetEvents || allEvents;
+    if(!p || !p.ev || !src) return false;
+    if(p.kind === "edit" && p.targetId){
+      for(var i=0;i<src.length;i++){ if(String(src[i].id)===String(p.targetId)) return pendingEditReflected(src[i], p.ev); }
+      return false;
+    }
+    return src.some(function(ev){ return pendingReflectedIn(ev, p.ev); });
+  }catch(e){ return false; }
+};
 var lastSheetEvents=null;
 window.addEventListener("kg:pending-change", function(){
   if(lastSheetEvents){ allEvents=mergePendingEvents(lastSheetEvents); if(allEvents.length) render(); }

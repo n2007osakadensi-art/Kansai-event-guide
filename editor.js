@@ -61,6 +61,8 @@
     '<h2 style="margin-top:0">イベントの新規登録・修正</h2>' +
     '<p style="font-size:13px">スペース版ガイドと同じ項目・並びのフォームです。送信内容は受付に届き、確認のうえスペース版ガイドへ登録・反映されます。</p>' +
     '<p id="kg-editor-status" role="status"></p>' +
+    '<p style="margin:4px 0"><button id="ke-subs-open" type="button">送信済みを確認</button> <button id="ke-toggle-all" type="button">全ての節を開く</button></p>' +
+    '<div id="ke-subs" style="display:none"></div>' +
     '<div id="kg-editor-gate" style="display:none;border:1.5px solid #b92b37;border-radius:12px;padding:16px;margin:12px 0">' +
     '<p style="font-weight:800;margin:0 0 8px">ログインが必要です</p>' +
     '<p style="font-size:13.5px;margin:0 0 12px;line-height:1.6">新規登録・修正の送信は、ログインした方だけが使えます（管理者・主催者・アーティスト運営・閲覧者の役割分けのため）。ログインすると、このままフォームが使えるようになります。</p>' +
@@ -100,9 +102,9 @@
     '<p><button id="ke-split" type="button">一括分割（改行・、・／・｜などで区切る）</button></p>' +
     '<div id="ke-perf-preview" class="mini"></div>' +
     sec('カテゴリ') +
-    field('カテゴリ', '<input id="ke-category" type="text">') +
-    field('追加カテゴリ（1行に1つ）', '<textarea id="ke-categories"></textarea>') +
-    field('サブカテゴリ（1行に1つ）', '<textarea id="ke-subcategories"></textarea>') +
+    field('カテゴリ（28種から選ぶ）', '<div id="ke-cat-chips" class="ke-chips"></div><input id="ke-category" type="hidden">') +
+    field('追加カテゴリ', '<div id="ke-cats-chips" class="ke-chips"></div><textarea id="ke-categories" style="display:none"></textarea>') +
+    field('サブカテゴリ', '<div id="ke-subs-chips" class="ke-chips"></div><textarea id="ke-subcategories" style="display:none"></textarea><p class="mini">サブカテゴリは、スポーツ・ダンス・舞台・その他・お笑い・地域まつりを選んだときだけ出ます（親ごとに1つまで）。</p>') +
     '<label class="chk"><input id="ke-collab" type="checkbox"> コラボカフェ</label>' +
     '<label class="chk"><input id="ke-closed" type="checkbox"> 完結・完了（詳細はこれで確定）</label>' +
     sec('エリア・都道府県') +
@@ -136,6 +138,179 @@
     field('出典種別', '<select id="ke-source"><option value="primary">一次情報</option><option value="summary">まとめのみ</option><option value="unconfirmed">要確認</option></select>') +
     '<div class="kg-sendbar"><button id="ke-send" type="button">送信する</button><button id="ke-cancel" type="button">閉じる</button></div>';
   document.body.appendChild(dlg);
+  /* ---------- v164: カテゴリのチップ選択・節の折りたたみ・送信済み一覧 ---------- */
+  var style3 = document.createElement('style');
+  style3.textContent = '#kg-editor .ke-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px}'
+    + '#kg-editor .ke-chip{border:1px solid #bbb;background:#fff;color:#222;border-radius:999px;padding:6px 12px;font-size:13.5px;min-height:36px;cursor:pointer}'
+    + '#kg-editor .ke-chip.on{background:#333;color:#fff;border-color:#333;font-weight:700}'
+    + '#kg-editor h3.ke-sec-head{cursor:pointer;display:flex;justify-content:space-between;align-items:center}'
+    + '#kg-editor h3.ke-sec-head::after{content:"\u25B8";font-size:14px;color:#888}'
+    + '#kg-editor h3.ke-sec-head.open::after{content:"\u25BE"}'
+    + '#kg-editor .ke-sec-body{display:none}'
+    + '#kg-editor .ke-sec-body.open{display:block}';
+  document.head.appendChild(style3);
+  function escT(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  var CATS28 = ['アイドル','メンズアイドル','ユニドル','音楽','バンド','ガールズバンド','ダンス','ダンスボーカル','食フェス','バル','マルシェ','ハンドメイド','学祭','文化祭','お笑い','地域まつり','舞台・その他','スポーツ','イルミネーション','展示・展覧会','体験・ワークショップ','コスプレ','DJ','アニクラ','歌い手','踊り手','ファッションショー','撮影会'];
+  var SUBMAP = {
+    'スポーツ': ['サッカー','野球','プロレス','バスケットボール','バレーボール','格闘技','公営競技','その他スポーツ'],
+    'ダンス': ['発表会','コンテスト・大会','公演'],
+    '舞台・その他': ['演劇','ミュージカル','伝統芸能'],
+    'お笑い': ['新喜劇','落語'],
+    '地域まつり': ['花火大会','区民祭・市民祭']
+  };
+  function chipBtn(label, on, cb) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'ke-chip' + (on ? ' on' : ''); b.textContent = label;
+    b.addEventListener('click', cb);
+    return b;
+  }
+  function renderCatChips() {
+    var box = $('ke-cat-chips'); if (!box) return;
+    var cur = $('ke-category').value.trim();
+    box.innerHTML = '';
+    CATS28.forEach(function (c) {
+      box.appendChild(chipBtn(c, c === cur, function () {
+        $('ke-category').value = (c === $('ke-category').value.trim()) ? '' : c;
+        renderCatChips(); renderCatsChips(); renderSubChips();
+      }));
+    });
+  }
+  function renderCatsChips() {
+    var box = $('ke-cats-chips'); if (!box) return;
+    var prim = $('ke-category').value.trim();
+    var sel = lines('ke-categories');
+    box.innerHTML = '';
+    CATS28.forEach(function (c) {
+      if (c === prim) return;
+      var on = sel.indexOf(c) >= 0;
+      box.appendChild(chipBtn(c, on, function () {
+        var s = lines('ke-categories');
+        var i = s.indexOf(c);
+        if (i >= 0) s.splice(i, 1); else s.push(c);
+        setLines('ke-categories', s);
+        renderCatsChips(); renderSubChips();
+      }));
+    });
+  }
+  function renderSubChips() {
+    var box = $('ke-subs-chips'); if (!box) return;
+    var parents = [$('ke-category').value.trim()].concat(lines('ke-categories')).filter(function (p) { return !!SUBMAP[p]; });
+    var sel = lines('ke-subcategories');
+    box.innerHTML = '';
+    if (!parents.length) { box.innerHTML = '<span class="mini">（対象のカテゴリが選ばれていません）</span>'; return; }
+    parents.forEach(function (p) {
+      var lab = document.createElement('div');
+      lab.className = 'mini'; lab.style.margin = '6px 0 2px'; lab.textContent = p;
+      box.appendChild(lab);
+      var row = document.createElement('div'); row.className = 'ke-chips';
+      SUBMAP[p].forEach(function (sub) {
+        var full = p + '/' + sub;
+        var on = sel.indexOf(full) >= 0;
+        row.appendChild(chipBtn(sub, on, function () {
+          var s = lines('ke-subcategories').filter(function (x) { return x.indexOf(p + '/') !== 0; });
+          if (!on) s.push(full);
+          setLines('ke-subcategories', s);
+          renderSubChips();
+        }));
+      });
+      box.appendChild(row);
+    });
+  }
+  function syncChipsFromFields() { renderCatChips(); renderCatsChips(); renderSubChips(); }
+  /* 節の折りたたみ: h3 を見出しボタン化し、後続の要素を本体 div へ移す */
+  var secHeads = [];
+  (function buildSections() {
+    var kids = Array.prototype.slice.call(dlg.childNodes);
+    var curBody = null;
+    kids.forEach(function (node) {
+      if (node.nodeType === 1 && node.tagName === 'H3') {
+        curBody = document.createElement('div');
+        curBody.className = 'ke-sec-body';
+        dlg.insertBefore(curBody, node.nextSibling);
+        node.classList.add('ke-sec-head');
+        var rec = { head: node, body: curBody, name: node.textContent };
+        secHeads.push(rec);
+        node.addEventListener('click', function () {
+          var open = rec.body.classList.toggle('open');
+          rec.head.classList.toggle('open', open);
+        });
+      } else if (curBody && !(node.nodeType === 1 && node.classList && node.classList.contains('kg-sendbar'))) {
+        curBody.appendChild(node);
+      }
+    });
+    secHeads.forEach(function (s) {
+      var open = ['種別', 'タイトル', '日付'].indexOf(s.name) >= 0;
+      s.body.classList.toggle('open', open); s.head.classList.toggle('open', open);
+    });
+  })();
+  function openFilledSections() {
+    secHeads.forEach(function (s) {
+      var filled = false;
+      s.body.querySelectorAll('input,textarea,select').forEach(function (el) {
+        if (el.type === 'checkbox' || el.type === 'radio') { if (el.checked) filled = true; }
+        else if (el.value && String(el.value).trim()) filled = true;
+      });
+      if (filled) { s.body.classList.add('open'); s.head.classList.add('open'); }
+    });
+  }
+  function resetSections() {
+    secHeads.forEach(function (s) {
+      var open = ['種別', 'タイトル', '日付'].indexOf(s.name) >= 0;
+      s.body.classList.toggle('open', open); s.head.classList.toggle('open', open);
+    });
+  }
+  var allOpen = false;
+  $('ke-toggle-all').addEventListener('click', function () {
+    allOpen = !allOpen;
+    secHeads.forEach(function (s) { s.body.classList.toggle('open', allOpen); s.head.classList.toggle('open', allOpen); });
+    $('ke-toggle-all').textContent = allOpen ? '全ての節を閉じる' : '全ての節を開く';
+  });
+  /* 送信済み一覧 */
+  function fmtTs(ts) { var d = new Date(ts); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function renderSubs() {
+    var box = $('ke-subs'); if (!box) return;
+    var pend = [];
+    try { pend = JSON.parse(localStorage.getItem('kg_trial_pending_events_v1') || '[]'); if (!Array.isArray(pend)) pend = []; } catch (_) { pend = []; }
+    var logs = [];
+    try { logs = JSON.parse(localStorage.getItem('kg_trial_submissions_v1') || '[]'); if (!Array.isArray(logs)) logs = []; } catch (_) { logs = []; }
+    var h = '<div style="border:1px solid #ccc;border-radius:10px;padding:10px 12px;margin:8px 0">';
+    h += '<p style="font-weight:700;margin:0 0 6px">あなたの送信</p>';
+    if (!pend.length && !logs.length) h += '<p class="mini" style="margin:0">この端末からの送信はまだありません。</p>';
+    pend.slice().reverse().forEach(function (p, ri) {
+      var idx = pend.length - 1 - ri;
+      var done = window.KGPendingReflected ? window.KGPendingReflected(p) : false;
+      h += '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid #eee">'
+        + '<span style="flex:1;font-size:13.5px">' + escT((p.kind === 'edit' ? '修正：' : '新規：') + (p.ev && p.ev.title || '')) + '<br><span class="mini">' + escT(p.ev && p.ev.date || '') + ' 送信 ' + fmtTs(p.ts) + '</span></span>'
+        + '<span style="font-size:12.5px;font-weight:700;color:' + (done ? '#1a7f37' : '#b26a00') + '">' + (done ? '反映済み' : '反映待ち') + '</span>'
+        + (done ? '' : '<button type="button" data-subcancel="' + idx + '" style="min-height:36px">表示を取り消す</button>')
+        + '</div>';
+    });
+    logs.slice().reverse().forEach(function (l) {
+      h += '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid #eee">'
+        + '<span style="flex:1;font-size:13.5px">' + escT('プロフィール：' + (l.name || '')) + '<br><span class="mini">送信 ' + fmtTs(l.ts) + '</span></span>'
+        + '<span style="font-size:12.5px;font-weight:700;color:#b26a00">受付済み</span></div>';
+    });
+    h += '<p class="mini" style="margin:6px 0 0">「表示を取り消す」は、この端末の反映待ち表示だけを取り消します。受付へ送った内容そのものは取り消せません。</p></div>';
+    box.innerHTML = h;
+    box.querySelectorAll('[data-subcancel]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var i = parseInt(b.getAttribute('data-subcancel'), 10);
+        var list2 = [];
+        try { list2 = JSON.parse(localStorage.getItem('kg_trial_pending_events_v1') || '[]'); if (!Array.isArray(list2)) list2 = []; } catch (_) { list2 = []; }
+        list2.splice(i, 1);
+        try { localStorage.setItem('kg_trial_pending_events_v1', JSON.stringify(list2)); } catch (_) {}
+        window.dispatchEvent(new CustomEvent('kg:pending-change'));
+        renderSubs();
+      });
+    });
+  }
+  $('ke-subs-open').addEventListener('click', function () {
+    var box = $('ke-subs');
+    var show = box.style.display === 'none';
+    box.style.display = show ? '' : 'none';
+    if (show) renderSubs();
+  });
+  syncChipsFromFields();
   function status(t) { $('kg-editor-status').textContent = t; }
   function lines(id) { return $(id).value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); }
   function setLines(id, arr) { $(id).value = (arr || []).join('\n'); }
@@ -446,6 +621,7 @@
     setLines('ke-images', ev.imageUrl ? [ev.imageUrl] : []);
     imgPreview();
     unloadedSnapshot = unloadedState();
+    syncChipsFromFields(); openFilledSections();
     status('読み込みました。直す箇所だけ変更して送信してください。このサイトの表示データに無い項目は、変更していなければガイド側の既存値が保持されます。');
   }
   $('ke-load').onclick = loadTarget;
@@ -604,6 +780,7 @@
     ttTouched = false; noteTouched = false; loadedEventId = ''; dupArmKey = ''; unloadedSnapshot = null;
     status('');
     updatePcAuto();
+    syncChipsFromFields(); resetSections();
   }
   /* ログイン必須ゲート（Kota指示 2026-11-24）: 管理者モード／会員コード／Google のいずれかの
      ログイン状態でなければ、送信フォームは使えない。判定キーは本体の kgHasLocalSession と同一 */

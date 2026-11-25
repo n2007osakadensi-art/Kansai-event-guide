@@ -124,7 +124,7 @@
     $('kp-title').textContent = (kind === 'artist' ? 'アーティスト' : '会場') + 'プロフィールの追加・修正';
     var h = '<p style="margin:6px 0 0;font-size:15px;font-weight:700">' + esc(name) + '</p>';
     if (kind === 'artist') {
-      h += field('カテゴリ', 'kp-f-cat', p.c || data.cat || '');
+      h += '<label for="kp-f-cat">カテゴリ</label><select id="kp-f-cat"><option value="">（未設定）</option>' + ['アイドル','メンズアイドル','ユニドル','音楽','バンド','ガールズバンド','ダンス','ダンスボーカル','食フェス','バル','マルシェ','ハンドメイド','学祭','文化祭','お笑い','地域まつり','舞台・その他','スポーツ','イルミネーション','展示・展覧会','体験・ワークショップ','コスプレ','DJ','アニクラ','歌い手','踊り手','ファッションショー','撮影会'].map(function (c) { return '<option value="' + c + '"' + (c === (p.c || data.cat || '') ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select>';
       h += field('読み（カタカナ）', 'kp-f-rd', data.reading || '');
       h += field('公式サイト', 'kp-f-w', p.w || '');
       h += field('X', 'kp-f-x', p.x || '');
@@ -240,7 +240,15 @@
       var timer = ctl ? setTimeout(function () { ctl.abort(); }, 25000) : null;
       var okSend = await kgSendPayload(payload, ctl);
       if (timer) clearTimeout(timer);
-      if (okSend) status('送信しました。確認のうえガイドへ反映されます。');
+      if (okSend) {
+        try {
+          var lg = [];
+          try { lg = JSON.parse(localStorage.getItem('kg_trial_submissions_v1') || '[]'); if (!Array.isArray(lg)) lg = []; } catch (_) { lg = []; }
+          lg.push({ kind: payload.kind, name: cur.name, ts: Date.now() });
+          localStorage.setItem('kg_trial_submissions_v1', JSON.stringify(lg.slice(-50)));
+        } catch (_) {}
+        status('送信しました。確認のうえガイドへ反映されます。');
+      }
       else status('送信できませんでした。時間をおいてお試しください。');
     } catch (e) {
       status('送信の確認ができませんでした（受付からの応答がありませんでした）。受付に届いている場合があるので、少し時間をおき、届いていないときだけ再送してください。');
