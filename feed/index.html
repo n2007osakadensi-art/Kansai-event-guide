@@ -1006,7 +1006,7 @@ function observeCards(){
     entries.forEach(function(en){
       if(en.isIntersecting){
         var i=parseInt(en.target.getAttribute("data-idx"),10);
-        if(!isNaN(i)){ curIdx=i; updateCount(); kgFeedSave(); }
+        if(!isNaN(i)){ curIdx=i; updateCount(); kgFeedRestoreKick(); kgFeedSave(); }
       }
     });
   }, {root: feedEl, threshold: 0.6});
@@ -1344,10 +1344,10 @@ function start(){
   var kgFeedUiDone=false;
   var kgFeedSaveCount=0;
   function kgFeedDiagSet(o){ try{ var d={}; try{ d=JSON.parse(localStorage.getItem("kg_feed_ui_diag_v1")||"{}"); }catch(e){} for(var k in o) d[k]=o[k]; localStorage.setItem("kg_feed_ui_diag_v1", JSON.stringify(d)); }catch(e){} }
-  var kgFeedTouched=false;
-  ["touchstart","wheel","pointerdown"].forEach(function(t){ document.addEventListener(t, function(){ kgFeedTouched=true; }, {passive:true}); });
-  document.addEventListener("keydown", function(){ kgFeedTouched=true; });
-  function kgFeedSave(){ if(localStorage.getItem("kg_feed_ui_v1") && !kgFeedTouched) return; try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx})); kgFeedSaveCount++; kgFeedDiagSet({sv:kgFeedSaveCount, se:"", sq:feedQuery||"", si:curIdx}); }catch(e){ kgFeedDiagSet({se:String((e&&e.message)||e).slice(0,80)}); } }
+  /* 復元が済むまでは保存しない（v135）: 再読み込み直後、復元より先に
+     初期表示の観測（先頭カード・空の検索）が走って保存済みの状態を
+     空で上書きしてしまうのが、復元が効かない主因だった */
+  function kgFeedSave(){ if(!kgFeedUiDone) return; try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx})); kgFeedSaveCount++; kgFeedDiagSet({sv:kgFeedSaveCount, se:"", sq:feedQuery||"", si:curIdx}); }catch(e){ kgFeedDiagSet({se:String((e&&e.message)||e).slice(0,80)}); } }
   window.addEventListener("pagehide", kgFeedSave);
   document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") kgFeedSave(); });
   var kgFeedUserTyped=false;
@@ -1355,7 +1355,7 @@ function start(){
     if(kgFeedUiDone) return;
     if(!feedItems.length) return;
     kgFeedUiDone=true;
-    [300, 1500, 3500].forEach(function(ms, ai){
+    [300, 1500, 3500, 7000].forEach(function(ms, ai){
       setTimeout(function(){ kgFeedRestoreAttempt(ai+1); }, ms);
     });
   }
