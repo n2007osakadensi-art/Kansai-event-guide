@@ -903,7 +903,7 @@
   /* タイムライン内検索の候補と0件案内（v136、本体の検索と同機能） */
   .tl-suggest{position:absolute;left:12px;right:12px;top:calc(100% - 2px);background:#1d1f26;border:1px solid rgba(255,255,255,.16);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:60;overflow:hidden;display:none}
   .tl-suggest.show{display:block}
-  .tl-suggest button{display:flex;width:100%;text-align:left;border:0;background:transparent;padding:11px 14px;font-size:14px;gap:8px;align-items:baseline;color:#f4f2ec;cursor:pointer}
+  #tlSuggest button{display:flex;width:100%;height:auto;text-align:left;border:0;background:transparent;padding:11px 14px;font-size:14px;gap:8px;align-items:baseline;color:#f4f2ec;cursor:pointer}
   .tl-suggest button .sk{flex:none;font-size:11px;font-weight:800;color:#fff;border-radius:999px;padding:2px 8px}
   .tl-guide{text-align:left;padding:2px 0 4px}
   .tl-guide p{margin:0 0 8px;font-size:13.5px}
@@ -914,7 +914,7 @@
   .tl-zchip{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#f4f2ec;border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer}
   .tl-search input{flex:1;min-width:0;height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;padding:0 16px;font-size:14px;outline:none}
   .tl-search input::placeholder{color:rgba(255,255,255,.55)}
-  .tl-search button{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;font-size:14px;cursor:pointer}
+  .tl-search #tlSearchClear{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;font-size:14px;cursor:pointer}
   .tl-search-note{padding:4px 16px 0;font-size:12px;color:rgba(255,255,255,.78)}
   .tl-media{position:relative;flex:1;min-height:0;border-radius:16px;overflow:hidden;background:#26282e}
   .tl-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
@@ -953,7 +953,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v142';
+  window.__kgShell='v143';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
