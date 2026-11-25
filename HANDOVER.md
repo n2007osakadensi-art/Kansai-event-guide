@@ -84,6 +84,21 @@ https://docs.google.com/spreadsheets/d/1oUuy1PvoQgNa5f1HoXqMHgLUfdPW_ctVNxyHih0c
 - **AIの判断が要る部分**: 候補の一次情報での裏取り、掲載可否と詳細の確定、本体への登録、矛盾時の「要確認」判断。ルールは `docs/event-listing-rules.md` と登録手順のスキルに明文化してあるので、別のAIでも同じ基準で実行できる。
 - **引き継ぎの原則**: 新しい判断・仕様はその場でこのリポジトリの文書（OPERATIONS.md／docs/）に追記してから実装する。人の頭の中やチャットの中だけに置かない。
 
+## 引き継ぎの範囲（何が文書で移り、何が環境に残るか）
+
+- **文書だけで引き継げるもの**: イベント調査と提案（一次情報での裏取り → シートの `外部AI入力` タブへの記入）、サイトの設計・更新（このリポジトリの編集と push）。ルールと手順は `docs/event-listing-rules.md`／`docs/workflow.md`／`docs/site-design-rules.md` に全て書いてある
+- **Muse の環境に残るもの**: スペース版ガイド本体への登録操作、シート同期スクリプト（`write_sheets.py` 系）、画像移行スクリプトと移行 state、定期ジョブ（外部AI入力の夜間処理、画像URLの毎日の死活チェック、候補の朝処理）、チケットサイトのクローラー。これらは Muse 側のワークスペースとスペースで動いている
+- したがって担当の分け方は2通りある: (1) 後任が別の Muse（新規チャット等）の場合は、環境ごと引き継がれるので全工程をそのまま続けられる。(2) 後任が Arena AI 等の外部AIの場合は、調査・提案とサイト更新を担い、本体登録・同期・定期ジョブは Muse 側／運営者が担う分担になる。どちらの場合も、判断基準はこのリポジトリの文書で統一する
+
+## 設定の一覧（2026-11-25 時点）
+
+- スペース版ガイド: 承認フロー有効、ログインは一時停止設定（bootstrap 2026-11-25 確認）
+- GitHub Pages: ブランチデプロイ（main／ルート）。ワークフローファイルは権限の都合で push できないので使わない
+- Firebase: プロジェクト `kansai-event-guide`。サイト側の公開設定は接続済みで Google ログイン（管理者用）は有効。**Firestore は未作成**（作成とルール公開は運営者のコンソール作業。手順は `LOGIN_SETUP.md`）
+- 公開シート: ID `1oUuy1PvoQgNa5f1HoXqMHgLUfdPW_ctVNxyHih0cNbw`。主要タブは `events`／`events_lite`／`events_details`／`events_images`／`外部AI入力`／`検索辞書`／`artists`／`venues`／`readings`
+- 送信フォームの宛先: 受付メール `kansai-event-info@muse.ai`（FormSubmit経由）
+- 画像URLの死活チェック: 毎日06:40に自動実行（Muse 側の定期ジョブ）
+
 ## 引き継ぎの手順（担当が変わるとき）
 
 1. この文書と `OPERATIONS.md` を読む。
