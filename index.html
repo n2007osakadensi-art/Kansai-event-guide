@@ -831,7 +831,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v104';
+  window.__kgShell='v105';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4242,9 +4242,16 @@ document.querySelectorAll("[data-sh-fmt]").forEach(function(b){
 document.getElementById("shReset").addEventListener("click", shRegen);
 document.getElementById("shCopy").addEventListener("click", function(){
   var text=document.getElementById("shText").value;
-  function done(){ toast("しおり用テキストをコピーしました"); }
-  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text); done(); }); }
-  else { fallbackCopy(text); done(); }
+  /* クリップボードAPIが応答しない環境でも必ず完了を伝える（v105）。
+     応答が1.2秒なければ従来方式へ切り替え、どちらでもトーストを出す */
+  var finished=false;
+  function done(){ if(finished) return; finished=true; toast("しおり用テキストをコピーしました"); }
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text); done(); });
+      setTimeout(function(){ if(!finished){ fallbackCopy(text); done(); } }, 1200);
+    } else { fallbackCopy(text); done(); }
+  }catch(e){ fallbackCopy(text); done(); }
 });
 document.getElementById("shDl").addEventListener("click", function(){
   var text=document.getElementById("shText").value;

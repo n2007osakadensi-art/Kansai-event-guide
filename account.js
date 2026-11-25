@@ -13,7 +13,7 @@
     '<p id="kg-account-status" role="status" aria-live="polite"></p>' +
     '<div id="kg-account-off" hidden><p>ログインの接続設定はまだ完了していません。現在の推し・お気に入りはこの端末だけに保存されます。</p></div>' +
     '<div id="kg-login-form" hidden><p>Googleアカウントでログインします。</p><button id="kg-google-login" type="button">Googleでログイン</button></div>' +
-    '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推しとお気に入りをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button></div>' +
+    '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推し・お気に入り・マイリスト・行きたい／気になる・フォロー・好みなどをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button></div>' +
     '<div id="kg-account-choice" hidden><p><strong>この端末のデータをどうしますか？</strong></p><p>統合すると、この端末の推しとお気に入りがアカウントに追加されます。共有端末や別の方のデータなら「アカウントのデータを使う」を選んでください。</p><button id="kg-merge" type="button">この端末のデータを統合</button> <button id="kg-use-cloud" type="button">アカウントのデータを使う</button></div>' +
     '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
     '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。端末やブラウザを変えても、コードを入れれば推し・お気に入りが維持できます。メールアドレスなどの個人情報は登録しません。</p><button id="kg-code-issue" type="button">会員コードを発行する</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、設定しておいた質問と回答でログインできます（ログイン後、コードを再発行できます）。</p><p><input id="kg-rec-q" type="text" placeholder="あなたの質問" autocomplete="off" style="min-width:200px;padding:6px"><br><input id="kg-rec-a" type="text" placeholder="その回答" autocomplete="off" style="min-width:200px;padding:6px"> <button id="kg-recovery-login" type="button">質問と回答でログイン</button></p></div>' +
@@ -91,7 +91,7 @@
     if (localStorage.getItem(currentMarker)===uid) {
       text('アカウントのデータを確認しています…');
       if(!await flush(uid,g)) return;
-      try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; text('同期済み。'); }
+      try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; text('同期済み。'); udPullMerge(); }
       catch(e) { text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
     } else { choiceMode='google'; parts(false,false,false,true); text('同期方法を選んでください。'); bootChoicePending=true; renderState(); }
   }
@@ -107,12 +107,12 @@
       }
       if(!sameUser(uid,g)) return;
       bridge.replace(cloud); localStorage.setItem(currentMarker,uid); initialized=true;
-      parts(false,false,true,false); text('同期済み。');
+      parts(false,false,true,false); text('同期済み。'); udPullMerge();
     } catch(e) { text('同期に失敗しました。端末内データは保持されています。もう一度お試しください。'); }
   }
   $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
   $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
-  $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');}catch(e){text('同期に失敗しました。端末内のデータは保持されています。');} };
+  $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){text('同期に失敗しました。端末内のデータは保持されています。');} };
   $('kg-signout').onclick=async function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。アカウントのデータは残ります。'))return; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); bridge.replace({event:[],artist:[]}); };
   window.addEventListener('kg:favorites-change',function(e){
     if(member && memberReady && !(user && initialized)) { scheduleMemberPush(); return; }
@@ -145,13 +145,119 @@
   function saveMemberSession(){ if(member) localStorage.setItem('kg_member_session_v2', JSON.stringify({acct:member.acct, code:member.code||null})); }
   function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has) $('kg-code-display').textContent = member.code ? member.code : '（未設定）'; }
   function scheduleMemberPush(){ if(!member||!memberReady)return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member)return; memberPushFavorites(member.acct).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
+  /* ---------- その他の端末データの同期（v105で追加） ----------
+     推し・お気に入り以外の端末データ（行きたい／気になる／マイリスト／
+     フォロー／好み／保存した絞り込み／学習／終了表示）も端末をまたげるよう、
+     1つのまとまりとして同期する。保存先: 会員コード=memberdata の userdata 欄、
+     Google=users/{uid}/userdata/main。取り込みは原則「統合」（和集合）で、
+     端末のデータを勝手に消さない。反映は localStorage へ書いて1回だけ再読込 */
+  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended'};
+  function udArr(v){ return Array.isArray(v)? v : []; }
+  function udParse(k, fb){ try{ var v=localStorage.getItem(k); return v==null? fb : JSON.parse(v); }catch(e){ return fb; } }
+  function udReadLocal(){
+    return {
+      want:udArr(udParse(UD_KEYS.want,[])),
+      interest:udArr(udParse(UD_KEYS.interest,[])),
+      lists:udArr(udParse(UD_KEYS.lists,[])),
+      follows:udParse(UD_KEYS.follows,{venues:[],organizers:[]}),
+      prefs:udParse(UD_KEYS.prefs,null),
+      profiles:udArr(udParse(UD_KEYS.profiles,[])),
+      learned:udParse(UD_KEYS.learned,null),
+      showEnded:localStorage.getItem(UD_KEYS.showEnded)==='1'
+    };
+  }
+  function udSig(){ try{ return JSON.stringify(udReadLocal()); }catch(e){ return ''; } }
+  function udUnion(a,b){ var s=new Set((a||[]).map(String)); (b||[]).forEach(function(x){ s.add(String(x)); }); return Array.from(s); }
+  function udClone(x){ return JSON.parse(JSON.stringify(x)); }
+  function udMerge(local, cloud){
+    if(!cloud || typeof cloud!=='object') return local;
+    var out={};
+    out.want=udUnion(local.want, cloud.want);
+    out.interest=udUnion(local.interest, cloud.interest);
+    var lists=(local.lists||[]).map(udClone);
+    (cloud.lists||[]).forEach(function(row){
+      if(!row || typeof row.id!=='string') return;
+      var i=lists.findIndex(function(x){ return x.id===row.id; });
+      if(i>=0){ lists[i].events=udUnion(lists[i].events,row.events); lists[i].artists=udUnion(lists[i].artists,row.artists); lists[i].venues=udUnion(lists[i].venues,row.venues); lists[i].organizers=udUnion(lists[i].organizers,row.organizers); if(row.name) lists[i].name=row.name; }
+      else lists.push(udClone(row));
+    });
+    out.lists=lists;
+    out.follows={ venues:udUnion((local.follows||{}).venues,(cloud.follows||{}).venues), organizers:udUnion((local.follows||{}).organizers,(cloud.follows||{}).organizers) };
+    var lp=local.prefs||{}, cp=cloud.prefs||{}, prefs={};
+    ['cats','artists','prefs','areas','dismissed'].forEach(function(k){ prefs[k]=udUnion(lp[k],cp[k]); });
+    ['onboarded','free','weekend','collab'].forEach(function(k){ prefs[k]=!!(lp[k]||cp[k]); });
+    out.prefs=prefs;
+    var profs=(local.profiles||[]).map(udClone);
+    (cloud.profiles||[]).forEach(function(row){ if(!row||typeof row.name!=='string')return; var i=profs.findIndex(function(x){return x.name===row.name;}); if(i>=0) profs[i]=udClone(row); else profs.push(udClone(row)); });
+    out.profiles=profs.slice(0,30);
+    var ll=local.learned||{}, cl=cloud.learned||{}, learned={};
+    ['cats','artists','areas'].forEach(function(k){ learned[k]={}; var a=ll[k]||{}, b=cl[k]||{}; Object.keys(a).forEach(function(n){ learned[k][n]=a[n]; }); Object.keys(b).forEach(function(n){ learned[k][n]=Math.max(Number(learned[k][n])||0, Number(b[n])||0); }); });
+    out.learned=learned;
+    out.showEnded=!!(local.showEnded||cloud.showEnded);
+    return out;
+  }
+  function udWriteLocal(d){
+    try{
+      localStorage.setItem(UD_KEYS.want, JSON.stringify(d.want||[]));
+      localStorage.setItem(UD_KEYS.interest, JSON.stringify(d.interest||[]));
+      localStorage.setItem(UD_KEYS.lists, JSON.stringify(d.lists||[]));
+      localStorage.setItem(UD_KEYS.follows, JSON.stringify(d.follows||{venues:[],organizers:[]}));
+      if(d.prefs) localStorage.setItem(UD_KEYS.prefs, JSON.stringify(d.prefs));
+      localStorage.setItem(UD_KEYS.profiles, JSON.stringify(d.profiles||[]));
+      if(d.learned) localStorage.setItem(UD_KEYS.learned, JSON.stringify(d.learned));
+      localStorage.setItem(UD_KEYS.showEnded, d.showEnded? '1':'0');
+    }catch(e){}
+  }
+  var udBusy=false, udLastSig='';
+  async function udPushNow(){
+    if(udBusy) return;
+    var sig=udSig(); if(!sig || sig===udLastSig) return;
+    var data=udReadLocal();
+    try{ if(JSON.stringify(data).length>900000) return; }catch(e){ return; }
+    udBusy=true;
+    try{
+      if(member && memberReady){ await memberSetMeta(member.acct, {userdata:data, udUpdatedAt:Date.now()}); udLastSig=sig; }
+      else if(user && initialized){ await fsTimeout(client.setDoc(client.doc(client.db,'users',user.id,'userdata','main'), {data:data, updatedAt:Date.now()}), '同期がタイムアウトしました'); udLastSig=sig; }
+    }catch(e){ /* 失敗しても端末内データは無事。次回の定期チェックで再送する */ }
+    finally{ udBusy=false; }
+  }
+  function udArmWatchers(){
+    if(udArmWatchers.done) return; udArmWatchers.done=true;
+    setInterval(function(){ udPushNow(); }, 45000);
+    document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') udPushNow(); });
+    window.addEventListener('beforeunload', function(){ udPushNow(); });
+  }
+  async function udPullMerge(){
+    /* ログイン確定後に呼ぶ: クラウド側の userdata を端末へ統合し、
+       変化があれば1回だけ再読み込みして画面へ反映する */
+    try{
+      var cloud=null;
+      if(member && memberReady){ var d=await memberDoc(member.acct); cloud=d? d.userdata : null; }
+      else if(user && initialized){ var snap=await fsTimeout(client.getDoc(client.doc(client.db,'users',user.id,'userdata','main')), '読み込みがタイムアウトしました'); cloud=snap.exists()? (snap.data()||{}).data : null; }
+      else return;
+      udArmWatchers();
+      if(!cloud){ udLastSig=''; await udPushNow(); return; }
+      var before=udSig();
+      var merged=udMerge(udReadLocal(), cloud);
+      udWriteLocal(merged);
+      udLastSig=udSig();
+      try{
+        if(member && memberReady) await memberSetMeta(member.acct, {userdata:merged, udUpdatedAt:Date.now()});
+        else if(user && initialized) await fsTimeout(client.setDoc(client.doc(client.db,'users',user.id,'userdata','main'), {data:merged, updatedAt:Date.now()}), '同期がタイムアウトしました');
+      }catch(e){}
+      if(before!==udLastSig && !sessionStorage.getItem('kg_ud_reloaded')){
+        sessionStorage.setItem('kg_ud_reloaded','1');
+        location.reload();
+      }
+    }catch(e){ /* 読めなくても端末内データで継続する */ }
+  }
   async function activateMember(acct, code, fromRestore){
     var d = await memberDoc(acct);
     if(!d) return false;
     member = {acct:acct, code:code||null};
     saveMemberSession();
     renderMember(); renderState();
-    if(localStorage.getItem('kg_member_selected_v2')===acct){ bridge.replace(cloudOf(d)); memberReady=true; text('同期済み（会員コード）。'); }
+    if(localStorage.getItem('kg_member_selected_v2')===acct){ bridge.replace(cloudOf(d)); memberReady=true; text('同期済み（会員コード）。'); udPullMerge(); }
     else { pendingMemberCloud=cloudOf(d); choiceMode='member'; parts(false, !user, !!user, true); text('同期方法を選んでください。'); if(!fromRestore){ bootChoicePending=true; renderState(); } }
     return true;
   }
@@ -165,7 +271,7 @@
       localStorage.setItem('kg_member_selected_v2', member.acct);
       memberReady=true; pendingMemberCloud=null;
       parts(false, !user, !!user, false);
-      text('同期済み（会員コード）。');
+      text('同期済み（会員コード）。'); udPullMerge();
     } catch(e){ text('同期に失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。'); }
   }
   $('kg-code-issue').onclick=async function(){
@@ -240,6 +346,7 @@
     if(!member)return;
     if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。よろしいですか？'))return;
     localStorage.removeItem('kg_member_session_v2'); localStorage.removeItem('kg_member_selected_v2'); localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1');
+    try{ sessionStorage.removeItem('kg_ud_reloaded'); }catch(_){}
     member=null; memberReady=false; pendingMemberCloud=null; renderMember(); renderState();
     bridge.replace({event:[],artist:[]});
     text('ログアウトしました。');

@@ -3,7 +3,8 @@
 サイト側の実装は完了しています（`account.js` / `account-config.js`）。
 残りは Firebase プロジェクト側の設定だけです。所要時間の目安は10分程度です。
 設定が終わると、ヘッダーの「ログイン / 同期」から Google アカウントでログインでき、
-推し・お気に入りが端末をまたいで同期されるようになります。
+推し・お気に入り・マイリスト・行きたい／気になる・フォロー・好みなどが
+端末をまたいで同期されるようになります（会員コード方式でも同じ範囲が同期されます）。
 
 ## Kota が Firebase コンソールでやること
 
@@ -32,6 +33,9 @@
    service cloud.firestore {
      match /databases/{database}/documents {
        match /users/{uid}/favorites/{docId} {
+         allow read, write: if request.auth != null && request.auth.uid == uid;
+       }
+       match /users/{uid}/userdata/{docId} {
          allow read, write: if request.auth != null && request.auth.uid == uid;
        }
        match /memberdata/{key} {
@@ -65,8 +69,10 @@
 
 ## 実装済みの仕様（account.js）
 
-- ログイン方法: Googleアカウント（ポップアップ方式）のみ
-- 同期対象: 推し（アーティスト）とお気に入り（イベント）
+- ログイン方法: Googleアカウント（ポップアップ方式）と、サイト発行の会員コード方式
+- 同期対象: 推し（アーティスト）とお気に入り（イベント）に加え、行きたい／気になる／
+  マイリスト／フォロー（会場・主催）／好み／保存した絞り込み／学習データ／終了表示の設定
+  （取り込みは原則「統合」で、端末のデータを勝手に消さない）
 - 初回ログイン時: 「この端末のデータを統合」か「アカウントのデータを使う」かを選べる
 - オフライン時: 変更は端末にキューされ、再接続時に自動で同期される
 - ログアウト時: 端末内の推し・お気に入りは消去される（アカウント側には残る）
