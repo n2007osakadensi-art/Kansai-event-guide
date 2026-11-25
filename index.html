@@ -957,7 +957,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v158';
+  window.__kgShell='v160';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3887,11 +3887,13 @@ function renderDetailInner(){
       if(vprof.ig) vlinks+='<a class="link-btn lb-ig" href="'+esc(vprof.ig)+'" target="_blank" rel="noopener">Instagram</a>';
       if(vprof.fm) vlinks+='<a class="link-btn lb-ticket" href="'+esc(vprof.fm)+'" target="_blank" rel="noopener">施設案内</a>';
       if(vprof.mi && vprof.mi.length) vprof.mi.forEach(function(e){ if(e && e.u) vlinks+='<a class="link-btn lb-ticket" href="'+esc(e.u)+'" target="_blank" rel="noopener">'+esc(e.l||e.k||"フロアガイド")+'</a>'; });
-      var mq=(vprof.lt!=null&&vprof.lg!=null)?(vprof.lt+","+vprof.lg):(vprof.ad||name);
+      var mq=(vprof.lt!=null&&vprof.lg!=null)?(vprof.lt+","+vprof.lg):((vprof.n||name)+(vprof.ad? " "+vprof.ad : ""));
       vlinks+='<a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">地図を開く</a>';
       head+='<div class="link-row">'+vlinks+'</div>';
+      head+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(mq)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     } else {
       head+='<div class="link-row"><a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
+      head+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(name)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     }
     head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailFollowBtn" style="border-color:var(--accent);color:'+(venueFollowed(name)?"#fff":"var(--accent)")+';'+(venueFollowed(name)?"background:var(--accent)":"")+'">'+(venueFollowed(name)?"フォロー中":"フォローする")+'</button></div>';
     head+='<p class="prof-note">フォローすると、この会場のイベントがタイムラインの「フォロー中」に流れます。</p>';
@@ -7016,13 +7018,13 @@ function rfYahooUrl(ev, vp, origin){
 function rfBuildControls(){
   var evs=rfTodayEvents();
   var vmap={}, vlist=[];
-  evs.forEach(function(ev){ var vp=venueProfileFor(ev.venue); if(vp && vp.lt && vp.lg && !vmap[vp._key]){ vmap[vp._key]=1; vlist.push(vp); } });
+  evs.forEach(function(ev){ var vp=venueProfileFor(ev.venue); if(vp && !vmap[vp._key]){ vmap[vp._key]=1; vlist.push(vp); } });
   vlist.sort(function(a,b){ return String(a.n||a._key).localeCompare(String(b.n||b._key),"ja"); });
   var html='<option value="">起点なし（時間だけで判定）</option>';
   if(rfOriginKey==="gps") html+='<option value="gps">現在地（GPS）</option>';
   if(vlist.length){
     html+='<optgroup label="会場から出発">';
-    vlist.forEach(function(vp){ html+='<option value="v:'+esc(vp._key)+'">'+esc(vp.n||vp._key)+'</option>'; });
+    vlist.forEach(function(vp){ html+='<option value="v:'+esc(vp._key)+'">'+esc(vp.n||vp._key)+((vp.lt&&vp.lg)?'':'（座標なし）')+'</option>'; });
     html+='</optgroup>';
   }
   var planList=rfTodayPlanList();
@@ -7066,7 +7068,8 @@ function renderRouteFit(){
   var maxTravel=parseInt(els.rfMaxSel.value,10)||0;
   var freeOnly=els.rfFreeChk.checked;
   els.rfOriginInfo.textContent = !profilesLoaded ? "会場データを読み込み中です（距離判定は読み込み後に有効になります）。"
-    : origin ? ("起点："+origin.label+"／基準時刻 "+minToTime(baseMin)+"（移動時間は推定です）")
+    : origin ? (origin.lat!=null ? ("起点："+origin.label+"／基準時刻 "+minToTime(baseMin)+"（移動時間は推定です）")
+      : ("起点："+origin.label+"／基準時刻 "+minToTime(baseMin)+"（この起点は座標がないため、移動時間は加味せず時刻だけで判定しています。各候補の経路リンクでご確認ください）"))
     : "起点なし：時刻だけで判定しています。GPSか起点を選ぶと移動時間も加味します。";
   if(planNext) els.rfOriginInfo.textContent += "／次の予定「"+planNext.ev.title+"」（"+minToTime(planNext.startMin)+"開始）までに戻れるかも判定しています。";
   /* グループ分けはスペース版ガイドの回せる現場と同一（2026-11-23 統一）：
@@ -7224,7 +7227,7 @@ els.rfOriginSel.addEventListener("change", function(){
   if(v.indexOf("v:")===0){
     var key=v.slice(2), vp=null;
     Object.keys(venueProfiles).forEach(function(k){ if(k===key) vp=venueProfiles[k]; });
-    if(vp && vp.lt && vp.lg){ rfOrigin={kind:"venue", label:vp.n||key, lat:vp.lt, lng:vp.lg}; }
+    if(vp){ rfOrigin={kind:"venue", label:vp.n||key, lat:(vp.lt!=null?vp.lt:null), lng:(vp.lg!=null?vp.lg:null)}; }
     render(); return;
   }
   if(v.indexOf("e:")===0){
@@ -8485,11 +8488,13 @@ function psInfoHTML(kind, name, prof, upcoming, evs){
       if(prof.ws) vl+='<a class="link-btn lb-web" href="'+esc(prof.ws)+'" target="_blank" rel="noopener">公式サイト</a>';
       if(prof.x) vl+='<a class="link-btn lb-x" href="'+esc(prof.x)+'" target="_blank" rel="noopener">X</a>';
       if(prof.ig) vl+='<a class="link-btn lb-ig" href="'+esc(prof.ig)+'" target="_blank" rel="noopener">Instagram</a>';
-      var mq=(prof.lt!=null&&prof.lg!=null)? (prof.lt+","+prof.lg) : (prof.ad||name);
+      var mq=(prof.lt!=null&&prof.lg!=null)? (prof.lt+","+prof.lg) : ((prof.n||name)+(prof.ad? " "+prof.ad : ""));
       vl+='<a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">地図を開く</a>';
       h+='<div class="link-row">'+vl+'</div>';
+      h+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(mq)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     } else {
       h+='<div class="link-row"><a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
+      h+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(name)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     }
   } else {
     if(prof){

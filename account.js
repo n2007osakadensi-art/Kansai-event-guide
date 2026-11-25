@@ -230,7 +230,7 @@
   }
   async function memberPushFavorites(acct) { var local=bridge.read(); var c=docCacheGet('m:'+acct); if(c && JSON.stringify(c.events||[])===JSON.stringify(local.event) && JSON.stringify(c.artists||[])===JSON.stringify(local.artist)) { markSynced(); return; } await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now()}); markSynced(); }
   async function memberSetMeta(acct, fields) { await memberWriteFields(acct, fields); }
-  function idxCollection(prefix){ return prefix==='c:' ? 'codes' : prefix==='b:' ? 'bindings' : 'recovery'; }
+  function idxCollection(prefix){ return prefix==='c:' ? 'codes' : 'recovery'; }
   async function idxGet(prefix, hash) {
     var sheetErr=null;
     if(syncReady()) { try { var v=await kvGet(prefix+hash); return v ? (v.acct||null) : null; } catch(e) { if(!client) throw e; sheetErr=e; } }
@@ -250,6 +250,10 @@
     try { if(syncReady()) await kvDel(prefix+hash); } catch(e) {}
     try { if(client) await fsTimeout(client.deleteDoc(client.doc(client.db, idxCollection(prefix), hash)), '削除がタイムアウトしました'); } catch(e) {}
   }
+  /* 紐づけ索引は r: 前置を使う: 入口（Apps Script）はキー前置が許可制で
+     新しい前置 b: は bad key で弾かれた（2026-11-25 実測）。質問と回答の
+     復旧を廃したため、その索引 r: を紐づけ用に転用する（値の形は同じ {acct}、
+     ハッシュの元情報が違うため衝突しない） */
   /* 本人確認専用の Google サインイン（Kota決定 2026-11-25、v158）:
      会員コードの発行・再発行・アカウント切り替えのときだけ使う。
      通常のログイン状態には触れないよう、分離した認証インスタンスで
@@ -574,13 +578,13 @@
     try {
       text('Googleアカウントで本人確認をしています…');
       var gh=await googleVerify();
-      var bound=await idxGet('b:', gh);
+      var bound=await idxGet('r:', gh);
       if(bound){ text('このGoogleアカウントには、すでに会員コードのアカウントがあります。コードでログインしてください。コードを失くした場合は「コードを失くした方」から新しいコードを発行できます。'); return; }
       var acct=newAcct(); var code=newCode(); var ch=await codeHashOf(code);
       var local=bridge.read();
       await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now(), codeHash:ch, googleHash:gh});
       await idxSet('c:', ch, acct);
-      await idxSet('b:', gh, acct);
+      await idxSet('r:', gh, acct);
       member={acct:acct, code:code}; saveMemberSession();
       localStorage.setItem('kg_member_selected_v2', acct);
       memberReady=true; renderMember(); renderState(); udPullMerge();
@@ -604,7 +608,7 @@
         var gh2=await googleVerify();
         var td=await memberDoc(acct);
         if(td && td.googleHash && td.googleHash!==gh2){ text('別のGoogleアカウントでは切り替えできません。切り替え先に紐づいたGoogleで本人確認してください。'); return; }
-        if(td && !td.googleHash){ await memberSetMeta(acct, {googleHash:gh2}); await idxSet('b:', gh2, acct); }
+        if(td && !td.googleHash){ await memberSetMeta(acct, {googleHash:gh2}); await idxSet('r:', gh2, acct); }
         if(!await activateMember(acct, code)){ text('データが見つかりませんでした。'); return; }
         var ncode=await issueNewCodeFor(acct);
         if(member){ member.code=ncode; saveMemberSession(); renderMember(); }
@@ -622,7 +626,7 @@
     try {
       text('Googleアカウントで本人確認をしています…');
       var gh=await googleVerify();
-      var acct=await idxGet('b:', gh);
+      var acct=await idxGet('r:', gh);
       if(!acct){ text('このGoogleアカウントに紐づいたアカウントが見つかりませんでした。'); return; }
       if(!await activateMember(acct, null)){ text('データが見つかりませんでした。'); return; }
       var ncode=await issueNewCodeFor(acct);
@@ -642,7 +646,7 @@
       var gh=await googleVerify();
       var d=await memberDoc(member.acct);
       if(d && d.googleHash && d.googleHash!==gh){ text('別のGoogleアカウントでは再発行できません。このアカウントに紐づいたGoogleで本人確認してください。'); return; }
-      if(d && !d.googleHash){ await memberSetMeta(member.acct, {googleHash:gh}); await idxSet('b:', gh, member.acct); }
+      if(d && !d.googleHash){ await memberSetMeta(member.acct, {googleHash:gh}); await idxSet('r:', gh, member.acct); }
       var code=await issueNewCodeFor(member.acct);
       member.code=code; saveMemberSession(); renderMember();
       text('新しいコードを発行しました。控えてください。');
@@ -654,10 +658,10 @@
     try {
       text('Googleアカウントで本人確認をしています…');
       var gh=await googleVerify();
-      var bound=await idxGet('b:', gh);
+      var bound=await idxGet('r:', gh);
       if(bound && bound!==member.acct){ text('このGoogleアカウントは、別のアカウントに紐づいています。'); return; }
       await memberSetMeta(member.acct, {googleHash:gh});
-      await idxSet('b:', gh, member.acct);
+      await idxSet('r:', gh, member.acct);
       refreshBindBlock();
       text('Googleアカウントと紐づけました。今後、コードの再発行にはこのGoogleでの本人確認が必要です。');
     } catch(e){ text('紐づけできませんでした（'+((e&&e.code)||(e&&e.message)||'エラー')+'）。'); } finally { bbtn.disabled=false; }

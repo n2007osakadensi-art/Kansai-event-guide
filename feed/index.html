@@ -1897,11 +1897,13 @@ function feedProfInfoHTML(kind, name, prof, upcoming, evs){
       if(prof.ws) vl+='<a href="'+esc(prof.ws)+'" target="_blank" rel="noopener">公式サイト</a>';
       if(prof.x) vl+='<a href="'+esc(prof.x)+'" target="_blank" rel="noopener">X</a>';
       if(prof.ig) vl+='<a href="'+esc(prof.ig)+'" target="_blank" rel="noopener">Instagram</a>';
-      var mq=(prof.lt!=null && prof.lg!=null)? (prof.lt+","+prof.lg) : (prof.ad||name);
+      var mq=(prof.lt!=null && prof.lg!=null)? (prof.lt+","+prof.lg) : ((prof.n||name)+(prof.ad? " "+prof.ad : ""));
       vl+='<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">地図を開く</a>';
       h+='<div class="dt-links">'+vl+'</div>';
+      h+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(mq)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     } else {
       h+='<div class="dt-links"><a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
+      h+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(name)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     }
   } else {
     if(prof){
