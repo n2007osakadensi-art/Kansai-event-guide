@@ -242,7 +242,13 @@
       fsDrain(uid);
       try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; text('同期済み。'); udPullMerge(); }
       catch(e) { noteCloudFail(); text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
-    } else { choiceMode='google'; parts(false,false,false,true); text('同期方法を選んでください。'); bootChoicePending=true; renderState(); }
+    } else {
+      /* 初回ログインは自動で統合して同期を始める（v151）。選択待ちのまま
+         同期が始まらない状態をなくす。統合は和集合で端末データを消さない。
+         失敗した時だけ従来の選択肢を出す */
+      await applyChoice(true);
+      if(!initialized){ choiceMode='google'; parts(false,false,false,true); text('同期方法を選んでください。'); bootChoicePending=true; renderState(); }
+    }
   }
   async function applyChoice(merge) {
     if(!user) return; var uid=user.id,g=generation; text('データを確認しています…');
@@ -409,7 +415,12 @@
     saveMemberSession();
     renderMember(); renderState();
     if(localStorage.getItem('kg_member_selected_v2')===acct){ bridge.replace(cloudOf(d)); memberReady=true; text('同期済み（会員コード）。'); udPullMerge(); }
-    else { pendingMemberCloud=cloudOf(d); choiceMode='member'; parts(false, !user, !!user, true); text('同期方法を選んでください。'); if(!fromRestore){ bootChoicePending=true; renderState(); } }
+    else {
+      /* 会員コードの初回ログインも自動で統合して同期を始める（v151） */
+      pendingMemberCloud=cloudOf(d);
+      await applyMemberChoice(true);
+      if(!memberReady){ choiceMode='member'; parts(false, !user, !!user, true); text('同期方法を選んでください。'); if(!fromRestore){ bootChoicePending=true; renderState(); } }
+    }
     return true;
   }
   async function applyMemberChoice(merge){
@@ -520,8 +531,8 @@
   var bootChoicePending=false;
   function stateLabel(){
     if(adminOn()) return '管理者モード';
-    if(user) return 'ログイン中（同期ON）'+(bootChoicePending?'・要選択':'');
-    if(member) return 'ログイン中（会員コード）'+(bootChoicePending?'・要選択':'');
+    if(user) return bootChoicePending? 'ログイン中（同期は選択待ち）' : 'ログイン中（同期ON）';
+    if(member) return bootChoicePending? 'ログイン中（会員コード・同期は選択待ち）' : 'ログイン中（会員コード）';
     if(guestOn()) return 'ゲスト利用中';
     return '未ログイン / 同期';
   }

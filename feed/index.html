@@ -1653,11 +1653,17 @@ function mergeFeedImages(map){
 }
 function loadFeedImages(){
   try{ fetch("../assets/event-images.json").then(function(r){ return r.ok? r.json() : null; }).then(function(j){ if(j && typeof j==="object" && !Array.isArray(j)) mergeFeedImages(j); }).catch(function(){}); }catch(e){}
-  try{ loadSheetRace("events_images", ["id","imageUrls"], function(rows){
-    var map={};
-    (rows||[]).forEach(function(r){ if(!r || r.id==null || !r.imageUrls) return; try{ var a=JSON.parse(r.imageUrls); if(Array.isArray(a)) map[String(r.id)]=a; }catch(e){} });
-    mergeFeedImages(map);
-  }, function(){}); }catch(e){}
+  var imgTries=0;
+  function imgAttempt(){
+    imgTries++;
+    try{ loadSheetRace("events_images", ["id","imageUrls"], function(rows){
+      var map={};
+      (rows||[]).forEach(function(r){ if(!r || r.id==null || !r.imageUrls) return; try{ var a=JSON.parse(r.imageUrls); if(Array.isArray(a)) map[String(r.id)]=a; }catch(e){} });
+      if(!Object.keys(map).length && imgTries<3){ setTimeout(imgAttempt, 6000); return; }
+      mergeFeedImages(map);
+    }, function(){ if(imgTries<3) setTimeout(imgAttempt, 6000); }); }catch(e){ if(imgTries<3) setTimeout(imgAttempt, 6000); }
+  }
+  imgAttempt();
 }
 
 /* ---------- イベント詳細シート（フィード内で開く） ---------- */

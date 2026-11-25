@@ -916,6 +916,8 @@
   .tl-search input::placeholder{color:rgba(255,255,255,.55)}
   .tl-search #tlSearchClear{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;font-size:14px;cursor:pointer}
   .tl-search-note{padding:4px 16px 0;font-size:12px;color:rgba(255,255,255,.78)}
+  .tl-ptr{position:absolute;top:10px;left:50%;transform:translate(-50%,-64px);z-index:60;background:rgba(15,15,15,.85);color:#fff;font-size:13px;padding:8px 16px;border-radius:999px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+  .tl-ptr.hidden{display:none}
   .tl-media{position:relative;flex:1;min-height:0;border-radius:16px;overflow:hidden;background:#26282e}
   .tl-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
   .tl-media.noimg{display:flex;align-items:center;justify-content:center}
@@ -953,7 +955,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v149';
+  window.__kgShell='v152';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1399,6 +1401,7 @@
   <div class="tl-me" id="tlMe"></div>
   <div class="tl-scope hidden" id="tlScope" role="group" aria-label="タイムラインに流すリストの切り替え"></div>
   <div class="tl-scope hidden" id="tlSort" role="group" aria-label="フォロー中の並び替え"></div>
+  <div class="tl-ptr hidden" id="tlPtr" aria-hidden="true">↓ 引っ張って更新</div>
   <div class="tl-stage" id="tlStage"></div>
   <div class="tl-feed hidden" id="tlFeed"></div>
   <div class="sg-nav" id="tlNav">
@@ -3365,17 +3368,25 @@ function loadEventImages(){
     }catch(e){ resolve(); }
   });
   var sheetDone=new Promise(function(resolve){
-    try{
-      loadSheetRace("events_images", function(rows){
-        var map={};
-        (rows||[]).forEach(function(r){
-          if(!r || r.id==null || !r.sheetImageUrls) return;
-          try{ var arr=JSON.parse(r.sheetImageUrls); if(Array.isArray(arr)) map[String(r.id)]=arr; }catch(e){}
-        });
-        applyEventImages(map);
-        resolve();
-      }, function(){ resolve(); });
-    }catch(e){ resolve(); }
+    /* 空で返ったら取り直す（v152）: 同時多発の読み込み競合で空振りすると、
+       その回は二度と画像が届かなかったため、最大3回まで自動リトライする */
+    var tries=0;
+    function attempt(){
+      tries++;
+      try{
+        loadSheetRace("events_images", function(rows){
+          var map={};
+          (rows||[]).forEach(function(r){
+            if(!r || r.id==null || !r.sheetImageUrls) return;
+            try{ var arr=JSON.parse(r.sheetImageUrls); if(Array.isArray(arr)) map[String(r.id)]=arr; }catch(e){}
+          });
+          if(!Object.keys(map).length && tries<3){ setTimeout(attempt, 6000); return; }
+          applyEventImages(map);
+          resolve();
+        }, function(){ if(tries<3) setTimeout(attempt, 6000); else resolve(); });
+      }catch(e){ if(tries<3) setTimeout(attempt, 6000); else resolve(); }
+    }
+    attempt();
   });
   var fbDone=new Promise(function(resolve){
     try{
@@ -6366,6 +6377,15 @@ function applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite){
   maybeOpenStartFeed();
   loadProfiles();
   loadEventImages();
+  /* データが差し替わったら、開いているタイムラインも新しいデータで
+     組み直す（v150。裏の自動更新や引っ張って更新の反映先） */
+  try{
+    if(typeof tlState!=="undefined" && tlState.open){
+      tlState.items=buildTimelineItems();
+      if(prefs.tlMode==="feed"){ renderTlMe(); var tf=tlEl("tlFeed"); var tst=tf?tf.scrollTop:0; tlRenderFeed(); if(tf) tf.scrollTop=tst; }
+      else if(tlState.items.length){ if(tlState.idx>=tlState.items.length) tlState.idx=tlState.items.length-1; tlShow(tlState.idx); }
+    }
+  }catch(e){}
   if(window.__kgBootMarkOk) window.__kgBootMarkOk();
 }
 function showError(err){
@@ -8770,6 +8790,7 @@ function refreshTlLogin(){
   var feed=tlEl("tlFeed");
   if(feed){
     feed.addEventListener("click", function(e){
+      if(window.__tlPtrSwallow && Date.now()-window.__tlPtrSwallow<400) return;
       var prof = e.target && e.target.closest ? e.target.closest("[data-tl-prof]") : null;
       if(prof){ tlOpenProfile(prof.getAttribute("data-tl-prof"), prof.getAttribute("data-tl-name")); return; }
       var postBtn = e.target && e.target.closest ? e.target.closest("[data-tl-post]") : null;
@@ -8780,6 +8801,47 @@ function refreshTlLogin(){
       for(var i=0;i<tlState.items.length;i++){ if(String(tlState.items[i].id)===want){ found=tlState.items[i]; break; } }
       if(found) tlOpenDetail(found);
     });
+  }
+  /* 引っ張って更新（v150）: 一覧は先頭で、ストーリーはスライド上で
+     下へ引っ張ると最新情報を取り直す。本体の再読み込みと同じ経路 */
+  var tlPtrBusy=false, tlPtrY=null, tlPtrX=null, tlPtrDy=0, tlPtrSrc=null;
+  function tlPtrShow(txt, ty){ var p=tlEl("tlPtr"); if(!p) return; p.classList.remove("hidden"); p.textContent=txt; p.style.transition="none"; p.style.transform="translate(-50%,"+ty+"px)"; }
+  function tlPtrHide(){ var p=tlEl("tlPtr"); if(!p) return; p.style.transition="transform .18s ease"; p.style.transform="translate(-50%,-64px)"; setTimeout(function(){ p.classList.add("hidden"); }, 190); }
+  function tlDoRefresh(){
+    if(tlPtrBusy) return; tlPtrBusy=true;
+    tlPtrShow("更新中…", 10);
+    try{ eventImagesLoaded=false; eventImagesLoading=null; }catch(e){}
+    try{ sheetProfilesLoaded=false; }catch(e){}
+    try{ load(true); }catch(e){}
+    try{ loadEventImages(); }catch(e){}
+    try{ loadSheetProfiles(); }catch(e){}
+    setTimeout(function(){ tlPtrBusy=false; tlPtrHide(); try{ toast("最新の情報に更新しました"); }catch(e){} }, 1800);
+  }
+  function tlPtrArm(src, x, y){ if(tlPtrBusy) return; tlPtrSrc=src; tlPtrX=x; tlPtrY=y; tlPtrDy=0; }
+  function tlPtrMove(x, y, th){
+    if(tlPtrY==null || tlPtrBusy) return;
+    var dy=y-tlPtrY, dx=x-tlPtrX;
+    if(dy>10 && Math.abs(dy)>Math.abs(dx)*1.2){ tlPtrDy=dy; tlPtrShow(dy>=th?"離すと更新":"↓ 引っ張って更新", Math.min(dy*0.5, 58)-64+12); }
+    else if(tlPtrDy>0){ tlPtrDy=0; tlPtrHide(); }
+  }
+  function tlPtrRelease(th){
+    if(tlPtrY==null) return;
+    var dy=tlPtrDy; tlPtrY=null; tlPtrX=null; tlPtrDy=0; tlPtrSrc=null;
+    if(dy>24) window.__tlPtrSwallow=Date.now();
+    if(dy>=th && !tlPtrBusy){ window.__tlPtrNavAt=Date.now(); tlDoRefresh(); }
+    else if(!tlPtrBusy) tlPtrHide();
+  }
+  if(feed){
+    feed.addEventListener("pointerdown", function(e){ if(feed.scrollTop<=0) tlPtrArm("feed", e.clientX, e.clientY); });
+    feed.addEventListener("pointermove", function(e){ if(tlPtrSrc==="feed") tlPtrMove(e.clientX, e.clientY, 64); });
+    feed.addEventListener("pointerup", function(){ if(tlPtrSrc==="feed") tlPtrRelease(64); });
+    feed.addEventListener("pointercancel", function(){ if(tlPtrSrc==="feed"){ tlPtrY=null; tlPtrDy=0; tlPtrSrc=null; if(!tlPtrBusy) tlPtrHide(); } });
+  }
+  if(stage){
+    stage.addEventListener("pointerdown", function(e){ if(prefs.tlMode!=="feed") tlPtrArm("stage", e.clientX, e.clientY); });
+    stage.addEventListener("pointermove", function(e){ if(tlPtrSrc==="stage") tlPtrMove(e.clientX, e.clientY, 84); });
+    stage.addEventListener("pointerup", function(){ if(tlPtrSrc==="stage") tlPtrRelease(84); });
+    stage.addEventListener("pointercancel", function(){ if(tlPtrSrc==="stage"){ tlPtrY=null; tlPtrDy=0; tlPtrSrc=null; if(!tlPtrBusy) tlPtrHide(); } });
   }
   document.addEventListener("keydown", function(e){
     if(!tlState.open) return;
