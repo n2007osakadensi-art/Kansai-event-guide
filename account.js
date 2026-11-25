@@ -105,7 +105,16 @@
   /* ================= 主軸: アカウント用シート（Apps Script 経由） ================= */
   var SYNC_URL = (cfg.syncEndpoint || '').trim();
   function syncReady(){ return !!SYNC_URL; }
-  async function kvCall(body) {
+  /* 入口は同時リクエストを1本の行列で捌くため、この端末からの
+     呼び出しは1件ずつ順番に送る（v153）。自分のリクエスト同士が
+     入口で競合して制限時間を超える失敗を防ぐ */
+  var kvChain=Promise.resolve();
+  async function kvCall(body){
+    var run=kvChain.then(function(){ return kvCallInner(body); });
+    kvChain=run.then(function(){}, function(){});
+    return run;
+  }
+  async function kvCallInner(body) {
     if(!SYNC_URL){ var e0=new Error('同期の接続先が未設定です'); e0.code='kg-no-endpoint'; throw e0; }
     // 入口側が混んでいる（ロック待ち）・一時的に遅い場合は、間隔をあけて
     // 最大3回まで試す。恒常的な失敗は最後のエラーをそのまま投げる。
@@ -119,7 +128,7 @@
           if(!j || !j.ok){ var e=new Error((j&&j.error)||('HTTP '+res.status)); e.code=(j&&j.code)||'kg-sync'; if(/Lock/.test(e.message)) e.code='kg-busy'; throw e; }
           return j;
         })();
-        return await fsTimeout(p, '同期がタイムアウトしました');
+        return await Promise.race([p, new Promise(function(_, rej){ setTimeout(function(){ var e=new Error('同期がタイムアウトしました'); e.code='kg-timeout'; rej(e); }, 30000); })]);
       } catch(e) {
         lastErr=e;
         var retryable = e && (e.code==='kg-busy' || e.code==='kg-timeout' || /^HTTP 5/.test(e.message||''));
