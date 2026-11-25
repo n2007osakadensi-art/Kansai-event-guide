@@ -1850,12 +1850,11 @@ function start(){
   var kgFeedUiDone=false;
   var kgFeedRestoreSettled=false, kgFeedRestoreApplied=false;
   var kgFeedSaveCount=0;
-  function kgFeedDiagSet(o){ try{ var d={}; try{ d=JSON.parse(localStorage.getItem("kg_feed_ui_diag_v1")||"{}"); }catch(e){} for(var k in o) d[k]=o[k]; localStorage.setItem("kg_feed_ui_diag_v1", JSON.stringify(d)); }catch(e){} }
   /* 復元が「確定」するまでは保存しない（v135→v137）: v135 では復元の
      開始（予約）時点で保存を解禁したため、観測側の初回保存が予約直後に
      走って保存済みの状態を空で上書きしていた。確定 = 復元の適用が
      済んだ／保存が無かった／利用者が入力した／8秒経過、のいずれか */
-  function kgFeedSave(){ if(!kgFeedRestoreSettled) return; try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx, et:feedExactTarget})); kgFeedSaveCount++; kgFeedDiagSet({sv:kgFeedSaveCount, se:"", sq:feedQuery||"", si:curIdx}); }catch(e){ kgFeedDiagSet({se:String((e&&e.message)||e).slice(0,80)}); } }
+  function kgFeedSave(){ if(!kgFeedRestoreSettled) return; try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx, et:feedExactTarget})); kgFeedSaveCount++; }catch(e){} }
   window.addEventListener("pagehide", kgFeedSave);
   document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") kgFeedSave(); });
   var kgFeedUserTyped=false;
@@ -1872,7 +1871,7 @@ function start(){
     if(kgFeedUserTyped) return;
     var raw=null; try{ raw=localStorage.getItem("kg_feed_ui_v1"); }catch(e){}
     var st=null; try{ st=JSON.parse(raw||"null"); }catch(e){}
-    if(!st){ kgFeedRestoreSettled=true; if(n===1) kgFeedDiagSet({rf:0}); return; }
+    if(!st){ kgFeedRestoreSettled=true; return; }
     var applied=[];
     try{
       var etSt=(st.et && st.et.kind && st.et.value)? {kind:String(st.et.kind), value:String(st.et.value)} : null;
@@ -1895,10 +1894,7 @@ function start(){
       }
       if(applied.length || (st.q||"")===(feedQuery||"")) kgFeedRestoreApplied=true;
       kgFeedRestoreSettled=true;
-      var d={}; try{ d=JSON.parse(localStorage.getItem("kg_feed_ui_diag_v1")||"{}"); }catch(e){}
-      var hist=(d.rh? d.rh+"|" : "")+"a"+n+":fq="+(feedQuery||"")+",rr="+String(raw||"").slice(0,26)+",ra="+(applied.join("+")||"-");
-      kgFeedDiagSet({rf:1, rq:st.q||"", ri:st.idx||0, rr:String(raw||"").slice(0,50), ra:applied.join(","), rh:hist.slice(-160)});
-    }catch(e){ kgFeedDiagSet({re:String((e&&e.message)||e).slice(0,80)}); }
+    }catch(e){}
   }
 /* 本体側で お気に入り等 が変わったら並びを追随させる */
 window.addEventListener("storage", function(e){

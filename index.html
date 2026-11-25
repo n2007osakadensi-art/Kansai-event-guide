@@ -953,7 +953,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v140';
+  window.__kgShell='v142';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -969,22 +969,12 @@
   window.__kgDiagLast=function(){ var arr=diagRead(); return arr.length? arr[arr.length-1] : null; };
   function escT(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
   function fmtT(ts){ var d=new Date(ts); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
-  function kgUiDiagSuffix(){
-    var s='';
-    try{ var d=JSON.parse(localStorage.getItem('kg_ui_diag_v1')||'null');
-      if(d){ s+=' / 復元診断: 保存'+(d.sv||0)+'回'; if(d.se) s+=' 保存エラー:'+d.se; if(d.sq) s+=' 検索:'+d.sq; s+=' 復元:'+(d.rf?'あり':'なし'); if(d.ra) s+=' 適用:'+d.ra; if(d.re) s+=' 復元エラー:'+d.re; }
-    }catch(e){}
-    try{ var f=JSON.parse(localStorage.getItem('kg_feed_ui_diag_v1')||'null');
-      if(f){ s+=' / フィード復元: 保存'+(f.sv||0)+'回'; if(f.se) s+=' 保存エラー:'+f.se; if(f.sq) s+=' 保存検索:'+f.sq; if(f.si) s+=' 保存位置:'+f.si; s+=' 復元:'+(f.rf?'あり':'なし'); if(f.rq) s+=' 復元検索:'+f.rq; if(f.ri) s+=' 復元位置:'+f.ri; if(f.ra) s+=' 適用:'+f.ra; if(f.re) s+=' 復元エラー:'+f.re; if(f.rr) s+=' 読込:'+f.rr; if(f.fq0) s+=' 開始時検索:'+f.fq0; if(f.stage) s+=' 段階:'+f.stage; if(f.rh) s+=' 履歴:'+f.rh; }
-    }catch(e){}
-    return s;
-  }
   window.__kgDiagLine=function(){
     var el=document.getElementById('kg-diag-line'); if(!el) return;
     var g=read()||{}; var last=window.__kgDiagLast();
     var bootTxt = window.__kgBooted ? 'この画面は起動完了' : (g.ok ? ('前回の起動は完了（'+fmtT(g.ok)+'）') : '起動完了の記録なし');
     var stall=window.__kgLastStall?window.__kgLastStall():'';
-    el.textContent='動作記録: 版 '+(window.__kgShell||'?')+' / '+bootTxt+(last ? (' / 直近のエラー: '+last.m+'（'+fmtT(last.t)+'）') : ' / エラー記録: なし')+(stall ? (' / 前回停止: '+stall) : '')+kgUiDiagSuffix();
+    el.textContent='動作記録: 版 '+(window.__kgShell||'?')+' / '+bootTxt+(last ? (' / 直近のエラー: '+last.m+'（'+fmtT(last.t)+'）') : ' / エラー記録: なし')+(stall ? (' / 前回停止: '+stall) : '');
   };
   document.addEventListener('DOMContentLoaded', function(){ window.__kgDiagLine(); });
   /* フリーズ記録: 主要処理の実行中マーカーと心拍を端末内に残す。
@@ -8840,7 +8830,6 @@ function refreshTlLogin(){
   var KG_UI_KEY="kg_ui_state_v1", kgUiRestored=false, kgUiLast="", kgUiTouched=false;
   ["wheel","touchstart","keydown","pointerdown"].forEach(function(t){ window.addEventListener(t, function(){ kgUiTouched=true; }, {passive:true}); });
   var kgUiSaveCount=0;
-  function kgUiDiagSet(o){ try{ var d={}; try{ d=JSON.parse(localStorage.getItem("kg_ui_diag_v1")||"{}"); }catch(e){} for(var k in o) d[k]=o[k]; localStorage.setItem("kg_ui_diag_v1", JSON.stringify(d)); if(window.__kgDiagLine) window.__kgDiagLine(); }catch(e){} }
   function kgUiSnapshot(){
     var tl=null;
     if(typeof tlState!=="undefined" && tlState.open){ tl={mode:(typeof prefs!=="undefined"&&prefs? prefs.tlMode : "slide"), preset:tlScopePreset, listId:tlScopeListId, artist:tlScopeArtist, idx:tlState.idx, q:(typeof tlQuery!=="undefined"? tlQuery : ""), et:(typeof tlExactTarget!=="undefined"? tlExactTarget : null)}; }
@@ -8851,7 +8840,7 @@ function refreshTlLogin(){
   function kgUiSave(){
     if(localStorage.getItem(KG_UI_KEY) && !kgUiTouched) return;
     if(!kgUiRestored && localStorage.getItem(KG_UI_KEY)) return;
-    try{ var snap=kgUiSnapshot(); var s=JSON.stringify(snap); if(s!==kgUiLast){ kgUiLast=s; localStorage.setItem(KG_UI_KEY, s); kgUiSaveCount++; kgUiDiagSet({sv:kgUiSaveCount, se:"", sq:snap.q||"", stl:snap.tl?1:0}); } }catch(e){ kgUiDiagSet({se:String((e&&e.message)||e).slice(0,80)}); }
+    try{ var snap=kgUiSnapshot(); var s=JSON.stringify(snap); if(s!==kgUiLast){ kgUiLast=s; localStorage.setItem(KG_UI_KEY, s); kgUiSaveCount++; } }catch(e){}
   }
   setInterval(kgUiSave, 4000);
   window.addEventListener("pagehide", kgUiSave);
@@ -8866,7 +8855,6 @@ function refreshTlLogin(){
     if(/[?&]event=/.test(location.search||"")) return;
     var st=null; try{ st=JSON.parse(localStorage.getItem(KG_UI_KEY)||"null"); }catch(e){}
     if(!st || st.v!==1 || !st.ts || (Date.now()-st.ts)>7*24*3600*1000) return;
-    kgUiDiagSet({rf:1, ra:"", re:""});
     var applied=[];
     try{
       if(st.dir && st.dir.kind && st.dir.name){ openDirDetail(st.dir.kind, st.dir.name); }
@@ -8894,8 +8882,7 @@ function refreshTlLogin(){
         if(evx){ if(tlState.open) tlOpenDetail(evx); else openModal(evx); applied.push("modal"); }
       }
       if(st.tl && tlState.open) applied.push("tl");
-      kgUiDiagSet({ra:applied.join(",")});
-    }catch(e){ kgUiDiagSet({re:String((e&&e.message)||e).slice(0,80)}); }
+    }catch(e){}
   }
 window.addEventListener("storage",function(e){
   if(e.storageArea!==localStorage)return;
