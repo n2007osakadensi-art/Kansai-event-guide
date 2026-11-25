@@ -21,8 +21,8 @@
     '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推し・お気に入り・マイリスト・行きたい／気になる・フォロー・好みなどをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button><span id="kg-signout-confirm" hidden> <span style="font-size:13px">ログアウトすると、この端末内のデータをすべて消去します。アカウントのデータは残ります。</span> <button id="kg-signout-yes" type="button">ログアウトする</button> <button id="kg-signout-no" type="button">やめる</button></span></div>' +
     '<div id="kg-account-choice" hidden><p><strong>この端末のデータをどうしますか？</strong></p><p>統合すると、この端末の推しとお気に入りがアカウントに追加されます。共有端末や別の方のデータなら「アカウントのデータを使う」を選んでください。</p><button id="kg-merge" type="button">この端末のデータを統合</button> <button id="kg-use-cloud" type="button">アカウントのデータを使う</button></div>' +
     '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
-    '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。端末やブラウザを変えても、コードを入れれば推し・お気に入りが維持できます。メールアドレスなどの個人情報は登録しません。</p><button id="kg-code-issue" type="button">会員コードを発行する</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、設定しておいた質問と回答でログインできます（ログイン後、コードを再発行できます）。</p><p><input id="kg-rec-q" type="text" placeholder="あなたの質問" autocomplete="off" style="min-width:200px;padding:6px"><br><input id="kg-rec-a" type="text" placeholder="その回答" autocomplete="off" style="min-width:200px;padding:6px"> <button id="kg-recovery-login" type="button">質問と回答でログイン</button></p></div>' +
-    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button><span id="kg-code-reissue-confirm" hidden> <span style="font-size:13px">新しいコードを発行します。今までのコードは使えなくなります。</span> <button id="kg-code-reissue-yes" type="button">発行する</button> <button id="kg-code-reissue-no" type="button">やめる</button></span></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><p style="font-size:13px">コードを失くしたとき用に、質問と回答を設定できます（自分で決めた質問と、その回答）。</p><p><input id="kg-qa-q" type="text" placeholder="質問（例：初めて行ったライブは？）" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-qa-a" type="text" placeholder="回答" autocomplete="off" style="min-width:220px;padding:6px"> <button id="kg-qa-save" type="button">質問と回答を保存</button></p><button id="kg-code-logout" type="button">この端末からログアウト</button><span id="kg-code-logout-confirm" hidden> <span style="font-size:13px">この端末内のデータをすべて消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。</span> <button id="kg-code-logout-yes" type="button">ログアウトする</button> <button id="kg-code-logout-no" type="button">やめる</button></span></div></div>' +
+    '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。普段のログインはコードだけで、Googleアカウントは要りません。コードの発行（初回のみ）と、コードを失くしたときの再発行には、本人確認としてGoogleアカウントでの確認を行い、コードはそのGoogleアカウントに紐づきます。</p><button id="kg-code-issue" type="button">会員コードを発行する（初回はGoogle本人確認）</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、発行時に紐づけたGoogleアカウントで本人確認をして、新しいコードを発行できます（古いコードは使えなくなります）。</p><p><button id="kg-google-recover" type="button">コードを失くした方（Google本人確認で新しいコードを発行）</button></p></div>' +
+    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button><span id="kg-code-reissue-confirm" hidden> <span style="font-size:13px">新しいコードを発行します。今までのコードは使えなくなります。</span> <button id="kg-code-reissue-yes" type="button">発行する</button> <button id="kg-code-reissue-no" type="button">やめる</button></span></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><div id="kg-bind-block" hidden><p style="font-size:13px">このアカウントは、まだGoogleアカウントと紐づいていません。コードを失くしたときの本人確認のため、初回のみ紐づけをお願いします。</p><p><button id="kg-bind-google" type="button">Googleアカウントと紐づける</button></p></div><p style="font-size:13px">コードの再発行には、紐づけたGoogleアカウントでの本人確認が必要です。再発行すると、今までのコードは使えなくなります。</p><button id="kg-code-logout" type="button">この端末からログアウト</button><span id="kg-code-logout-confirm" hidden> <span style="font-size:13px">この端末内のデータをすべて消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。</span> <button id="kg-code-logout-yes" type="button">ログアウトする</button> <button id="kg-code-logout-no" type="button">やめる</button></span></div></div>' +
     '<div id="kg-guest"><hr><p><strong>ゲスト利用</strong>（一時的な端末向け）</p>' +
     '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
     '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button><span id="kg-guest-end-confirm" hidden> <span style="font-size:13px">この端末のデータを消去しますか？</span> <button id="kg-guest-end-yes" type="button">消去する</button> <button id="kg-guest-end-no" type="button">やめる</button></span></div></div>' +
@@ -39,7 +39,7 @@
   function showModal() { syncPanelRender(); if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open',''); } }
   $('kg-account-open').onclick = showModal;
   $('kg-account-close').onclick = function () { if (dialog.close) dialog.close(); else dialog.removeAttribute('open'); };
-  function parts(off, login, logged, choice) { $('kg-account-off').hidden=!off; $('kg-login-form').hidden=!login; $('kg-account-user').hidden=!logged; $('kg-account-choice').hidden=!choice; }
+  function parts(off, login, logged, choice) { $('kg-account-off').hidden=!off; $('kg-login-form').hidden=true; $('kg-account-user').hidden=!logged; $('kg-account-choice').hidden=!choice; }
   /* 同期待ち行列: 主軸用（kg_account_pending_v1_）と保険（Firestore）用を分ける。
      主軸の成功が利用者への「同期済み」。保険側は専用行列で静かに追いつく */
   function queueKey(uid) { return 'kg_account_pending_v1_' + uid; }
@@ -230,7 +230,7 @@
   }
   async function memberPushFavorites(acct) { var local=bridge.read(); var c=docCacheGet('m:'+acct); if(c && JSON.stringify(c.events||[])===JSON.stringify(local.event) && JSON.stringify(c.artists||[])===JSON.stringify(local.artist)) { markSynced(); return; } await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now()}); markSynced(); }
   async function memberSetMeta(acct, fields) { await memberWriteFields(acct, fields); }
-  function idxCollection(prefix){ return prefix==='c:' ? 'codes' : 'recovery'; }
+  function idxCollection(prefix){ return prefix==='c:' ? 'codes' : prefix==='b:' ? 'bindings' : 'recovery'; }
   async function idxGet(prefix, hash) {
     var sheetErr=null;
     if(syncReady()) { try { var v=await kvGet(prefix+hash); return v ? (v.acct||null) : null; } catch(e) { if(!client) throw e; sheetErr=e; } }
@@ -249,6 +249,39 @@
   async function idxDel(prefix, hash) {
     try { if(syncReady()) await kvDel(prefix+hash); } catch(e) {}
     try { if(client) await fsTimeout(client.deleteDoc(client.doc(client.db, idxCollection(prefix), hash)), '削除がタイムアウトしました'); } catch(e) {}
+  }
+  /* 本人確認専用の Google サインイン（Kota決定 2026-11-25、v158）:
+     会員コードの発行・再発行・アカウント切り替えのときだけ使う。
+     通常のログイン状態には触れないよう、分離した認証インスタンスで
+     ポップアップを開き、uid のハッシュだけを返して即サインアウトする。
+     実機でリダイレクト方式は完走しなかったため、ポップアップのみ */
+  async function googleVerify(){
+    if(!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) throw new Error('本人確認の準備ができていません');
+    var appMod=await fsTimeout(import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'), '読み込みがタイムアウトしました');
+    var authMod=await fsTimeout(import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js'), '読み込みがタイムアウトしました');
+    var vApp; try{ vApp=appMod.initializeApp(cfg, 'kg-verify'); }catch(e){ vApp=appMod.getApp('kg-verify'); }
+    var vAuth=authMod.getAuth(vApp);
+    var cred=await authMod.signInWithPopup(vAuth, new authMod.GoogleAuthProvider());
+    var uid=cred && cred.user && cred.user.uid;
+    if(!uid) throw new Error('Googleアカウントを確認できませんでした');
+    var gh=(await googleKeyOf(uid)).slice(2);
+    try{ await authMod.signOut(vAuth); }catch(_){}
+    return gh;
+  }
+  /* 新しいコードを発行してアカウントに付け替える（旧コードは無効化） */
+  async function issueNewCodeFor(acct){
+    var d=await memberDoc(acct);
+    var code=newCode(); var ch=await codeHashOf(code);
+    await idxSet('c:', ch, acct);
+    if(d && d.codeHash && d.codeHash!==ch){ await idxDel('c:', d.codeHash); }
+    await memberSetMeta(acct, {codeHash:ch});
+    return code;
+  }
+  /* 紐づけ状態に応じて「Googleアカウントと紐づける」案内の表示を切り替える */
+  async function refreshBindBlock(){
+    var blk=$('kg-bind-block'); if(!blk) return;
+    if(!member || !memberReady){ blk.hidden=true; return; }
+    try{ var d=await memberDoc(member.acct); blk.hidden=!!(d && d.googleHash); }catch(e){ blk.hidden=true; }
   }
   async function udGoogleGet(uid) {
     var sheetErr=null;
@@ -368,7 +401,7 @@
   function recoveryHashOf(q,a){ return sha256hex('kg-recovery:'+normQA(q)+':'+normQA(a)); }
   function cloudOf(d){ return {event:Array.isArray(d.events)?d.events:[], artist:Array.isArray(d.artists)?d.artists:[]}; }
   function saveMemberSession(){ if(member) localStorage.setItem('kg_member_session_v2', JSON.stringify({acct:member.acct, code:member.code||null})); }
-  function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has) $('kg-code-display').textContent = member.code ? member.code : '（未設定）'; }
+  function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has) $('kg-code-display').textContent = member.code ? member.code : '（未設定）'; if(has) refreshBindBlock(); }
   function scheduleMemberPush(){ if(!member||!memberReady)return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member)return; memberPushFavorites(member.acct).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
   /* ---------- その他の端末データの同期（v105で追加） ----------
      推し・お気に入り以外の端末データ（行きたい／気になる／マイリスト／
@@ -539,15 +572,20 @@
     if(member){ text('すでに会員コードでログイン中です。'); return; }
     var ibtn=this; ibtn.disabled=true;
     try {
+      text('Googleアカウントで本人確認をしています…');
+      var gh=await googleVerify();
+      var bound=await idxGet('b:', gh);
+      if(bound){ text('このGoogleアカウントには、すでに会員コードのアカウントがあります。コードでログインしてください。コードを失くした場合は「コードを失くした方」から新しいコードを発行できます。'); return; }
       var acct=newAcct(); var code=newCode(); var ch=await codeHashOf(code);
       var local=bridge.read();
-      await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now(), codeHash:ch});
+      await memberWriteFields(acct, {events:local.event, artists:local.artist, updatedAt:Date.now(), codeHash:ch, googleHash:gh});
       await idxSet('c:', ch, acct);
+      await idxSet('b:', gh, acct);
       member={acct:acct, code:code}; saveMemberSession();
       localStorage.setItem('kg_member_selected_v2', acct);
       memberReady=true; renderMember(); renderState(); udPullMerge();
-      text('会員コードを発行しました。コードを控えてください。質問と回答を設定すると、コードを失くしても戻れます。');
-    } catch(e){ member=null; text('コードを発行できませんでした（'+((e&&e.code)||'エラー')+'）。接続できないか、データベースの準備ができていない可能性があります。通信を確認してもう一度お試しください。'); } finally { ibtn.disabled=false; }
+      text('会員コードを発行しました。コードを控えてください。コードは、このGoogleアカウントに紐づけました。');
+    } catch(e){ text('コードを発行できませんでした（'+((e&&e.code)||(e&&e.message)||'エラー')+'）。本人確認が完了していない可能性があります。通信を確認してもう一度お試しください。'); } finally { ibtn.disabled=false; }
   };
   $('kg-code-login').onclick=async function(){
     if(this.disabled) return;
@@ -559,23 +597,38 @@
       var ch=await codeHashOf(code);
       var acct=await idxGet('c:', ch);
       if(!acct){ text('そのコードが見つかりませんでした。'); return; }
+      if(member && member.acct!==acct){
+        /* アカウント切り替え（Kota決定 2026-11-25、v158）: 切り替え先の
+           Google再認証が必須で、切り替え時に新しいコードの発行も必須（旧コードは無効化） */
+        text('アカウントを切り替えます。切り替え先のGoogleアカウントで本人確認をしています…');
+        var gh2=await googleVerify();
+        var td=await memberDoc(acct);
+        if(td && td.googleHash && td.googleHash!==gh2){ text('別のGoogleアカウントでは切り替えできません。切り替え先に紐づいたGoogleで本人確認してください。'); return; }
+        if(td && !td.googleHash){ await memberSetMeta(acct, {googleHash:gh2}); await idxSet('b:', gh2, acct); }
+        if(!await activateMember(acct, code)){ text('データが見つかりませんでした。'); return; }
+        var ncode=await issueNewCodeFor(acct);
+        if(member){ member.code=ncode; saveMemberSession(); renderMember(); }
+        text('アカウントを切り替えました。新しいコードを発行しました（今までのコードは使えません）。新しいコード：'+ncode);
+        return;
+      }
       if(!await activateMember(acct, code)) text('データが見つかりませんでした。');
     } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); } finally { lbtn.disabled=false; }
   };
-  $('kg-recovery-login').onclick=async function(){
+  $('kg-google-recover').onclick=async function(){
     if(this.disabled) return;
     if(noBackend()){ text('接続の準備中です。少し待ってからお試しください。'); return; }
-    var q=$('kg-rec-q').value, a=$('kg-rec-a').value;
-    if(!normQA(q)||!normQA(a)){ text('質問と回答の両方を入力してください。'); return; }
+    if(member){ text('すでに会員コードでログイン中です。再発行は「コードを再発行」から行えます。'); return; }
     var rbtn=this; rbtn.disabled=true;
     try {
-      var rh=await recoveryHashOf(q,a);
-      var acct=await idxGet('r:', rh);
-      if(!acct){ text('質問と回答が一致するアカウントが見つかりませんでした。'); return; }
-      var ok=await activateMember(acct, null);
-      if(!ok){ text('データが見つかりませんでした。'); return; }
-      if(memberReady) text('質問と回答でログインしました。コードは未設定です。「コードを再発行」で新しいコードを作ってください。');
-    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||'エラー')+'）。接続できない可能性があります。通信を確認してもう一度お試しください。'); } finally { rbtn.disabled=false; }
+      text('Googleアカウントで本人確認をしています…');
+      var gh=await googleVerify();
+      var acct=await idxGet('b:', gh);
+      if(!acct){ text('このGoogleアカウントに紐づいたアカウントが見つかりませんでした。'); return; }
+      if(!await activateMember(acct, null)){ text('データが見つかりませんでした。'); return; }
+      var ncode=await issueNewCodeFor(acct);
+      if(member){ member.code=ncode; saveMemberSession(); renderMember(); }
+      text('本人確認できました。新しいコードを発行してログインしました（今までのコードは使えません）。新しいコード：'+ncode);
+    } catch(e){ text('ログインできませんでした（'+((e&&e.code)||(e&&e.message)||'エラー')+'）。通信を確認してもう一度お試しください。'); } finally { rbtn.disabled=false; }
   };
   $('kg-code-copy').onclick=function(){ if(!member||!member.code)return; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(member.code).then(function(){ text('コードをコピーしました。'); }, function(){ text('コピーできませんでした。コードをメモしてください。'); }); } };
   $('kg-code-reissue').onclick=function(){ if(!member||noBackend()) return; $('kg-code-reissue-confirm').hidden=false; };
@@ -585,30 +638,29 @@
     if(!member||noBackend()||this.disabled) return;
     var ribtn=this; ribtn.disabled=true;
     try {
+      text('Googleアカウントで本人確認をしています…');
+      var gh=await googleVerify();
       var d=await memberDoc(member.acct);
-      var code=newCode(); var ch=await codeHashOf(code);
-      await idxSet('c:', ch, member.acct);
-      if(d && d.codeHash && d.codeHash!==ch){ await idxDel('c:', d.codeHash); }
-      await memberSetMeta(member.acct, {codeHash:ch});
+      if(d && d.googleHash && d.googleHash!==gh){ text('別のGoogleアカウントでは再発行できません。このアカウントに紐づいたGoogleで本人確認してください。'); return; }
+      if(d && !d.googleHash){ await memberSetMeta(member.acct, {googleHash:gh}); await idxSet('b:', gh, member.acct); }
+      var code=await issueNewCodeFor(member.acct);
       member.code=code; saveMemberSession(); renderMember();
       text('新しいコードを発行しました。控えてください。');
-    } catch(e){ text('再発行できませんでした（'+((e&&e.code)||'エラー')+'）。'); } finally { ribtn.disabled=false; }
+    } catch(e){ text('再発行できませんでした（'+((e&&e.code)||(e&&e.message)||'エラー')+'）。'); } finally { ribtn.disabled=false; }
   };
-  $('kg-qa-save').onclick=async function(){
-    if(!member||noBackend()) return;
-    var q=$('kg-qa-q').value, a=$('kg-qa-a').value;
-    if(!normQA(q)||!normQA(a)){ text('質問と回答の両方を入力してください。'); return; }
+  $('kg-bind-google').onclick=async function(){
+    if(!member||noBackend()||this.disabled) return;
+    var bbtn=this; bbtn.disabled=true;
     try {
-      var d=await memberDoc(member.acct);
-      var rh=await recoveryHashOf(q,a);
-      var existingAcct=await idxGet('r:', rh);
-      if(existingAcct && existingAcct!==member.acct){ text('その質問と回答の組み合わせは、すでに使われています。質問か回答を少し変えてください。'); return; }
-      if(d && d.recoveryHash && d.recoveryHash!==rh){ await idxDel('r:', d.recoveryHash); }
-      await idxSet('r:', rh, member.acct);
-      await memberSetMeta(member.acct, {recoveryHash:rh});
-      $('kg-qa-a').value='';
-      text('質問と回答を保存しました。コードを失くしても、この質問と回答でログインできます。');
-    } catch(e){ text('保存できませんでした（'+((e&&e.code)||'エラー')+'）。'); }
+      text('Googleアカウントで本人確認をしています…');
+      var gh=await googleVerify();
+      var bound=await idxGet('b:', gh);
+      if(bound && bound!==member.acct){ text('このGoogleアカウントは、別のアカウントに紐づいています。'); return; }
+      await memberSetMeta(member.acct, {googleHash:gh});
+      await idxSet('b:', gh, member.acct);
+      refreshBindBlock();
+      text('Googleアカウントと紐づけました。今後、コードの再発行にはこのGoogleでの本人確認が必要です。');
+    } catch(e){ text('紐づけできませんでした（'+((e&&e.code)||(e&&e.message)||'エラー')+'）。'); } finally { bbtn.disabled=false; }
   };
   $('kg-code-logout').onclick=function(){ if(!member)return; $('kg-code-logout-confirm').hidden=false; };
   $('kg-code-logout-no').onclick=function(){ $('kg-code-logout-confirm').hidden=true; };
