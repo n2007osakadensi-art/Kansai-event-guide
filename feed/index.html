@@ -1069,7 +1069,7 @@ scopeBarEl.addEventListener("click", function(e){
     inp.addEventListener("input", function(){
       if(clr) clr.classList.toggle("hidden", !inp.value);
       if(deb) clearTimeout(deb);
-      deb=setTimeout(function(){ feedQuery=inp.value.trim(); kgFeedSave(); renderFeed(false); }, 180);
+      deb=setTimeout(function(){ kgFeedUserTyped=true; feedQuery=inp.value.trim(); kgFeedSave(); renderFeed(false); }, 180);
     });
     inp.addEventListener("search", function(){ if(!inp.value && feedQuery){ feedQuery=""; renderFeed(false); } });
   }
@@ -1286,17 +1286,20 @@ function start(){
   function kgFeedSave(){ if(localStorage.getItem("kg_feed_ui_v1") && !kgFeedTouched) return; try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx})); kgFeedSaveCount++; kgFeedDiagSet({sv:kgFeedSaveCount, se:"", sq:feedQuery||"", si:curIdx}); }catch(e){ kgFeedDiagSet({se:String((e&&e.message)||e).slice(0,80)}); } }
   window.addEventListener("pagehide", kgFeedSave);
   document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") kgFeedSave(); });
+  var kgFeedUserTyped=false;
   function kgFeedRestoreKick(){
     if(kgFeedUiDone) return;
     if(!feedItems.length) return;
     kgFeedUiDone=true;
-    setTimeout(kgFeedRestore, 50);
+    [300, 1500, 3500].forEach(function(ms, ai){
+      setTimeout(function(){ kgFeedRestoreAttempt(ai+1); }, ms);
+    });
   }
-  function kgFeedRestore(){
+  function kgFeedRestoreAttempt(n){
+    if(kgFeedUserTyped) return;
     var raw=null; try{ raw=localStorage.getItem("kg_feed_ui_v1"); }catch(e){}
     var st=null; try{ st=JSON.parse(raw||"null"); }catch(e){}
-    if(!st){ kgFeedDiagSet({rf:0}); return; }
-    kgFeedDiagSet({rf:1, ra:"", re:"", rq:st.q||"", ri:st.idx||0, rr:String(raw||"").slice(0,50), fq0:feedQuery||"", stage:"start"});
+    if(!st){ if(n===1) kgFeedDiagSet({rf:0}); return; }
     var applied=[];
     try{
       if(st.q && feedQuery!==st.q){
@@ -1304,26 +1307,19 @@ function start(){
         if(inp) inp.value=st.q;
         feedQuery=st.q;
         applied.push("q");
-        kgFeedDiagSet({stage:"qset"});
         renderFeed(false);
-        kgFeedDiagSet({stage:"qrender"});
       }
       var ix=Math.max(0, Math.min(st.idx||0, feedItems.length-1));
-      if(ix>0){ curIdx=ix; var fe=document.getElementById("feed"); if(fe) fe.scrollTop=ix*fe.clientHeight; updateCount(); applied.push("idx"); }
-      kgFeedDiagSet({ra:applied.join(","), stage:"end"});
-      setTimeout(function(){
-        if(st.q && feedQuery!==st.q){
-          var inp2=document.getElementById("feedSearchInput");
-          if(inp2) inp2.value=st.q;
-          feedQuery=st.q;
-          renderFeed(false);
-          kgFeedDiagSet({ra:(applied.join(",")+",retry")});
-        }
-        if(st.idx && curIdx!==Math.min(st.idx, feedItems.length-1)){
-          var ix2=Math.max(0, Math.min(st.idx||0, feedItems.length-1));
-          if(ix2>0){ curIdx=ix2; var fe2=document.getElementById("feed"); if(fe2) fe2.scrollTop=ix2*fe2.clientHeight; updateCount(); }
-        }
-      }, 1800);
+      if(ix>0 && curIdx!==ix){
+        curIdx=ix;
+        var fe=document.getElementById("feed");
+        if(fe){ fe.scrollTop=ix*fe.clientHeight; setTimeout(function(){ fe.scrollTop=ix*fe.clientHeight; }, 120); }
+        updateCount();
+        applied.push("idx");
+      }
+      var d={}; try{ d=JSON.parse(localStorage.getItem("kg_feed_ui_diag_v1")||"{}"); }catch(e){}
+      var hist=(d.rh? d.rh+"|" : "")+"a"+n+":fq="+(feedQuery||"")+",rr="+String(raw||"").slice(0,26)+",ra="+(applied.join("+")||"-");
+      kgFeedDiagSet({rf:1, rq:st.q||"", ri:st.idx||0, rr:String(raw||"").slice(0,50), ra:applied.join(","), rh:hist.slice(-160)});
     }catch(e){ kgFeedDiagSet({re:String((e&&e.message)||e).slice(0,80)}); }
   }
 /* 本体側で お気に入り等 が変わったら並びを追随させる */
