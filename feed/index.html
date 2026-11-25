@@ -1314,6 +1314,21 @@ function pendingOverlayObject(base, p){
 function pendingReflectedIn(sheetEv, f){
   return !!sheetEv && sheetEv.title===(f.title||"") && sheetEv.date===(f.date||"") && (sheetEv.venue||"")===(f.venue||"") && (sheetEv.timeLabel||"")===(f.timeLabel||"");
 }
+/* 修正の反映済み判定: 対象IDが固定されているので、上書きされる項目が
+   すべてシート側と一致したときだけ「反映済み」とする。タイトル等の
+   一部だけ見ると、それ以外だけを変えた編集が即座に消えてしまう */
+function pendingEditReflected(sheetEv, f){
+  if(!sheetEv) return false;
+  function s(x){ return x==null ? "" : String(x); }
+  function n(x){ return (typeof x==="number") ? x : null; }
+  return s(sheetEv.title)===s(f.title) && s(sheetEv.date)===s(f.date)
+    && s(sheetEv.dateEnd)===s(f.dateEnd) && s(sheetEv.venue)===s(f.venue)
+    && s(sheetEv.timeLabel)===s(f.timeLabel) && s(sheetEv.price)===s(f.price)
+    && s(sheetEv.performers)===s(f.performers) && s(sheetEv.category)===s(f.category)
+    && s(sheetEv.categories)===s(f.categories) && s(sheetEv.area)===s(f.area)
+    && s(sheetEv.prefecture)===s(f.prefecture)
+    && n(sheetEv.startMin)===n(f.startMin) && n(sheetEv.endMin)===n(f.endMin);
+}
 function mergePendingEvents(sheetEvents){
   var list=loadPendings();
   if(!list.length) return sheetEvents;
@@ -1324,7 +1339,7 @@ function mergePendingEvents(sheetEvents){
       var base=null;
       for(var i=0;i<sheetEvents.length;i++){ if(String(sheetEvents[i].id)===String(p.targetId)){ base=sheetEvents[i]; break; } }
       if(!base){ pruned=true; return; }
-      if(pendingReflectedIn(base, p.ev)){ pruned=true; return; }
+      if(pendingEditReflected(base, p.ev)){ pruned=true; return; }
       kept.push(p);
       if(!out) out=sheetEvents.slice();
       for(var j=0;j<out.length;j++){ if(String(out[j].id)===String(p.targetId)){ out[j]=pendingOverlayObject(base, p); break; } }
