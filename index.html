@@ -904,7 +904,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v119';
+  window.__kgShell='v121';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4040,6 +4040,7 @@ function render(){
   try{ renderInner(); }catch(e){ kgRenderError('render', e); }
 }
 function renderInner(){
+  kgUiRestoreKick();
   renderChips(); renderOshiBar(); renderXmasChrome(); renderExpoChrome(); renderSignageChrome();
   if(!els.filterPanel.classList.contains("hidden")) renderFilterOpts(); else updateFilterBadge();
   renderCountsOnly();
@@ -7899,6 +7900,7 @@ function tlRenderFeed(){
 function renderTlMe(){
   var el=tlEl("tlMe"); if(!el) return;
   var slots=buildPlanSlots(), t=todayStr();
+  var favUpCount=allEvents.filter(function(ev){ return favEvents.has(String(ev.id)) && !isEnded(ev); }).length;
   var todaySlots=slots.filter(function(s){ return s.date===t; });
   if(prefs.tlMode!=="feed"){
     el.innerHTML='<button type="button" class="tl-me-bar" data-tlme="feed">'
@@ -7925,7 +7927,7 @@ function renderTlMe(){
     +(tlMeOshiOpen? '<div class="tl-me-oshi-panel">'+tlMeOshiHTML()+'</div>' : '')
     +'<button type="button" class="tl-me-secbtn" data-tlme-sec="plan"><span>今日の回し'+(planPatterns.length>1 && activePattern()? '（'+esc(activePattern().name)+'）' : '')+'</span><span class="tl-me-secbtn-n">'+todaySlots.length+'件 '+(tlMeSec.plan?'⌄':'›')+'</span></button>'
     +(tlMeSec.plan? (planRows? '<div class="tl-me-slots">'+planRows+'</div>' : '<p class="tl-me-empty">'+(planIds.size? '今日のプランはありません。' : '今日のプランはまだありません。イベントの詳細から「回しプラン」に入れられます。')+'</p>')+(todaySlots.length>4? '<button type="button" class="tl-me-more" data-tlme="plan">今日のプランを全部見る（'+todaySlots.length+'件）</button>' : '') : '')
-    +'<button type="button" class="tl-me-secbtn" data-tlme-sec="fav"><span>お気に入りの管理</span><span class="tl-me-secbtn-n">'+favEvents.size+'件 '+(tlMeSec.fav?'⌄':'›')+'</span></button>'
+    +'<button type="button" class="tl-me-secbtn" data-tlme-sec="fav"><span>お気に入りの管理</span><span class="tl-me-secbtn-n">'+favUpCount+'件 '+(tlMeSec.fav?'⌄':'›')+'</span></button>'
     +(tlMeSec.fav? tlMeFavHTML() : '')
     +'<button type="button" class="tl-me-secbtn" data-tlme-sec="lists"><span>リスト（ブックマーク）</span><span class="tl-me-secbtn-n">'+myLists.length+'件 '+(tlMeSec.lists?'⌄':'›')+'</span></button>'
     +(tlMeSec.lists? tlMeListsHTML() : '');
@@ -8557,6 +8559,58 @@ function refreshTlLogin(){
 
 
 /* Keep saved filter profiles in sync when the same site is open in another tab. */
+  /* ---------- 画面状態の保存と復元 (v120): PWAで戻っても元の場所へ ---------- */
+  var KG_UI_KEY="kg_ui_state_v1", kgUiRestored=false, kgUiLast="", kgUiTouched=false;
+  ["wheel","touchstart","keydown"].forEach(function(t){ window.addEventListener(t, function(){ kgUiTouched=true; }, {passive:true}); });
+  function kgUiSnapshot(){
+    var tl=null;
+    if(typeof tlState!=="undefined" && tlState.open){ tl={mode:(typeof prefs!=="undefined"&&prefs? prefs.tlMode : "slide"), preset:tlScopePreset, listId:tlScopeListId, artist:tlScopeArtist, idx:tlState.idx}; }
+    var dir=null;
+    if((view==="artistDetail"||view==="venueDetail"||view==="organizerDetail") && typeof detailCtx!=="undefined" && detailCtx) dir={kind:detailCtx.kind, name:detailCtx.name};
+    return {v:1, ts:Date.now(), view:view, q:query, cats:Array.from(selCats), scrollY:Math.round(window.scrollY||0), tl:tl, modalId:(typeof currentEv!=="undefined" && currentEv && els.overlay.classList.contains("open"))? String(currentEv.id) : null, dir:dir};
+  }
+  function kgUiSave(){
+    if(!kgUiRestored && localStorage.getItem(KG_UI_KEY)) return;
+    try{ var s=JSON.stringify(kgUiSnapshot()); if(s!==kgUiLast){ kgUiLast=s; localStorage.setItem(KG_UI_KEY, s); } }catch(e){}
+  }
+  setInterval(kgUiSave, 4000);
+  window.addEventListener("pagehide", kgUiSave);
+  document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") kgUiSave(); });
+  function kgUiRestoreKick(){
+    if(kgUiRestored) return;
+    if(!allEvents.length) return;
+    kgUiRestored=true;
+    setTimeout(kgUiRestore, 60);
+  }
+  function kgUiRestore(){
+    if(/[?&]event=/.test(location.search||"")) return;
+    var st=null; try{ st=JSON.parse(localStorage.getItem(KG_UI_KEY)||"null"); }catch(e){}
+    if(!st || st.v!==1 || !st.ts || (Date.now()-st.ts)>7*24*3600*1000) return;
+    try{
+      if(st.dir && st.dir.kind && st.dir.name){ openDirDetail(st.dir.kind, st.dir.name); }
+      else if(st.view && st.view!=="all" && st.view!==view && st.view.indexOf("Detail")<0){ view=st.view; }
+      if(st.q){ els.searchInput.value=st.q; query=st.q; els.clearSearch.style.display="block"; }
+      if(st.cats && st.cats.length){ selCats.clear(); st.cats.forEach(function(c){ selCats.add(c); }); }
+      render();
+      var sy=st.scrollY||0;
+      if(sy>0){ var applySy=function(){ if(!kgUiTouched) window.scrollTo(0, sy); }; requestAnimationFrame(applySy); setTimeout(applySy, 500); setTimeout(applySy, 1500); }
+      if(st.tl){
+        if(st.tl.mode && typeof prefs!=="undefined" && prefs) prefs.tlMode=st.tl.mode;
+        openTimeline();
+        if(tlState.open){
+          tlScopePreset=st.tl.preset||null; tlScopeListId=st.tl.listId||null; tlScopeArtist=st.tl.artist||null;
+          tlState.items=buildTimelineItems(); renderTlScope(); tlBuildTicker(); tlApplyMode();
+          var ix=Math.max(0, Math.min(st.tl.idx||0, tlState.items.length-1));
+          if(prefs.tlMode==="slide"){ tlShow(ix); }
+          else { tlState.idx=ix; var feed=tlEl("tlFeed"); if(feed){ var cards=feed.querySelectorAll("[data-tl-id]"); if(cards[ix]) setTimeout(function(){ try{ cards[ix].scrollIntoView({block:"start"}); }catch(e){} }, 80); } }
+        }
+      }
+      if(st.modalId){
+        var evx=allEvents.find(function(e2){ return String(e2.id)===String(st.modalId); });
+        if(evx){ if(tlState.open) tlOpenDetail(evx); else openModal(evx); }
+      }
+    }catch(e){}
+  }
 window.addEventListener("storage",function(e){
   if(e.storageArea!==localStorage)return;
   var all=e.key===null;

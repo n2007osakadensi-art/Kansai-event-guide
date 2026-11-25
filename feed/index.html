@@ -988,7 +988,7 @@ function observeCards(){
     entries.forEach(function(en){
       if(en.isIntersecting){
         var i=parseInt(en.target.getAttribute("data-idx"),10);
-        if(!isNaN(i)){ curIdx=i; updateCount(); }
+        if(!isNaN(i)){ curIdx=i; updateCount(); kgFeedSave(); }
       }
     });
   }, {root: feedEl, threshold: 0.6});
@@ -1001,6 +1001,7 @@ function showState(html){
   stateEl.innerHTML=html;
 }
 function renderFeed(keepIdx){
+  kgFeedRestoreKick();
   var searchRes = feedQuery? buildSearchItems(allEvents) : null;
   feedItems = searchRes? searchRes.items : buildFeedItems(allEvents);
   updateSearchNote(searchRes);
@@ -1068,7 +1069,7 @@ scopeBarEl.addEventListener("click", function(e){
     inp.addEventListener("input", function(){
       if(clr) clr.classList.toggle("hidden", !inp.value);
       if(deb) clearTimeout(deb);
-      deb=setTimeout(function(){ feedQuery=inp.value.trim(); renderFeed(false); }, 180);
+      deb=setTimeout(function(){ feedQuery=inp.value.trim(); kgFeedSave(); renderFeed(false); }, 180);
     });
     inp.addEventListener("search", function(){ if(!inp.value && feedQuery){ feedQuery=""; renderFeed(false); } });
   }
@@ -1275,6 +1276,29 @@ function start(){
     }
   });
 }
+  /* ---------- フィードの表示状態の保存と復元 (v120) ---------- */
+  var kgFeedUiDone=false;
+  function kgFeedSave(){ try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx})); }catch(e){} }
+  window.addEventListener("pagehide", kgFeedSave);
+  document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") kgFeedSave(); });
+  function kgFeedRestoreKick(){
+    if(kgFeedUiDone) return;
+    if(!feedItems.length) return;
+    kgFeedUiDone=true;
+    setTimeout(kgFeedRestore, 50);
+  }
+  function kgFeedRestore(){
+    var st=null; try{ st=JSON.parse(localStorage.getItem("kg_feed_ui_v1")||"null"); }catch(e){}
+    if(!st) return;
+    if(st.q && feedQuery!==st.q){
+      var inp=document.getElementById("feedSearchInput");
+      if(inp) inp.value=st.q;
+      feedQuery=st.q;
+      renderFeed(false);
+    }
+    var ix=Math.max(0, Math.min(st.idx||0, feedItems.length-1));
+    if(ix>0){ curIdx=ix; var fe=document.getElementById("feed"); if(fe) fe.scrollTop=ix*fe.clientHeight; updateCount(); }
+  }
 /* 本体側で お気に入り等 が変わったら並びを追随させる */
 window.addEventListener("storage", function(e){
   if(!sheetEvents) return;
