@@ -832,7 +832,13 @@
      スライド表示と縦フィード表示を切り替えられ、選択は端末内に保持する */
   .tl-overlay{position:fixed;inset:0;z-index:120;background:#0e0f12;color:#f4f2ec;display:none;flex-direction:column}
   .tl-overlay.open{display:flex}
-  .tl-top{flex-wrap:wrap}
+  .tl-top{flex-wrap:wrap;padding:8px 12px;row-gap:6px;column-gap:8px}
+  .tl-top .tl-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .tl-top .sg-clock{font-size:12.5px}
+  .tl-top .tl-mode{flex:1}
+  .tl-top .tl-mode button{flex:1}
+  .tl-top .tl-post{padding:8px 13px;font-size:13px}
+  .tl-top .sg-close{padding:8px 13px;font-size:13px}
   .tl-title{font-size:15px;font-weight:800;white-space:nowrap}
   .tl-mode{display:flex;gap:0;border:1.5px solid rgba(255,255,255,.4);border-radius:999px;overflow:hidden;flex:none}
   .tl-mode button{border:0;background:transparent;color:#f4f2ec;font-weight:800;font-size:13px;padding:8px 14px;min-height:40px;cursor:pointer}
@@ -862,6 +868,7 @@
   .tl-again{border:1.5px solid rgba(255,255,255,.5);background:transparent;color:#f4f2ec;border-radius:999px;padding:10px 22px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer}
   .tl-feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;padding:16px clamp(12px,4vw,40px) 28px;display:flex;flex-direction:column;gap:18px}
   .tl-feed.hidden{display:none}
+  .tl-feed>.tl-me{flex:none;width:100%;max-width:680px;margin:0 auto;padding:0}
   .tl-fcard{flex:none;max-width:680px;width:100%;margin:0 auto;background:#1a1c20;border:1px solid rgba(255,255,255,.14);border-radius:16px;overflow:hidden;cursor:pointer;text-align:left;color:inherit;padding:0;font:inherit}
   .tl-fcard .tl-media{flex:none;aspect-ratio:16/9;border-radius:0}
   .tl-fcard .tl-body{padding:14px 16px 16px}
@@ -878,7 +885,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v110';
+  window.__kgShell='v111';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -7777,12 +7784,16 @@ function tlSchedule(){
 function tlGo(i){ tlShow(i); tlSchedule(); }
 function tlRenderFeed(){
   var feed=tlEl("tlFeed"); if(!feed) return;
+  var meEl=tlEl("tlMe");
+  var keepMe=(meEl && meEl.parentNode===feed)? meEl : null;
+  if(keepMe) feed.removeChild(keepMe);
   feed.scrollTop=0;
   feed.innerHTML=tlState.items.map(function(ev){
     return '<button type="button" class="tl-fcard" data-tl-id="'+esc(String(ev.id))+'">'+tlMediaHTML(ev)+tlBodyHTML(ev, "h3")+'</button>';
   }).join("")
   + '<div class="tl-feed-end"><p>ここまでがタイムラインです（推し・お気に入り・好みから選んでいます）</p>'
   + '<button type="button" class="tl-post" data-tl-post="1">＋ 投稿する（新規登録・修正）</button></div>';
+  if(keepMe) feed.insertBefore(keepMe, feed.firstChild);
 }
 /* マイページ（v106）: 推し・お気に入り・回しプラン・リスト・フォローを、
    SNSの自分のプロフィールの形でタイムライン上部に束ねる。全て端末内データで、
@@ -7818,7 +7829,7 @@ function renderTlMe(){
     +'<div class="tl-me-sec">推し</div>'
     +(chips? '<div class="tl-me-chips">'+chips+'</div>' : '<p class="tl-me-empty">まだ推しが登録されていません。イベントの詳細で出演者をタップすると登録できます。</p>')
     +'<div class="tl-me-sec">今日の回し</div>'
-    +(planRows? '<div class="tl-me-slots">'+planRows+'</div>' : '<p class="tl-me-empty">今日のプランはまだありません。お気に入りや推しの予定が入ると、ここに並びます。</p>')
+    +(planRows? '<div class="tl-me-slots">'+planRows+'</div>' : '<p class="tl-me-empty">今日のプランはまだありません。</p>')
     +(todaySlots.length>4? '<button type="button" class="tl-me-more" data-tlme="plan">今日のプランを全部見る（'+todaySlots.length+'件）</button>' : '')
     +'<div class="tl-me-sec">お気に入りの管理</div>'
     + tlMeFavHTML()
@@ -7829,7 +7840,7 @@ function renderTlMe(){
 function tlMeFavHTML(){
   var favs=allEvents.filter(function(ev){ return favEvents.has(String(ev.id)) && !isEnded(ev); });
   favs.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
-  if(!favs.length) return '<p class="tl-me-empty">今後のお気に入りはありません。イベントのカードや詳細で ♡ を付けると、ここで管理できます。</p>';
+  if(!favs.length) return '<p class="tl-me-empty">今後のお気に入りはありません。</p>';
   var rows=favs.slice(0,8).map(function(ev){
     return '<div class="tl-me-favrow"><button type="button" class="tl-me-favmain" data-tlme-open="'+esc(String(ev.id))+'"><span class="tl-me-slot-t">'+esc(fmtDate(ev.date))+(ev.startMin!=null? " "+esc(minToTime(ev.startMin)) : "")+'</span><span class="tl-me-slot-a">'+esc(ev.title)+'</span></button><button type="button" class="tl-me-unfav" data-tlme-unfav="'+esc(String(ev.id))+'" aria-label="'+esc(ev.title)+' をお気に入りから外す">✕</button></div>';
   }).join("");
@@ -7849,6 +7860,14 @@ function tlApplyMode(){
   renderTlMe();
   var slide = prefs.tlMode!=="feed";
   var st=tlEl("tlStage"), feed=tlEl("tlFeed"), nav=tlEl("tlNav");
+  /* フィード表示ではマイページをフィードの中に置き、一緒にスクロールさせる（v111）。
+     固定したままだとカードが画面の大半を占め、タイムラインが少ししか見えないため。
+     スライド表示では元の位置（範囲バーの上）に戻す */
+  var meEl=tlEl("tlMe"), scEl=tlEl("tlScope"), ovEl=tlEl("tlOverlay");
+  if(meEl && feed){
+    if(!slide){ if(meEl.parentNode!==feed) feed.insertBefore(meEl, feed.firstChild); }
+    else if(scEl && ovEl && meEl.parentNode!==ovEl){ ovEl.insertBefore(meEl, scEl); }
+  }
   if(st) st.style.display=slide?"":"none";
   if(feed) feed.classList.toggle("hidden", slide);
   if(nav) nav.style.display=slide?"":"none";
@@ -7877,7 +7896,8 @@ function tlBuildTicker(){
 function tlUpdateClock(){
   var el=tlEl("tlClock"); if(!el) return;
   var now=new Date();
-  el.textContent=fmtDateFull(todayStr())+" "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  var p=todayStr().split("-");
+  el.textContent=(+p[1])+"/"+(+p[2])+"（"+"日月火水木金土".charAt(now.getDay())+"） "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
 }
 function renderTlScope(){
   var el=tlEl("tlScope"); if(!el) return;
