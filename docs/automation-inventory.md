@@ -15,10 +15,12 @@
 | crawler-console-diff-check | 6時間ごと | クローラー管理コンソールの差分チェック |
 | crawler-queue-processor-5m | 5分ごと | クローラー実行キューの処理 |
 | kansai-instagram-saved-intake | 6時間ごと | Instagram保存済み投稿の取り込み |
+| kansai-external-ai-intake | 6時間ごと | 外部AI入力タブの自動取り込み（一次検証→本体登録→処理状況の記入→登録があればシート同期まで。両面への自動反映） |
 | kansai-events-friday-weekend | 金曜21:17 | 週末分の徹底確認 |
 | kansai-events-month-end | 月末21:17 | 翌月スケジュールの徹底調査 |
 | kansai-weekly-quota-burndown | 日曜13:00 | 週次: 残り枠で調査・詳細の底上げ・仕組み改善 |
 | kansai-public-mirror-sync | 1分ごと（要求時のみ実働） | 公開ミラーの同期（再生成・再ビルド） |
+| purerhythm-performers-check-20261126 | 単発 2026-11-26 09:00 | Purerhythm 2026 WINTER（id 6275・6276）の出演者・終演時刻の確認。オーディション結果は11/25 16:00以降に確定 |
 
 ## チケットサイトのクローラー
 
