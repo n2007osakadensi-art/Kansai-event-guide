@@ -300,7 +300,9 @@
   .gal-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.45)}
   .gal-dot.on{background:#fff}
   .gal-count{background:rgba(15,15,18,.55);color:#fff;font-size:12px;font-weight:700;border-radius:999px;padding:4px 9px}
-  .lb{position:fixed;inset:0;z-index:80;background:rgba(8,8,10,.95);display:none;flex-direction:column}
+  .lb{position:fixed;inset:0;z-index:200;background:rgba(8,8,10,.95);display:none;flex-direction:column}
+  .lb-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:rgba(255,255,255,.85);font-size:13.5px;pointer-events:none}
+  .lb-loading.on{display:flex}
   .lb.open{display:flex}
   .lb-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#fff}
   .lb-title{flex:1;min-width:0;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -894,7 +896,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v115';
+  window.__kgShell='v116';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1280,7 +1282,7 @@
       <button class="lb-btn" type="button" id="lbClose">閉じる</button>
     </span>
   </div>
-  <div class="lb-stage" id="lbStage"><img id="lbImg" alt=""></div>
+  <div class="lb-stage" id="lbStage"><img id="lbImg" alt=""><div class="lb-loading" id="lbLoading">画像を読み込み中…</div></div>
   <p class="lb-hint">画像をタップすると、タップした位置を中心に拡大／もとに戻すを切り替えられます。拡大時はドラッグ（指でスライド）で移動でき、ピンチやマウスホイールでも拡大縮小できます。「画像を保存」を押すと原寸画像が開くので、そのまま保存できます。</p>
 </div>
 <div class="ob-overlay" id="obOverlay" role="dialog" aria-modal="true" aria-label="好みのアンケート">
@@ -3188,7 +3190,7 @@ function evImgErr(img){
   function fail(){
     if(mode==="ph"){ img.style.display="none"; var nx=img.nextElementSibling; if(nx) nx.style.display="flex"; }
     else if(mode==="card"){ img.style.display="none"; var ph=img.nextElementSibling; if(ph) ph.classList.remove("hidden"); }
-    else if(mode==="lb"){ try{ closeLightbox(); }catch(e){} }
+    else if(mode==="lb"){ try{ closeLightbox(); toast("画像を読み込めませんでした"); }catch(e){} }
     else { img.remove(); }
   }
   if(!id){ fail(); return; }
@@ -4645,7 +4647,8 @@ document.addEventListener("keydown", function(e){ if(e.key!=="Escape") return; i
 /* ---------- image viewer (lightbox) ---------- */
 var lbBox=document.getElementById("lightbox"), lbImg=document.getElementById("lbImg"),
     lbStage=document.getElementById("lbStage"), lbTitle=document.getElementById("lbTitle"),
-    lbSave=document.getElementById("lbSave"), lbZoomBtn=document.getElementById("lbZoomBtn");
+    lbSave=document.getElementById("lbSave"), lbZoomBtn=document.getElementById("lbZoomBtn"),
+    lbLoading=document.getElementById("lbLoading");
 var lbOpen=false;
 /* ズームはレイアウトを一切変えず transform だけで行う。
    以前は拡大時にステージの配置（中央寄せ→左上寄せ）と画像の最大サイズを
@@ -4696,6 +4699,8 @@ function openLightbox(ev, url){
   lbImg.setAttribute("data-fbk", String(ev.id)+":"+(lbPos||0));
   lbImg.setAttribute("data-fbmode", "lb");
   lbImg.onerror=function(){ evImgErr(lbImg); };
+  lbImg.onload=function(){ if(lbLoading) lbLoading.classList.remove("on"); };
+  if(lbLoading) lbLoading.classList.add("on");
   lbImg.src=src;
   lbImg.alt=ev.title+" のフライヤー画像";
   lbTitle.textContent=ev.title||"";
@@ -4705,6 +4710,7 @@ function openLightbox(ev, url){
 }
 function closeLightbox(){
   lbBox.classList.remove("open"); lbOpen=false;
+  if(lbLoading) lbLoading.classList.remove("on");
   lbReset(false);
   lbImg.removeAttribute("src");
   if(!els.overlay.classList.contains("open")) document.body.style.overflow="";
@@ -4791,6 +4797,10 @@ document.getElementById("lbClose").addEventListener("click", closeLightbox);
   }, {passive:false});
   lbImg.addEventListener("dragstart", function(e){ e.preventDefault(); });
 })();
+if(!window.PointerEvent){
+  lbImg.addEventListener("click", function(){ if(lbOpen) toggleLbZoom(); });
+  lbStage.addEventListener("click", function(e){ if(lbOpen && e.target===lbStage) closeLightbox(); });
+}
 function zoomFromCard(e){
   var zb=e.target.closest("[data-zoom]"); if(!zb) return false;
   e.stopPropagation();
