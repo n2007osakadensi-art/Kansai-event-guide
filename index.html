@@ -281,6 +281,13 @@
   @media(min-width:700px){.overlay{align-items:center;padding:20px}}
   .modal{background:var(--surface);color:var(--ink);width:100%;max-height:92dvh;overflow-y:auto;border-radius:18px 18px 0 0;padding:0 0 28px}
   @media(min-width:700px){.modal{max-width:640px;border-radius:18px}}
+  /* タイムラインから開いた詳細: スマホでは全画面＋戻るバー（v131） */
+  .modal-backbar{display:none}
+  @media (max-width:699px){
+    .overlay.tl-full{align-items:stretch}
+    .overlay.tl-full .modal{max-height:100dvh;height:100dvh;border-radius:0}
+    .overlay.tl-full .modal-backbar{display:flex;align-items:center;gap:6px;position:sticky;top:0;z-index:6;width:100%;padding:12px 16px;background:var(--surface);border:none;border-bottom:1px solid rgba(0,0,0,.12);font-size:15px;font-weight:800;color:var(--ink);cursor:pointer}
+  }
   .modal-media{position:relative;aspect-ratio:16/9;background:var(--surface2);overflow:hidden}
   .modal-media.noimg{aspect-ratio:auto;min-height:104px}
   .modal-media img{width:100%;height:100%;object-fit:contain;display:block}
@@ -932,7 +939,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v130';
+  window.__kgShell='v131';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1372,8 +1379,8 @@
     <span class="sg-clock" id="tlClock"></span>
     <div class="tl-top-break" aria-hidden="true"></div>
     <div class="tl-mode" role="group" aria-label="表示方法の切り替え">
-      <button type="button" id="tlModeSlide">スライド</button>
-      <button type="button" id="tlModeFeed">フィード</button>
+      <button type="button" id="tlModeSlide">ストーリー</button>
+      <button type="button" id="tlModeFeed">一覧</button>
     </div>
     <button class="tl-post" id="tlPostBtn" type="button">＋ 投稿する</button>
     <button class="tl-login hidden" id="tlLoginBtn" type="button">ログイン</button>
@@ -4168,7 +4175,7 @@ function renderInner(){
   els.emptyState.hidden = !empty;
   if(empty){
     if(view==="lists"){
-      if(listPreset){ els.emptyTitle.textContent=presetLabel(listPreset)+"はまだありません"; els.emptyText.textContent="イベントのカードや詳細、フィードで印を付けると、ここに集まります。「終了したイベントも表示」をONにすると、終わった分も振り返れます。"; }
+      if(listPreset){ els.emptyTitle.textContent=presetLabel(listPreset)+"はまだありません"; els.emptyText.textContent="イベントのカードや詳細、タイムラインで印を付けると、ここに集まります。「終了したイベントも表示」をONにすると、終わった分も振り返れます。"; }
       else if(!myLists.length){ els.emptyTitle.textContent="リストがまだありません"; els.emptyText.textContent="上の「＋ 新規リスト」から作るか、イベント詳細の「＋ リスト」、アーティストページの「リストに追加」から入れられます。"; }
       else { els.emptyTitle.textContent="このリストに合うイベントがありません"; els.emptyText.textContent="検索・絞り込みの条件を外すか、イベント詳細の「＋ リスト」やアーティストページの「リストに追加」から追加してください。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
     }
@@ -4615,7 +4622,8 @@ function openModal(ev){
     media='<div class="ph" style="background:'+catColor(ev.category)+'"><div class="ph-cat">'+catIcon(ev.category,24)+esc(ev.category||"イベント")+'</div><div class="ph-sub">'+esc(fmtDate(ev.date))+'</div></div>';
   }
   els.modal.innerHTML =
-    '<div class="modal-media'+(imgList.length?"":" noimg")+'">'+media+(imgList.length?'<button class="zoom-btn" type="button" data-lbopen="cur" aria-label="'+esc(ev.title)+' の画像を拡大表示">画像を拡大</button>':"")+'</div><div class="modal-in">'
+    '<button type="button" class="modal-backbar" id="modalBackBar">‹ タイムラインに戻る</button>'
+    + '<div class="modal-media'+(imgList.length?"":" noimg")+'">'+media+(imgList.length?'<button class="zoom-btn" type="button" data-lbopen="cur" aria-label="'+esc(ev.title)+' の画像を拡大表示">画像を拡大</button>':"")+'</div><div class="modal-in">'
     + '<div class="close-row"><span class="cat-chip" style="background:'+catColor(ev.category)+'">'+catIcon(ev.category,13)+esc(ev.category||"イベント")+'</span>'
     + '<button class="close-btn" type="button" id="modalClose" aria-label="閉じる">✕</button></div>'
     + '<h2 id="modalTitle">'+esc(ev.title)+'</h2>'
@@ -4648,6 +4656,7 @@ function openModal(ev){
   els.overlay.classList.add("open");
   document.body.style.overflow="hidden";
   document.getElementById("modalClose").addEventListener("click", closeModal);
+  var mbb=document.getElementById("modalBackBar"); if(mbb) mbb.addEventListener("click", closeModal);
   document.getElementById("modalFav").addEventListener("click", function(){ toggleFav(String(ev.id)); openModal(ev); render(); });
   document.getElementById("modalWant").addEventListener("click", function(){ toggleWant(String(ev.id)); openModal(ev); render(); });
   document.getElementById("modalInt").addEventListener("click", function(){ toggleInt(String(ev.id)); openModal(ev); render(); });
@@ -4767,6 +4776,7 @@ function openModal(ev){
 function closeModal(){
   els.overlay.classList.remove("open");
   els.overlay.classList.remove("tl-above");
+  els.overlay.classList.remove("tl-full");
   els.overlay.classList.remove("prof-above");
   currentEv=null;
   /* プロフィールシートやタイムラインの上に重ねていた場合は、その側のスクロールロックを保つ */
@@ -5743,8 +5753,8 @@ function renderPrefsView(){
     + '</div>'
     + '<div class="pf-startview"><span class="pf-sv-label">最初のページ</span><div class="cal-scope pf-sv-scope" role="group" aria-label="最初のページの切り替え">'
     + '<button type="button" data-pf-start="list" class="'+(prefs.startView!=="feed"?"on":"")+'" aria-pressed="'+(prefs.startView!=="feed")+'">通常（イベント一覧）</button>'
-    + '<button type="button" data-pf-start="feed" class="'+(prefs.startView==="feed"?"on":"")+'" aria-pressed="'+(prefs.startView==="feed")+'">フィード（タイムライン）</button>'
-    + '</div><p class="pf-sv-note">フィードにすると、サイトを開いたときにタイムラインが自動で表示されます（閉じれば通常の画面に戻ります）。</p></div>'
+    + '<button type="button" data-pf-start="feed" class="'+(prefs.startView==="feed"?"on":"")+'" aria-pressed="'+(prefs.startView==="feed")+'">タイムライン</button>'
+    + '</div><p class="pf-sv-note">タイムラインにすると、サイトを開いたときにタイムラインが自動で表示されます（閉じれば通常の画面に戻ります）。</p></div>'
     + '</div>'
     + '<div class="pf-actions"><button type="button" class="btn-accent" id="pfRedo">'+(prefs.onboarded?"アンケートを最初からやり直す":"アンケートに答える")+'</button>'
     + '<button type="button" class="btn-ghost" id="pfReset">好みをリセット</button></div>'
@@ -5757,7 +5767,7 @@ document.getElementById("prefsBody").addEventListener("click", function(e){
   var ar=e.target.closest("[data-pf-area]"); if(ar){ toggleInArr(prefs.areas, ar.getAttribute("data-pf-area")); savePrefs(); renderPrefsView(); return; }
   var f=e.target.closest("[data-pf-flag]"); if(f){ var k=f.getAttribute("data-pf-flag"); prefs[k]=!prefs[k]; savePrefs(); renderPrefsView(); return; }
   var dsp=e.target.closest("[data-pf-disp]"); if(dsp){ var dk=dsp.getAttribute("data-pf-disp"); if(dk==="reco") prefs.recoOff=!prefs.recoOff; else if(dk==="feat") prefs.featOff=!prefs.featOff; savePrefs(); renderPrefsView(); render(); return; }
-  var svw=e.target.closest("[data-pf-start]"); if(svw){ prefs.startView = svw.getAttribute("data-pf-start")==="feed" ? "feed" : "list"; savePrefs(); renderPrefsView(); toast(prefs.startView==="feed" ? "最初のページをフィードにしました" : "最初のページを通常（イベント一覧）にしました"); return; }
+  var svw=e.target.closest("[data-pf-start]"); if(svw){ prefs.startView = svw.getAttribute("data-pf-start")==="feed" ? "feed" : "list"; savePrefs(); renderPrefsView(); toast(prefs.startView==="feed" ? "最初のページをタイムラインにしました" : "最初のページを通常（イベント一覧）にしました"); return; }
   if(e.target.closest("#pfRedo")){ obOpen(); return; }
   if(e.target.closest("#pfReset")){
     prefs.cats=[]; prefs.artists=[]; prefs.prefs=[]; prefs.areas=[]; prefs.free=false; prefs.weekend=false; prefs.collab=false;
@@ -8229,6 +8239,7 @@ function tlOpenDetail(ev){
   /* タイムラインは閉じない。詳細を上に重ね、閉じれば同じ位置のフィードに戻る（v88 シームレス化） */
   if(tlState.timer) clearTimeout(tlState.timer);
   els.overlay.classList.add("tl-above");
+  els.overlay.classList.add("tl-full");
   openModal(ev);
 }
 /* プロフィールへ移るときはタイムラインを保持して隠す（v89）。戻るボタンで同じ位置に復帰する */
