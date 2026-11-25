@@ -17,11 +17,11 @@
     '<p id="kg-account-status" role="status" aria-live="polite"></p>' +
     '<div id="kg-account-off" hidden><p>ログインの接続設定はまだ完了していません。現在の推し・お気に入りはこの端末だけに保存されます。</p></div>' +
     '<div id="kg-login-form" hidden><p>Googleアカウントでログインします。</p><button id="kg-google-login" type="button">Googleでログイン</button></div>' +
-    '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推し・お気に入り・マイリスト・行きたい／気になる・フォロー・好みなどをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button></div>' +
+    '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推し・お気に入り・マイリスト・行きたい／気になる・フォロー・好みなどをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button><span id="kg-signout-confirm" hidden> <span style="font-size:13px">ログアウトすると、この端末内のデータをすべて消去します。アカウントのデータは残ります。</span> <button id="kg-signout-yes" type="button">ログアウトする</button> <button id="kg-signout-no" type="button">やめる</button></span></div>' +
     '<div id="kg-account-choice" hidden><p><strong>この端末のデータをどうしますか？</strong></p><p>統合すると、この端末の推しとお気に入りがアカウントに追加されます。共有端末や別の方のデータなら「アカウントのデータを使う」を選んでください。</p><button id="kg-merge" type="button">この端末のデータを統合</button> <button id="kg-use-cloud" type="button">アカウントのデータを使う</button></div>' +
     '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
     '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。端末やブラウザを変えても、コードを入れれば推し・お気に入りが維持できます。メールアドレスなどの個人情報は登録しません。</p><button id="kg-code-issue" type="button">会員コードを発行する</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、設定しておいた質問と回答でログインできます（ログイン後、コードを再発行できます）。</p><p><input id="kg-rec-q" type="text" placeholder="あなたの質問" autocomplete="off" style="min-width:200px;padding:6px"><br><input id="kg-rec-a" type="text" placeholder="その回答" autocomplete="off" style="min-width:200px;padding:6px"> <button id="kg-recovery-login" type="button">質問と回答でログイン</button></p></div>' +
-    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button><span id="kg-code-reissue-confirm" hidden> <span style="font-size:13px">新しいコードを発行します。今までのコードは使えなくなります。</span> <button id="kg-code-reissue-yes" type="button">発行する</button> <button id="kg-code-reissue-no" type="button">やめる</button></span></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><p style="font-size:13px">コードを失くしたとき用に、質問と回答を設定できます（自分で決めた質問と、その回答）。</p><p><input id="kg-qa-q" type="text" placeholder="質問（例：初めて行ったライブは？）" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-qa-a" type="text" placeholder="回答" autocomplete="off" style="min-width:220px;padding:6px"> <button id="kg-qa-save" type="button">質問と回答を保存</button></p><button id="kg-code-logout" type="button">この端末からログアウト</button><span id="kg-code-logout-confirm" hidden> <span style="font-size:13px">この端末内の推し・お気に入りを消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。</span> <button id="kg-code-logout-yes" type="button">ログアウトする</button> <button id="kg-code-logout-no" type="button">やめる</button></span></div></div>' +
+    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button><span id="kg-code-reissue-confirm" hidden> <span style="font-size:13px">新しいコードを発行します。今までのコードは使えなくなります。</span> <button id="kg-code-reissue-yes" type="button">発行する</button> <button id="kg-code-reissue-no" type="button">やめる</button></span></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><p style="font-size:13px">コードを失くしたとき用に、質問と回答を設定できます（自分で決めた質問と、その回答）。</p><p><input id="kg-qa-q" type="text" placeholder="質問（例：初めて行ったライブは？）" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-qa-a" type="text" placeholder="回答" autocomplete="off" style="min-width:220px;padding:6px"> <button id="kg-qa-save" type="button">質問と回答を保存</button></p><button id="kg-code-logout" type="button">この端末からログアウト</button><span id="kg-code-logout-confirm" hidden> <span style="font-size:13px">この端末内のデータをすべて消去します。コード、または質問と回答を控えていない場合、データに戻れなくなります。</span> <button id="kg-code-logout-yes" type="button">ログアウトする</button> <button id="kg-code-logout-no" type="button">やめる</button></span></div></div>' +
     '<div id="kg-guest"><hr><p><strong>ゲスト利用</strong>（一時的な端末向け）</p>' +
     '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
     '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button><span id="kg-guest-end-confirm" hidden> <span style="font-size:13px">この端末のデータを消去しますか？</span> <button id="kg-guest-end-yes" type="button">消去する</button> <button id="kg-guest-end-no" type="button">やめる</button></span></div></div>' +
@@ -180,6 +180,19 @@
     }
     try { var data=await fsPull(uid); noteCloudOk(); return data; } catch(e2) { throw sheetErr||e2; }
   }
+  /* ログアウト時の端末データ全消去（v155）: 推し・お気に入りだけでなく
+     行きたい/気になる/リスト/フォロー/プラン/設定/学習など端末内の
+     利用者データをすべて消す。消し漏れがあると次の利用者に残り、
+     再ログイン時の復元と区別もつかなくなる */
+  function wipeLocalUserData(){
+    try{
+      Object.keys(UD_KEYS).forEach(function(k){ localStorage.removeItem(UD_KEYS[k]); });
+      localStorage.removeItem(bridge.keys.event); localStorage.removeItem(bridge.keys.artist);
+      localStorage.removeItem('kg_member_session_v2'); localStorage.removeItem('kg_member_selected_v2');
+      localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1');
+      try{ sessionStorage.removeItem('kg_ud_reloaded'); }catch(_){}
+    }catch(_){}
+  }
   function backendMissing(){ var e=new Error('接続の準備中です'); e.code='kg-no-backend'; return e; }
   async function memberDoc(acct) {
     var sheetErr=null;
@@ -240,7 +253,7 @@
   async function setupSession(session) {
     generation++; var g=generation;
     user=session && session.user ? session.user : null; initialized=false;
-    if(!user){ parts(false,true,false,false); text('ログインしていません。推し・お気に入りは端末内に保存されます。'); renderAdmin(); return; }
+    if(!user){ parts(false,true,false,false); if(!member) text('ログインしていません。推し・お気に入りは端末内に保存されます。'); renderAdmin(); return; }
     var uid=user.id; $('kg-email-display').textContent='ログイン中：'+(user.email||'アカウント');
     var isAdminAcct=await noteAdminAccount(user);
     if(isAdminAcct){ $('kg-email-display').textContent+='（管理者）'; renderAdmin(); }
@@ -278,7 +291,9 @@
   $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
   $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
   $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail();text('同期に失敗しました。端末内のデータは保持されています。');} };
-  $('kg-signout').onclick=async function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} if(!confirm('ログアウトすると、この端末内の推し・お気に入りを消去します。アカウントのデータは残ります。'))return; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); bridge.replace({event:[],artist:[]}); };
+  $('kg-signout').onclick=function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} $('kg-signout-confirm').hidden=false; };
+  $('kg-signout-no').onclick=function(){ $('kg-signout-confirm').hidden=true; };
+  $('kg-signout-yes').onclick=async function(){ if(!user)return; $('kg-signout-confirm').hidden=true; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); wipeLocalUserData(); setTimeout(function(){ location.reload(); }, 400); };
   window.addEventListener('kg:favorites-change',function(e){
     udPushNow();
     if(member && memberReady && !(user && initialized)) { scheduleMemberPush(); return; }
@@ -550,8 +565,9 @@
     localStorage.removeItem('kg_member_session_v2'); localStorage.removeItem('kg_member_selected_v2'); localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1');
     try{ sessionStorage.removeItem('kg_ud_reloaded'); }catch(_){}
     member=null; memberReady=false; pendingMemberCloud=null; renderMember(); renderState();
-    bridge.replace({event:[],artist:[]});
+    wipeLocalUserData();
     text('ログアウトしました。');
+    setTimeout(function(){ location.reload(); }, 400);
   };
   /* 状態表記（Kota、2026-11-23）：ログイン中かどうかをヘッダーのボタン自体に表示する。
      ゲスト利用は一時的な端末向け（端末内だけに保存し、終了時に消せる）。 */
@@ -578,10 +594,11 @@
   $('kg-guest-end-no').onclick=function(){ var c=$('kg-guest-end-confirm'); if(c) c.hidden=true; };
   $('kg-guest-end-yes').onclick=function(){
     var c=$('kg-guest-end-confirm'); if(c) c.hidden=true;
-    try{ localStorage.removeItem(GUEST_FLAG); localStorage.removeItem('kg_trial_prefs_v1'); localStorage.removeItem('kg_trial_learn_v1'); }catch(_){}
-    bridge.replace({event:[],artist:[]});
+    try{ localStorage.removeItem(GUEST_FLAG); }catch(_){}
+    wipeLocalUserData();
     renderState();
     text('ゲスト利用を終了し、この端末のデータを消去しました。');
+    setTimeout(function(){ location.reload(); }, 400);
   };
   /* 管理者モード（Kota、2026-11-23）：管理者の端末ではログイン操作を不要にする。
      端末内にだけ保存される印で、サーバ側の権限ではない（公開側に守る管理データはない）。

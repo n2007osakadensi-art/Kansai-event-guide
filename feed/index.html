@@ -158,6 +158,7 @@
   .fp-row .pd{font-weight:800;white-space:nowrap;font-size:12.5px}
   .fp-row .pt{font-weight:700;font-size:14px}
   .fp-row .pv{display:block;opacity:.65;font-size:12px;font-weight:400}
+  .vschip{display:inline-block;font-size:11px;font-weight:700;border:1px solid rgba(255,215,130,.85);color:#ffd782;border-radius:999px;padding:0 7px;line-height:1.7;margin-left:6px;vertical-align:1px;white-space:nowrap;background:rgba(0,0,0,.35)}
   .fp-text{font-size:14px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
   .fp-dl{display:grid;grid-template-columns:86px 1fr;gap:5px 10px;font-size:13.5px;margin:8px 0}
   .fp-dl dt{opacity:.65;font-weight:700}
@@ -1502,7 +1503,7 @@ function cardHTML(ev, idx){
     + badgesHTML(ev)
     + (hasImg? '<h2 class="ev-title">'+esc(ev.title)+'</h2>'
       + '<div class="ev-date">'+esc(dateLabel(ev))+(ev.timeLabel?'　'+esc(ev.timeLabel):"")+'</div>' : "")
-    + (ev.venue? '<div class="ev-meta">'+esc(ev.venue)+'</div>' : "")
+    + (ev.venue? '<div class="ev-meta">'+esc(ev.venue)+feedVsChip(ev)+'</div>' : "")
     + (ev.price? '<div class="ev-meta">'+esc(ev.price)+'</div>' : "")
     + (perfLine? '<div class="ev-meta">'+esc(perfLine)+'</div>' : "")
     + '<button type="button" class="detail-btn" data-detail="1">詳細を見る</button>'
@@ -1651,6 +1652,10 @@ function mergeFeedImages(map){
   if(changed && typeof renderFeed==="function") renderFeed(true);
   if(detailEv && !detailSheet.classList.contains("hidden")) openFeedDetail(detailEv);
 }
+var feedVenueSuppById={};
+function feedVsOf(ev){ return (ev.sheetVs || ev.venueSpaceNote || feedVenueSuppById[String(ev.id)] || ""); }
+function feedVsChip(ev){ var vs=feedVsOf(ev); if(!vs) return ""; if(ev.venue && ev.venue.indexOf(vs)>=0) return ""; return '<span class="vschip">'+esc(vs)+'</span>'; }
+function loadFeedVenueSupp(){ try{ fetch("../assets/venue-supp.json").then(function(r){ return r.ok? r.json() : null; }).then(function(j){ if(j && typeof j==="object" && !Array.isArray(j)){ feedVenueSuppById=j; renderFeed(true); } }).catch(function(){}); }catch(e){} }
 function loadFeedImages(){
   try{ fetch("../assets/event-images.json").then(function(r){ return r.ok? r.json() : null; }).then(function(j){ if(j && typeof j==="object" && !Array.isArray(j)) mergeFeedImages(j); }).catch(function(){}); }catch(e){}
   var imgTries=0;
@@ -1687,7 +1692,7 @@ function openFeedDetail(ev){
     mediaHtml
     + '<h3 class="dt-title">'+esc(ev.title)+'</h3>'
     + '<div class="dt-row">'+esc(dateLabel(ev))+(ev.timeLabel? '　'+esc(ev.timeLabel) : '')+'</div>'
-    + (ev.venue? '<div class="dt-row"><button type="button" class="dt-prof" data-fprof="venue" data-fname="'+esc(ev.venue)+'">'+esc(ev.venue)+(ev.venueSpaceNote && String(ev.venue).indexOf(ev.venueSpaceNote)<0? '（'+esc(ev.venueSpaceNote)+'）' : '')+'</button></div>' : '')
+    + (ev.venue? '<div class="dt-row"><button type="button" class="dt-prof" data-fprof="venue" data-fname="'+esc(ev.venue)+'">'+esc(ev.venue)+(feedVsOf(ev) && String(ev.venue).indexOf(feedVsOf(ev))<0? '（'+esc(feedVsOf(ev))+'）' : '')+'</button></div>' : '')
     + (ev.price? '<div class="dt-row">'+esc(ev.price)+'</div>' : '')
     + (perfs.length? '<div class="dt-sec">出演者</div><div>'+perfs.map(function(p){ return '<button type="button" class="dt-prof" data-fprof="artist" data-fname="'+esc(p)+'">'+esc(p)+'</button>'; }).join("")+'</div>' : '')
     + (ev.organizerName? '<div class="dt-sec">主催</div><div><button type="button" class="dt-prof" data-fprof="organizer" data-fname="'+esc(ev.organizerName)+'">'+esc(ev.organizerName)+'</button></div>' : '')
@@ -1798,7 +1803,7 @@ function feedProfRowHTML(ev, idx){
   if(feedProfState.kind==="artist") parts.push(ev.venue);
   else if(feedProfState.kind==="venue"){ if(ev._perfList && ev._perfList.length) parts.push(ev._perfList.slice(0,4).join("、")+(ev._perfList.length>4? " ほか" : "")); }
   else { parts.push(ev.venue); if(ev._perfList && ev._perfList.length) parts.push(ev._perfList.slice(0,4).join("、")+(ev._perfList.length>4? " ほか" : "")); }
-  return '<button type="button" class="fp-row" data-fp-ev="'+idx+'"><span class="pd">'+esc(dateLabel(ev))+'</span><span class="pt">'+esc(ev.title)+'<span class="pv">'+esc(parts.filter(Boolean).join(" ・ "))+'</span></span></button>';
+  return '<button type="button" class="fp-row" data-fp-ev="'+idx+'"><span class="pd">'+esc(dateLabel(ev))+'</span><span class="pt">'+esc(ev.title)+'<span class="pv">'+esc(parts.filter(Boolean).join(" ・ "))+(feedProfState.kind!=="venue" && feedVsOf(ev) && String(ev.venue||"").indexOf(feedVsOf(ev))<0? '（'+esc(feedVsOf(ev))+'）' : '')+'</span></span></button>';
 }
 function renderFeedProfile(){
   var kind=feedProfState.kind, name=feedProfState.name; if(!kind) return;
@@ -2074,7 +2079,7 @@ function loadFeedSourcesConfig(done){
 }
 function start(){
   renderScopeBar();
-  loadFeedImages();
+  loadFeedImages(); loadFeedVenueSupp();
   showState('<div class="spinner" aria-hidden="true"></div><div>読み込み中…</div>');
   loadFeedSourcesConfig(function(sources){
     var liteResults=new Array(sources.length), liteDone=0, liteOk=0;

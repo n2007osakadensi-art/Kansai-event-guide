@@ -459,6 +459,8 @@
   .tag-conf{background:#b3261e;color:#fff}
   .plan-patterns{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
   .plan-pat{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 12px;font-weight:700;font-size:13px;min-height:38px;cursor:pointer;font-family:inherit}
+  .plan-rename{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .plan-rename input{font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);max-width:180px;min-height:38px}
   .plan-pat.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
   .plan-pat.add{border-style:dashed;color:var(--muted)}
   .plan-pat.util{color:var(--muted)}
@@ -955,7 +957,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v154';
+  window.__kgShell='v155';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1616,7 +1618,7 @@ var favPerfs = loadSet(LS_OSHI);
 var wantEvents = loadSet(LS_WANT);
 var intEvents = loadSet(LS_INT);
 var LS_PLANS="kg_trial_plans_v1";
-var planPatterns=[], planActiveId=null;
+var planPatterns=[], planActiveId=null, planRenaming=false;
 var planIds=new Set();
 function activePattern(){ return planPatterns.find(function(p){ return p.id===planActiveId; }) || planPatterns[0] || null; }
 function loadPlans(){
@@ -1647,7 +1649,7 @@ function renderPlanPatterns(){
     return '<button type="button" class="plan-pat'+(ap&&p.id===ap.id?" on":"")+'" data-plan-pat="'+esc(p.id)+'">'+esc(p.name)+'（'+p.ids.length+'）</button>';
   }).join("")
   +'<button type="button" class="plan-pat add" data-plan-pat-new="1">＋ 新しいプラン</button>'
-  +(ap? '<button type="button" class="plan-pat util" data-plan-pat-rename="1">名前変更</button>' : '')
+  +(ap? (planRenaming? '<span class="plan-rename"><input id="kg-plan-rename-input" type="text" maxlength="30" value="'+esc(ap.name)+'"><button type="button" class="plan-pat util" data-plan-pat-rename-save="1">保存</button><button type="button" class="plan-pat util" data-plan-pat-rename-no="1">やめる</button></span>' : '<button type="button" class="plan-pat util" data-plan-pat-rename="1">名前変更</button>') : '')
   +(planPatterns.length>1? '<button type="button" class="plan-pat util" data-plan-pat-del="1">このプランを削除</button>' : '');
 }
 
@@ -5862,7 +5864,7 @@ function rankRowHTML(ev, no, why){
     + '<span class="rank-no'+(no<=3?" top":"")+'">'+no+'</span>'
     + img
     + '<div class="rank-main"><div class="rank-title">'+esc(ev.title)+'</div>'
-    + '<div class="rank-meta">'+esc(fmtDate(ev.date))+(ev.timeLabel?" "+esc(ev.timeLabel):"")+(ev.venue?" ・ "+esc(ev.venue):"")+'</div>'
+    + '<div class="rank-meta">'+esc(fmtDate(ev.date))+(ev.timeLabel?" "+esc(ev.timeLabel):"")+(ev.venue?" ・ "+esc(ev.venue)+vsChipHTML(ev):"")+'</div>'
     + (why.length? '<div class="rank-why">'+why.map(function(w){ return '<span class="reco-chip">'+esc(w)+'</span>'; }).join("")+'</div>' : "")
     + '</div></div>';
 }
@@ -6290,7 +6292,9 @@ document.getElementById("planPatterns").addEventListener("click", function(e){
   var sw=e.target.closest("[data-plan-pat]");
   if(sw){ var pid=sw.getAttribute("data-plan-pat"); if(pid!==planActiveId){ savePlans(); planActiveId=pid; var apx=activePattern(); planIds=new Set(apx? apx.ids : []); savePlans(); render(); } return; }
   if(e.target.closest("[data-plan-pat-new]")){ savePlans(); var np={id:"p"+Date.now(), name:"プラン"+(planPatterns.length+1), ids:[]}; planPatterns.push(np); planActiveId=np.id; planIds=new Set(); savePlans(); render(); return; }
-  if(e.target.closest("[data-plan-pat-rename]")){ var ap2=activePattern(); if(!ap2) return; var nm=prompt("プランの名前", ap2.name); if(nm && nm.trim()){ ap2.name=nm.trim().slice(0,30); savePlans(); render(); } return; }
+  if(e.target.closest("[data-plan-pat-rename]")){ planRenaming=true; render(); var rin=document.getElementById("kg-plan-rename-input"); if(rin){ rin.focus(); rin.select(); } return; }
+  if(e.target.closest("[data-plan-pat-rename-save]")){ var ap2=activePattern(); var rin2=document.getElementById("kg-plan-rename-input"); if(ap2 && rin2 && rin2.value.trim()){ ap2.name=rin2.value.trim().slice(0,30); } planRenaming=false; savePlans(); render(); return; }
+  if(e.target.closest("[data-plan-pat-rename-no]")){ planRenaming=false; render(); return; }
   if(e.target.closest("[data-plan-pat-del]")){ var ap3=activePattern(); if(!ap3) return; if(!confirm("「"+ap3.name+"」を削除しますか？（中身の予定も消えます）")) return; planPatterns=planPatterns.filter(function(p){ return p.id!==ap3.id; }); if(!planPatterns.length) planPatterns=[{id:"p1", name:"プラン1", ids:[]}]; planActiveId=planPatterns[0].id; planIds=new Set(planPatterns[0].ids); savePlans(); render(); return; }
 });
 document.getElementById("copyPlanBtn").addEventListener("click", function(){
@@ -7638,14 +7642,14 @@ function sgCardHTML(ev, opts){
     + '</div><div class="sg-card-body">'
     + '<div class="sg-card-date">'+esc(dateLabel(ev))+(ev.timeLabel?' '+esc(ev.timeLabel):"")+'</div>'
     + '<h3 class="sg-card-title">'+esc(ev.title)+'</h3>'
-    + (ev.venue? '<p class="sg-card-venue">'+esc(ev.venue)+'</p>' : "")
+    + (ev.venue? '<p class="sg-card-venue">'+esc(ev.venue)+vsChipHTML(ev)+'</p>' : "")
     + metric
     + '</div></article>';
 }
 function sgTextRowHTML(ev){
   return '<div class="sg-textrow" data-sg-id="'+esc(String(ev.id))+'" role="button" tabindex="0"><div class="sg-card-date">'+esc(dateLabel(ev))+(ev.timeLabel?' '+esc(ev.timeLabel):"")+'</div>'
     + '<h3>'+esc(ev.title)+'</h3>'
-    + (ev.venue? '<p>'+esc(ev.venue)+'</p>' : "")
+    + (ev.venue? '<p>'+esc(ev.venue)+vsChipHTML(ev)+'</p>' : "")
     + '</div>';
 }
 function sgEventSlide(kicker, title, count, sub, evs, opts){
@@ -7713,7 +7717,7 @@ function sgUpdateClock(){
 }
 function sgTickerTrackHTML(events){
   var seq=events.map(function(ev){
-    return '<strong>'+esc(fmtDate(ev.date))+'</strong> '+esc(ev.title)+(ev.venue? ' <span class="sg-tick-venue">＠ '+esc(ev.venue)+'</span>' : "");
+    return '<strong>'+esc(fmtDate(ev.date))+'</strong> '+esc(ev.title)+(ev.venue? ' <span class="sg-tick-venue">＠ '+esc(ev.venue)+(ev.vs && ev.venue.indexOf(ev.vs)<0? '（'+esc(ev.vs)+'）' : '')+'</span>' : "");
   }).join('<span class="sg-tick-sep">／</span>');
   return '<div class="sg-ticker-seq">'+seq+'</div><div class="sg-ticker-seq" aria-hidden="true">'+seq+'</div>';
 }
@@ -7983,7 +7987,7 @@ function tlBodyHTML(ev, titleTag){
   return '<div class="tl-body">'
     + '<div class="tl-date">'+esc(dateLabel(ev))+(ev.timeLabel?' '+esc(ev.timeLabel):"")+'</div>'
     + '<'+titleTag+' class="tl-ev-title">'+esc(ev.title)+'</'+titleTag+'>'
-    + (ev.venue? '<p class="tl-venue">'+esc(ev.venue)+'</p>' : "")
+    + (ev.venue? '<p class="tl-venue">'+esc(ev.venue)+vsChipHTML(ev)+'</p>' : "")
     + (ev._perfList.length? '<p class="tl-perfs">'+esc(ev._perfList.join("、"))+'</p>' : "")
     + tlChipsHTML(ev)
     + tlProfLinksHTML(ev)
@@ -8447,7 +8451,7 @@ function psRowHTML(ev, idx){
   if(profSheetState.kind==="artist") parts.push(ev.venue);
   else if(profSheetState.kind==="venue"){ if(ev._perfList && ev._perfList.length) parts.push(ev._perfList.slice(0,4).join("、")+(ev._perfList.length>4?" ほか":"")); }
   else { parts.push(ev.venue); if(ev._perfList && ev._perfList.length) parts.push(ev._perfList.slice(0,4).join("、")+(ev._perfList.length>4?" ほか":"")); }
-  return '<button type="button" class="ps-row" data-ps-ev="'+idx+'"><span class="pd">'+esc(fmtDate(ev.date))+'</span><span class="pt">'+esc(ev.title)+'<span class="pv">'+esc(parts.filter(Boolean).join(" ・ "))+'</span></span></button>';
+  return '<button type="button" class="ps-row" data-ps-ev="'+idx+'"><span class="pd">'+esc(fmtDate(ev.date))+'</span><span class="pt">'+esc(ev.title)+'<span class="pv">'+esc(parts.filter(Boolean).join(" ・ "))+(profSheetState.kind!=="venue"? vsChipHTML(ev) : '')+'</span></span></button>';
 }
 function psInfoHTML(kind, name, prof, upcoming, evs){
   var h="";
