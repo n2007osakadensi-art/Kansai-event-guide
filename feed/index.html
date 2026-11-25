@@ -135,6 +135,41 @@
   .dt-acts{display:flex;gap:7px;margin-top:14px}
   .dt-act{flex:1;min-height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:transparent;color:#f4f2ec;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
   .dt-act.on{background:#f4f2ec;color:#0e0f12}
+  .dt-prof{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.06);color:#f4f2ec;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin:0 6px 6px 0}
+  #profSheet{z-index:90}
+  #profBackdrop{z-index:89}
+  .fp-closebar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .fp-back{border:1px solid rgba(255,255,255,.3);background:transparent;color:#f4f2ec;border-radius:999px;padding:8px 14px;font-weight:700;font-size:13px;min-height:38px;cursor:pointer;font-family:inherit}
+  .fp-cover{height:92px;border-radius:12px;background:linear-gradient(135deg,#3a3f4d,#23252d);background-size:cover;background-position:center}
+  .fp-ava{width:58px;height:58px;border-radius:50%;margin-top:-29px;margin-left:6px;border:3px solid #17181d;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;vertical-align:top}
+  .fp-name{font-size:19px;font-weight:800;margin:6px 0 0;line-height:1.35}
+  .fp-handle{font-size:12.5px;opacity:.65;margin:2px 0 0}
+  .fp-stats{display:flex;gap:8px;margin:12px 0 4px}
+  .fp-stats .st{flex:1;text-align:center;background:rgba(255,255,255,.06);border-radius:10px;padding:8px 4px}
+  .fp-stats b{display:block;font-size:16px}
+  .fp-stats span{font-size:11px;opacity:.7}
+  .fp-follow{width:100%;min-height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:transparent;color:#f4f2ec;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:8px}
+  .fp-follow.on{background:#f4f2ec;color:#0e0f12}
+  .fp-tabs{display:flex;gap:6px;margin-top:14px}
+  .fp-tabs button{flex:1;min-height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:transparent;color:#f4f2ec;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  .fp-tabs button[aria-pressed="true"]{background:#f4f2ec;color:#0e0f12}
+  .fp-sec{font-size:11.5px;font-weight:800;letter-spacing:.08em;opacity:.7;margin:14px 0 4px}
+  .fp-row{display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid rgba(255,255,255,.09);padding:11px 2px;cursor:pointer;font-family:inherit;color:inherit}
+  .fp-row .pd{font-weight:800;white-space:nowrap;font-size:12.5px}
+  .fp-row .pt{font-weight:700;font-size:14px}
+  .fp-row .pv{display:block;opacity:.65;font-size:12px;font-weight:400}
+  .fp-text{font-size:14px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+  .fp-dl{display:grid;grid-template-columns:86px 1fr;gap:5px 10px;font-size:13.5px;margin:8px 0}
+  .fp-dl dt{opacity:.65;font-weight:700}
+  .fp-dl dd{margin:0;line-height:1.55}
+  .fp-rel{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04);color:#f4f2ec;border-radius:12px;padding:10px 12px;font-size:14px;font-weight:700;margin:0 0 6px;cursor:pointer;font-family:inherit}
+  .fp-rel span{opacity:.65;font-size:12px;flex:none}
+  .fp-chip{display:inline-block;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:700;margin:0 6px 6px 0}
+  .fp-chip em{font-style:normal;opacity:.65;margin-left:4px;font-size:11.5px}
+  .fp-note{font-size:12px;opacity:.6;line-height:1.6;margin-top:14px}
+  .fp-mem{font-size:14px;margin:5px 0}
+  .fp-mem a{color:#9ecbff}
+
   .lp-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .lp-head h2{margin:0;font-size:16px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lp-close{border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;border-radius:999px;width:36px;height:36px;font-size:15px;cursor:pointer}
@@ -192,6 +227,10 @@
 <div class="lp-sheet tall hidden" id="detailSheet" role="dialog" aria-modal="true" aria-label="イベントの詳細">
   <div class="lp-head"><h2>イベント詳細</h2><button class="lp-close" type="button" id="detailClose" aria-label="閉じる">✕</button></div>
   <div id="detailBody"></div>
+</div>
+<div class="lp-backdrop hidden" id="profBackdrop"></div>
+<div class="lp-sheet tall hidden" id="profSheet" role="dialog" aria-modal="true" aria-label="プロフィール">
+  <div id="profBody"></div>
 </div>
 <div class="img-viewer hidden" id="imgViewer" role="dialog" aria-modal="true" aria-label="画像の拡大表示">
   <div class="iv-track" id="ivTrack"></div>
@@ -575,7 +614,7 @@ function clearFeedSearch(){
 }
 
 /* ---------- プロフィール読み込み（候補と照合のため、本体と同じデータ） ---------- */
-var feedArtistProfiles={}, feedVenueProfiles={}, feedArtistProfCache={}, feedProfilesStarted=false;
+var feedArtistProfiles={}, feedVenueProfiles={}, feedOrganizerProfiles={}, feedArtistProfCache={}, feedProfilesStarted=false;
 function feedStripVenueSuffix(s){ return String(s||"").replace(/（[^）]*）\s*$/,"").replace(/\([^)]*\)\s*$/,"").trim();}
 function feedArtistProfileFor(name){
 if(!name) return null;
@@ -639,6 +678,7 @@ if(n) bump();
 };
 mergeTab("artists", feedArtistProfiles);
 mergeTab("venues", feedVenueProfiles);
+mergeTab("organizers", feedOrganizerProfiles);
 }
 /* ---------- 本体と同じ照合部品（移植） ---------- */
 function feedDictHit(name, textNorm){
@@ -1638,10 +1678,10 @@ function openFeedDetail(ev){
     mediaHtml
     + '<h3 class="dt-title">'+esc(ev.title)+'</h3>'
     + '<div class="dt-row">'+esc(dateLabel(ev))+(ev.timeLabel? '　'+esc(ev.timeLabel) : '')+'</div>'
-    + (ev.venue? '<div class="dt-row">'+esc(ev.venue)+(ev.venueSpaceNote && String(ev.venue).indexOf(ev.venueSpaceNote)<0? '（'+esc(ev.venueSpaceNote)+'）' : '')+'</div>' : '')
+    + (ev.venue? '<div class="dt-row"><button type="button" class="dt-prof" data-fprof="venue" data-fname="'+esc(ev.venue)+'">'+esc(ev.venue)+(ev.venueSpaceNote && String(ev.venue).indexOf(ev.venueSpaceNote)<0? '（'+esc(ev.venueSpaceNote)+'）' : '')+'</button></div>' : '')
     + (ev.price? '<div class="dt-row">'+esc(ev.price)+'</div>' : '')
-    + (perfs.length? '<div class="dt-sec">出演者</div><div class="dt-text">'+esc(perfs.join("、"))+'</div>' : '')
-    + (ev.organizerName? '<div class="dt-sec">主催</div><div class="dt-text">'+esc(ev.organizerName)+'</div>' : '')
+    + (perfs.length? '<div class="dt-sec">出演者</div><div>'+perfs.map(function(p){ return '<button type="button" class="dt-prof" data-fprof="artist" data-fname="'+esc(p)+'">'+esc(p)+'</button>'; }).join("")+'</div>' : '')
+    + (ev.organizerName? '<div class="dt-sec">主催</div><div><button type="button" class="dt-prof" data-fprof="organizer" data-fname="'+esc(ev.organizerName)+'">'+esc(ev.organizerName)+'</button></div>' : '')
     + (ev.description? '<div class="dt-sec">詳細</div><div class="dt-text pre">'+esc(ev.description)+'</div>' : '')
     + (links.length? '<div class="dt-links">'+links.map(function(l){ return '<a href="'+esc(l[1])+'" target="_blank" rel="noopener">'+esc(l[0])+'</a>'; }).join("")+'</div>' : '')
     + '<div class="dt-acts">'+actBtn("fav", favEvents, "♥", "お気に入り")+actBtn("want", wantEvents, "✓", "行きたい")+actBtn("int", intEvents, "●", "気になる")+'</div>';
@@ -1675,6 +1715,8 @@ detailBackdrop.addEventListener("click", closeFeedDetail);
 detailBody.addEventListener("click", function(e){
   var im=(e.target && e.target.closest)? e.target.closest("[data-dimg]") : null;
   if(im && detailEv){ openImgViewer(detailEv, parseInt(im.getAttribute("data-dimg"),10)||0); return; }
+  var pf=(e.target && e.target.closest)? e.target.closest("[data-fprof]") : null;
+  if(pf){ openFeedProfile(pf.getAttribute("data-fprof"), pf.getAttribute("data-fname")); return; }
   var b=(e.target && e.target.closest)? e.target.closest("[data-dact]") : null;
   if(!b || !detailEv) return;
   var act=b.getAttribute("data-dact"), id=String(detailEv.id);
@@ -1685,6 +1727,218 @@ detailBody.addEventListener("click", function(e){
   b.classList.toggle("on", set.has(id));
   renderFeed(true);
 });
+
+/* ---------- プロフィールシート（v144）: DBのプロフィールをフィード内で開く ---------- */
+function feedOrganizerProfileFor(name){
+  if(!name) return null;
+  var p=feedOrganizerProfiles[name]||null;
+  if(!p){ Object.keys(feedOrganizerProfiles).forEach(function(k){ var ap=feedOrganizerProfiles[k]; if(ap && (ap.al||[]).indexOf(name)>=0) p=ap; }); }
+  return p;
+}
+function saveFeedFollows(){ try{ localStorage.setItem(LS_FOLLOWS, JSON.stringify(feedFollows)); window.dispatchEvent(new CustomEvent("kg:favorites-change",{detail:{key:LS_FOLLOWS}})); }catch(e){} }
+var feedProfState={open:false, kind:null, name:null, tab:"sched", all:[], dirty:false};
+var profSheetEl=document.getElementById("profSheet"), profBackdropEl=document.getElementById("profBackdrop"), profBodyEl=document.getElementById("profBody");
+function feedProfHandleOf(url){ var m=String(url||"").match(/(?:x\.com|twitter\.com|instagram\.com)\/([A-Za-z0-9_.]+)/); return m? "@"+m[1] : ""; }
+function feedProfFor(kind, name){ return kind==="artist"? feedArtistProfileFor(name) : kind==="venue"? feedVenueProfileFor(name) : feedOrganizerProfileFor(name); }
+function feedProfEvents(kind, name){
+  if(kind==="organizer") return allEvents.filter(function(ev){ return (ev.organizerName||"").trim()===name; });
+  return allEvents.filter(function(ev){ return feedExactMatch(ev, {kind:kind, value:name}); });
+}
+function feedProfFollowed(kind, name){
+  if(kind==="artist") return favPerfs.has(name);
+  if(kind==="venue") return feedFollows.venues.some(function(f){ return feedSameVenueFacility(f, name); });
+  return feedFollows.organizers.indexOf(name)>=0;
+}
+function feedProfStatsHTML(kind, evs, upcoming){
+  var third, thirdLabel;
+  if(kind==="venue"){ var cs={}; evs.forEach(function(ev){ String(ev.categories||ev.category||"").split(/[、,]/).forEach(function(c){ c=c.trim(); if(c) cs[c]=1; }); }); third=Object.keys(cs).length; thirdLabel="カテゴリ"; }
+  else { var vs={}; evs.forEach(function(ev){ var v=(ev.venue||"").trim(); if(v) vs[v]=1; }); third=Object.keys(vs).length; thirdLabel=(kind==="artist")? "出演会場" : "開催会場"; }
+  return '<div class="fp-stats"><div class="st"><b>'+evs.length+'</b><span>掲載イベント</span></div><div class="st"><b>'+upcoming.length+'</b><span>開催予定</span></div><div class="st"><b>'+third+'</b><span>'+thirdLabel+'</span></div></div>';
+}
+function openFeedProfile(kind, name){
+  if(!kind || !name) return;
+  feedProfState={open:true, kind:kind, name:name, tab:"sched", all:[], dirty:feedProfState.dirty};
+  renderFeedProfile();
+  profSheetEl.classList.remove("hidden"); profBackdropEl.classList.remove("hidden");
+  profSheetEl.scrollTop=0;
+}
+function closeFeedProfile(){
+  feedProfState.open=false;
+  profSheetEl.classList.add("hidden"); profBackdropEl.classList.add("hidden");
+  if(feedProfState.dirty){ feedProfState.dirty=false; renderFeed(true); }
+}
+function feedProfToggleFollow(){
+  var kind=feedProfState.kind, name=feedProfState.name;
+  if(kind==="artist"){
+    if(favPerfs.has(name)) favPerfs.delete(name); else favPerfs.add(name);
+    saveSet(LS_OSHI, favPerfs);
+  } else if(kind==="venue"){
+    var vi=-1; feedFollows.venues.forEach(function(f,i){ if(feedSameVenueFacility(f, name)) vi=i; });
+    if(vi>=0) feedFollows.venues.splice(vi,1); else feedFollows.venues.push(name);
+    saveFeedFollows();
+  } else {
+    var fi=feedFollows.organizers.indexOf(name);
+    if(fi>=0) feedFollows.organizers.splice(fi,1); else feedFollows.organizers.push(name);
+    saveFeedFollows();
+  }
+  feedProfState.dirty=true;
+  renderFeedProfile();
+}
+function feedProfRowHTML(ev, idx){
+  var parts=[ev.timeLabel];
+  if(feedProfState.kind==="artist") parts.push(ev.venue);
+  else if(feedProfState.kind==="venue"){ if(ev._perfList && ev._perfList.length) parts.push(ev._perfList.slice(0,4).join("、")+(ev._perfList.length>4? " ほか" : "")); }
+  else { parts.push(ev.venue); if(ev._perfList && ev._perfList.length) parts.push(ev._perfList.slice(0,4).join("、")+(ev._perfList.length>4? " ほか" : "")); }
+  return '<button type="button" class="fp-row" data-fp-ev="'+idx+'"><span class="pd">'+esc(dateLabel(ev))+'</span><span class="pt">'+esc(ev.title)+'<span class="pv">'+esc(parts.filter(Boolean).join(" ・ "))+'</span></span></button>';
+}
+function renderFeedProfile(){
+  var kind=feedProfState.kind, name=feedProfState.name; if(!kind) return;
+  var evs=feedProfEvents(kind, name);
+  var upcoming=evs.filter(function(ev){ return !isEnded(ev); });
+  var past=evs.filter(function(ev){ return isEnded(ev); });
+  upcoming.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date? -1:1; var as=a.startMin==null? 99999:a.startMin, bs=b.startMin==null? 99999:b.startMin; return as-bs; });
+  past.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date? 1:-1; return 0; });
+  feedProfState.all=upcoming.concat(past);
+  var prof=feedProfFor(kind, name);
+  var coverStyle="";
+  if(kind==="venue" && prof && prof.hi) coverStyle=' style="background-image:url(\''+esc(prof.hi)+'\')"';
+  var ava="";
+  if(kind==="artist" && prof && prof.av) ava='<img class="fp-ava" src="'+esc(prof.av)+'" alt="" onerror="this.style.display=\'none\'">';
+  else ava='<span class="fp-ava" style="background:'+(kind==="artist"? "#b45a7a" : kind==="venue"? "#a8873a" : "#4a6fa5")+'">'+esc(String(name).slice(0,1))+'</span>';
+  var handle="";
+  if(prof){ handle=[feedProfHandleOf(prof.x), feedProfHandleOf(prof.i || prof.ig)].filter(Boolean).join(" ・ "); }
+  var followed=feedProfFollowed(kind, name);
+  var followLabel= kind==="artist"? (followed? "★ 推し登録中" : "☆ 推しに登録") : (followed? "フォロー中" : "フォローする");
+  var h='<div class="fp-closebar"><button type="button" class="fp-back" id="fpBack">‹ 戻る</button><button type="button" class="lp-close" id="fpClose" aria-label="閉じる">✕</button></div>'
+    + '<div class="fp-cover"'+coverStyle+'></div>'
+    + ava
+    + '<h3 class="fp-name">'+esc(name)+'</h3>'
+    + (handle? '<p class="fp-handle">'+esc(handle)+'</p>' : "")
+    + feedProfStatsHTML(kind, evs, upcoming)
+    + '<button type="button" class="fp-follow'+(followed? " on" : "")+'" id="fpFollow">'+followLabel+'</button>'
+    + '<div class="fp-tabs"><button type="button" data-fp-tab="sched" aria-pressed="'+(feedProfState.tab==="sched")+'">スケジュール</button><button type="button" data-fp-tab="info" aria-pressed="'+(feedProfState.tab==="info")+'">情報</button></div>'
+    + '<div class="fp-body">';
+  if(feedProfState.tab==="sched"){
+    if(kind==="artist"){
+      var co={};
+      evs.forEach(function(ev){ (ev._perfList||[]).forEach(function(p){ if(p!==name) co[p]=(co[p]||0)+1; }); });
+      var coList=Object.keys(co).sort(function(a,b){ return co[b]-co[a]; }).slice(0,6);
+      if(coList.length) h+='<p class="fp-sec">よく共演</p><div>'+coList.map(function(p){ return '<button type="button" class="dt-prof" data-fp-open="artist" data-fp-name="'+esc(p)+'">'+esc(p)+'</button>'; }).join("")+'</div>';
+    }
+    if(upcoming.length) h+='<p class="fp-sec">開催予定・開催中（'+upcoming.length+'件）</p>'+upcoming.map(function(ev, i){ return feedProfRowHTML(ev, i); }).join("");
+    else h+='<p class="fp-sec">開催予定・開催中</p><p>開催予定のイベントはまだ掲載されていません。</p>';
+    if(past.length){
+      h+='<p class="fp-sec">終了したイベント（'+past.length+'件）</p>'+past.slice(0,20).map(function(ev, j){ return feedProfRowHTML(ev, upcoming.length+j); }).join("");
+      if(past.length>20) h+='<p>ほか '+(past.length-20)+'件</p>';
+    }
+    if(kind==="artist"){
+      var directIds={}; feedProfState.all.forEach(function(e){ directIds[String(e.id)]=1; });
+      var groups=Object.keys(feedArtistProfiles).filter(function(g){ var gp=feedArtistProfiles[g]; return g!==name && gp && (gp.m||[]).some(function(mb){ return mb.n===name; }); });
+      groups.forEach(function(g){
+        var gs=feedProfEvents("artist", g).filter(function(ev){ return !directIds[String(ev.id)]; }).sort(function(a,b){ if(a.date!==b.date) return a.date<b.date? -1:1; return 0; });
+        if(!gs.length) return;
+        h+='<p class="fp-sec">所属グループ「'+esc(g)+'」の公演（'+gs.length+'件）</p>';
+        gs.slice(0,20).forEach(function(ev){ feedProfState.all.push(ev); h+=feedProfRowHTML(ev, feedProfState.all.length-1); });
+        if(gs.length>20) h+='<p>ほか '+(gs.length-20)+'件</p>';
+      });
+    }
+  } else {
+    h+=feedProfInfoHTML(kind, name, prof, upcoming, evs);
+  }
+  h+='</div>';
+  profBodyEl.innerHTML=h;
+  profSheetEl.scrollTop=0;
+}
+function feedProfInfoHTML(kind, name, prof, upcoming, evs){
+  var h="";
+  if(!prof) h+='<p class="fp-note" style="margin-top:10px">この'+(kind==="artist"? "アーティスト" : kind==="venue"? "会場" : "主催")+'のプロフィールはまだデータベースに登録されていません。スケジュールは「スケジュール」タブで見られます。</p>';
+  if(kind==="artist"){
+    var cat=prof? prof.c : "";
+    var rd=feedReadingByName[name]||"";
+    if(cat || rd) h+='<p class="fp-text">'+(cat? "カテゴリ："+esc(cat) : "")+(rd? " ／ 読み："+esc(rd) : "")+'</p>';
+    if(prof){
+      if(prof.p) h+='<p class="fp-text">'+esc(prof.p)+'</p>';
+      var links="";
+      if(prof.w) links+='<a href="'+esc(prof.w)+'" target="_blank" rel="noopener">公式サイト</a>';
+      if(prof.x) links+='<a href="'+esc(prof.x)+'" target="_blank" rel="noopener">X</a>';
+      if(prof.i) links+='<a href="'+esc(prof.i)+'" target="_blank" rel="noopener">Instagram</a>';
+      if(prof.t) links+='<a href="'+esc(prof.t)+'" target="_blank" rel="noopener">TikTok</a>';
+      if(links) h+='<div class="dt-links">'+links+'</div>';
+      if(prof.m && prof.m.length){
+        h+='<p class="fp-sec">メンバー</p>'+prof.m.map(function(mb){ var ml=""; if(mb.x) ml+=' <a href="'+esc(mb.x)+'" target="_blank" rel="noopener">X</a>'; if(mb.i) ml+=' <a href="'+esc(mb.i)+'" target="_blank" rel="noopener">Instagram</a>'; return '<p class="fp-mem">'+esc(mb.n||"")+(mb.r? '（'+esc(mb.r)+'）' : "")+(mb.g? ' ・ '+esc(mb.g) : "")+ml+'</p>'; }).join("");
+      }
+    }
+  } else if(kind==="venue"){
+    if(prof){
+      if(prof.sm) h+='<p class="fp-text">'+esc(prof.sm)+'</p>';
+      var rows="";
+      if(prof.ad) rows+='<dt>住所</dt><dd>'+esc(prof.ad)+'</dd>';
+      if(prof.ac) rows+='<dt>アクセス</dt><dd>'+esc(prof.ac)+'</dd>';
+      if(prof.cp) rows+='<dt>収容人数</dt><dd>'+esc(prof.cp)+'</dd>';
+      if(prof.hr) rows+='<dt>営業時間</dt><dd>'+esc(prof.hr)+'</dd>';
+      if(prof.tp) rows+='<dt>施設種別</dt><dd>'+esc(prof.tp)+'</dd>';
+      if(prof.gg) rows+='<dt>ジャンル分類</dt><dd>'+esc(prof.gg)+'</dd>';
+      if(rows) h+='<dl class="fp-dl">'+rows+'</dl>';
+      var vl="";
+      if(prof.ws) vl+='<a href="'+esc(prof.ws)+'" target="_blank" rel="noopener">公式サイト</a>';
+      if(prof.x) vl+='<a href="'+esc(prof.x)+'" target="_blank" rel="noopener">X</a>';
+      if(prof.ig) vl+='<a href="'+esc(prof.ig)+'" target="_blank" rel="noopener">Instagram</a>';
+      var mq=(prof.lt!=null && prof.lg!=null)? (prof.lt+","+prof.lg) : (prof.ad||name);
+      vl+='<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">地図を開く</a>';
+      h+='<div class="dt-links">'+vl+'</div>';
+    } else {
+      h+='<div class="dt-links"><a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
+    }
+  } else {
+    if(prof){
+      if(prof.p) h+='<p class="fp-text">'+esc(prof.p)+'</p>';
+      var ol="";
+      if(prof.w) ol+='<a href="'+esc(prof.w)+'" target="_blank" rel="noopener">公式サイト</a>';
+      if(prof.x) ol+='<a href="'+esc(prof.x)+'" target="_blank" rel="noopener">X</a>';
+      if(prof.i) ol+='<a href="'+esc(prof.i)+'" target="_blank" rel="noopener">Instagram</a>';
+      if(ol) h+='<div class="dt-links">'+ol+'</div>';
+    }
+    h+='<p class="fp-text">'+(upcoming.length? '次の開催：'+esc(dateLabel(upcoming[0]))+'「'+esc(upcoming[0].title)+'」' : '開催予定のイベントはまだ掲載されていません。')+'</p>';
+  }
+  var evsAll=evs||[];
+  function topOf(fn, lim){ var c={}; evsAll.forEach(function(ev){ var v=fn(ev); if(v) c[v]=(c[v]||0)+1; }); return Object.keys(c).map(function(k){ return [k, c[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0, lim); }
+  function perfPairs(lim){ var c={}; evsAll.forEach(function(ev){ (ev._perfList||[]).forEach(function(p){ c[p]=(c[p]||0)+1; }); }); return Object.keys(c).map(function(k){ return [k, c[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0, lim); }
+  function relRows(pairs, okind){ return pairs.map(function(p){ return '<button type="button" class="fp-rel" data-fp-open="'+okind+'" data-fp-name="'+esc(p[0])+'">'+esc(p[0])+'<span>'+p[1]+'件</span></button>'; }).join(""); }
+  if(kind!=="venue"){
+    var areas=topOf(function(ev){ return (ev.area||"").trim() || (ev.prefecture||"").trim(); }, 4);
+    if(areas.length && evsAll.length>1) h+='<p class="fp-sec">主な活動エリア</p><div>'+areas.map(function(p){ return '<span class="fp-chip">'+esc(p[0])+'<em>'+p[1]+'件</em></span>'; }).join("")+'</div>';
+  }
+  if(kind==="artist"){
+    var aOrgs=topOf(function(ev){ return (ev.organizerName||"").trim(); }, 5);
+    if(aOrgs.length) h+='<p class="fp-sec">よく出演する主催</p>'+relRows(aOrgs, "organizer");
+  } else if(kind==="venue"){
+    var vPerfs=perfPairs(6);
+    if(vPerfs.length) h+='<p class="fp-sec">よく出演するアーティスト</p>'+relRows(vPerfs, "artist");
+    var vOrgs=topOf(function(ev){ return (ev.organizerName||"").trim(); }, 5);
+    if(vOrgs.length) h+='<p class="fp-sec">よく開催する主催</p>'+relRows(vOrgs, "organizer");
+  } else {
+    var oVens=topOf(function(ev){ return (ev.venue||"").trim(); }, 5);
+    if(oVens.length) h+='<p class="fp-sec">よく使う会場</p>'+relRows(oVens, "venue");
+    var oPerfs=perfPairs(6);
+    if(oPerfs.length) h+='<p class="fp-sec">よく出演するアーティスト</p>'+relRows(oPerfs, "artist");
+  }
+  h+='<p class="fp-note">表示しているのは、ガイドのデータベースに登録された公式プロフィール（公開情報）です。推し・フォローの状態はこの端末の中だけのもので、ほかの人に公開されることはありません。</p>';
+  return h;
+}
+profBodyEl.addEventListener("click", function(e){
+  var t=e.target;
+  if(t.closest && t.closest("#fpClose, #fpBack")){ closeFeedProfile(); return; }
+  var fb=t.closest? t.closest("#fpFollow") : null;
+  if(fb){ feedProfToggleFollow(); return; }
+  var tb=t.closest? t.closest("[data-fp-tab]") : null;
+  if(tb){ feedProfState.tab=tb.getAttribute("data-fp-tab"); renderFeedProfile(); return; }
+  var op=t.closest? t.closest("[data-fp-open]") : null;
+  if(op){ openFeedProfile(op.getAttribute("data-fp-open"), op.getAttribute("data-fp-name")); return; }
+  var rb=t.closest? t.closest("[data-fp-ev]") : null;
+  if(rb){ var ev=feedProfState.all[Number(rb.getAttribute("data-fp-ev"))]; if(ev){ closeFeedProfile(); openFeedDetail(ev); } }
+});
+profBackdropEl.addEventListener("click", closeFeedProfile);
+
 
 /* ---------- リスト選択シート（カードから直接リストへ） ---------- */
 var lpEv=null, lpCardEl=null;
