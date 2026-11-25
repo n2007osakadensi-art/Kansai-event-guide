@@ -1278,7 +1278,9 @@ function start(){
 }
   /* ---------- フィードの表示状態の保存と復元 (v120) ---------- */
   var kgFeedUiDone=false;
-  function kgFeedSave(){ try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx})); }catch(e){} }
+  var kgFeedSaveCount=0;
+  function kgFeedDiagSet(o){ try{ var d={}; try{ d=JSON.parse(localStorage.getItem("kg_feed_ui_diag_v1")||"{}"); }catch(e){} for(var k in o) d[k]=o[k]; localStorage.setItem("kg_feed_ui_diag_v1", JSON.stringify(d)); }catch(e){} }
+  function kgFeedSave(){ try{ localStorage.setItem("kg_feed_ui_v1", JSON.stringify({q:feedQuery, idx:curIdx})); kgFeedSaveCount++; kgFeedDiagSet({sv:kgFeedSaveCount, se:""}); }catch(e){ kgFeedDiagSet({se:String((e&&e.message)||e).slice(0,80)}); } }
   window.addEventListener("pagehide", kgFeedSave);
   document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") kgFeedSave(); });
   function kgFeedRestoreKick(){
@@ -1289,15 +1291,21 @@ function start(){
   }
   function kgFeedRestore(){
     var st=null; try{ st=JSON.parse(localStorage.getItem("kg_feed_ui_v1")||"null"); }catch(e){}
-    if(!st) return;
-    if(st.q && feedQuery!==st.q){
-      var inp=document.getElementById("feedSearchInput");
-      if(inp) inp.value=st.q;
-      feedQuery=st.q;
-      renderFeed(false);
-    }
-    var ix=Math.max(0, Math.min(st.idx||0, feedItems.length-1));
-    if(ix>0){ curIdx=ix; var fe=document.getElementById("feed"); if(fe) fe.scrollTop=ix*fe.clientHeight; updateCount(); }
+    if(!st){ kgFeedDiagSet({rf:0}); return; }
+    kgFeedDiagSet({rf:1, ra:"", re:""});
+    var applied=[];
+    try{
+      if(st.q && feedQuery!==st.q){
+        var inp=document.getElementById("feedSearchInput");
+        if(inp) inp.value=st.q;
+        feedQuery=st.q;
+        applied.push("q");
+        renderFeed(false);
+      }
+      var ix=Math.max(0, Math.min(st.idx||0, feedItems.length-1));
+      if(ix>0){ curIdx=ix; var fe=document.getElementById("feed"); if(fe) fe.scrollTop=ix*fe.clientHeight; updateCount(); applied.push("idx"); }
+      kgFeedDiagSet({ra:applied.join(",")});
+    }catch(e){ kgFeedDiagSet({re:String((e&&e.message)||e).slice(0,80)}); }
   }
 /* 本体側で お気に入り等 が変わったら並びを追随させる */
 window.addEventListener("storage", function(e){
