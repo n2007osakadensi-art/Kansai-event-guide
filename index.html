@@ -833,6 +833,7 @@
   .tl-overlay{position:fixed;inset:0;z-index:120;background:#0e0f12;color:#f4f2ec;display:none;flex-direction:column}
   .tl-overlay.open{display:flex}
   .tl-top{flex-wrap:wrap;padding:8px 12px;row-gap:6px;column-gap:8px}
+  .tl-top-break{flex:0 0 100%;height:0}
   .tl-top .tl-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
   .tl-top .sg-clock{font-size:12.5px}
   .tl-top .tl-mode{flex:1}
@@ -885,7 +886,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v111';
+  window.__kgShell='v112';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1312,6 +1313,7 @@
     <span class="sg-brand">TIMELINE</span>
     <span class="tl-title">あなたへのタイムライン</span>
     <span class="sg-clock" id="tlClock"></span>
+    <div class="tl-top-break" aria-hidden="true"></div>
     <div class="tl-mode" role="group" aria-label="表示方法の切り替え">
       <button type="button" id="tlModeSlide">スライド</button>
       <button type="button" id="tlModeFeed">フィード</button>
