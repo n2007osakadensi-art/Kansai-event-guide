@@ -17,6 +17,7 @@
   }
   @media (prefers-color-scheme: dark){
     :root{ --bg:#131518; --surface:#1e2126; --surface2:#262a30; --ink:#f1f2f3; --muted:#a7adb5; --line:#33373d; --oshi-bg:#322344; --shadow:0 2px 12px rgba(0,0,0,.45); }
+    .rf-plan{color:#81c784} .rf-plan.warn{color:#ef9a9a}
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%;overflow-x:clip}
@@ -76,6 +77,20 @@
   .rf-title{font-weight:700;font-size:15px;line-height:1.45}
   .rf-meta{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.55;word-break:break-word}
   .rf-slot{font-size:13px;color:var(--accent);font-weight:700;margin-top:3px}
+  .sh-body{padding:12px 14px;overflow-y:auto}
+  .sh-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .sh-tab{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 12px;font-size:13px;font-weight:700;min-height:38px;cursor:pointer;font-family:inherit}
+  .sh-tab.on{border-color:var(--accent);background:var(--accent);color:#fff}
+  .sh-note{font-size:12.5px;color:var(--muted);line-height:1.6;margin:4px 0 8px}
+  #shText{width:100%;font-family:inherit;font-size:13.5px;line-height:1.65;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);color:var(--ink);box-sizing:border-box}
+  .sh-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .rf-plan{font-size:13px;font-weight:700;margin-top:3px;color:#2e7d32}
+  .rf-plan.warn{color:#c62828}
+  .rf-tt{margin-top:8px;background:var(--surface2);border-radius:8px;padding:8px 10px}
+  .rf-tt-h{font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:4px}
+  .rf-tt-row{display:flex;gap:10px;font-size:12.5px;line-height:1.6}
+  .rf-tt-time{flex:none;font-weight:700;min-width:44px}
+  .rf-tt-more{font-size:11.5px;color:var(--muted);margin-top:3px}
   .rf-links{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
   .rf-links a{font-size:12.5px;font-weight:700;color:var(--accent);text-decoration:none;border:1px solid var(--accent);border-radius:7px;padding:5px 10px}
 
@@ -86,6 +101,9 @@
   .oshi-list{display:flex;flex-wrap:wrap;gap:8px}
   .oshi-tag{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1.5px solid var(--oshi);color:var(--ink);border-radius:999px;padding:6px 8px 6px 12px;font-size:13.5px;font-weight:700;min-height:38px}
   .oshi-tag button{border:0;background:transparent;min-height:32px;min-width:32px;padding:0;color:var(--muted);font-size:16px;line-height:1}
+  .oshi-tag .oshi-name{min-width:0;color:inherit;font-size:13.5px;font-weight:700;cursor:pointer;text-align:left}
+  .oshi-tag.on{background:var(--oshi);color:#fff}
+  .oshi-tag.on button{color:#fff}
 
   .grid{display:grid;grid-template-columns:1fr;gap:16px}
   @media(min-width:560px){.grid{grid-template-columns:repeat(2,1fr)}}
@@ -813,7 +831,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v103';
+  window.__kgShell='v104';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1054,7 +1072,7 @@
       <div class="xmas-subs" id="xmasSubs" role="group" aria-label="クリスマス特集の種類で絞る"></div>
     </section>
     <div class="oshi-bar" id="oshiBar">
-      <h2>あなたの推し（タップで解除）</h2>
+      <h2>あなたの推し（タップでその推しだけ表示／✕で解除）</h2>
       <div class="oshi-list" id="oshiList"></div>
       <p id="oshiEmpty">まだ推しが登録されていません。イベントの詳細を開いて、出演者名をタップすると推しに登録できます。</p>
     </div>
@@ -1164,6 +1182,7 @@
     <div class="plan-actions">
       <button class="btn-accent" id="copyPlanBtn" type="button">プランをテキストでコピー</button>
       <button class="btn-ghost" id="icsBtn" type="button">カレンダー（.ics）をダウンロード</button>
+      <button class="btn-ghost" id="shioriBtn" type="button">しおり用テキストを作る</button>
     </div>
     <div id="planBody"></div>
     <div id="planEmpty" class="state" hidden="">
@@ -1264,6 +1283,25 @@
 <div class="lp-sheet hidden" id="lpSheet" role="dialog" aria-modal="true" aria-label="リストに追加">
   <div class="lp-head"><h2 id="lpTitle">リストに追加</h2><button class="fh-close" type="button" id="lpClose" aria-label="閉じる">✕</button></div>
   <div class="lp-body" id="lpBody"></div>
+</div>
+<div class="lp-backdrop hidden" id="shBackdrop"></div>
+<div class="lp-sheet hidden" id="shSheet" role="dialog" aria-modal="true" aria-label="しおり用テキスト">
+  <div class="lp-head"><h2>しおり用テキスト</h2><button class="fh-close" type="button" id="shClose" aria-label="閉じる">✕</button></div>
+  <div class="sh-body">
+    <div class="sh-tabs" role="group" aria-label="文面の種類">
+      <button type="button" class="sh-tab on" data-sh-fmt="ai">AIに渡す（しおり作成用）</button>
+      <button type="button" class="sh-tab" data-sh-fmt="img">1枚画像用（コンパクト）</button>
+      <button type="button" class="sh-tab" data-sh-fmt="plain">プランそのまま</button>
+    </div>
+    <p class="sh-note" id="shNote"></p>
+    <textarea id="shText" rows="16" aria-label="しおり用テキスト（編集できます）"></textarea>
+    <div class="sh-acts">
+      <button type="button" class="btn-accent" id="shCopy">コピーする</button>
+      <button type="button" class="btn-ghost" id="shDl">.txtで保存</button>
+      <button type="button" class="btn-ghost" id="shReset">文面を作り直す</button>
+    </div>
+    <p class="sh-note">文面は自由に書き換えられます。書き換えた内容がコピー・保存にそのまま使われます（プラン自体は変わりません）。種類を切り替えると文面は作り直されます。</p>
+  </div>
 </div>
 <button class="top-btn" id="topBtn" type="button" aria-label="ページの先頭に戻る">↑</button>
 <!-- 絞り込みシートは sticky な操作バーの外（body直下）に置く：fixed配置と背面固定を祖先要素の影響から切り離す -->
@@ -1677,8 +1715,49 @@ function evCategories(ev){
   if(ev.categories){ String(ev.categories).split(/[、,，\/|／｜]/).forEach(function(x){ x=x.trim(); if(x&&set.indexOf(x)<0) set.push(x); }); }
   return set;
 }
-function hasOshi(ev){ return ev._perfList.some(function(p){ return favPerfs.has(p); }); }
-function oshiIn(ev){ return ev._perfList.filter(function(p){ return favPerfs.has(p); }); }
+/* 推しの照合（v104で検索側と統一）: 以前は登録名と出演者文字列の完全一致だけで、
+   表記ゆれ（別名・正式名）や「グループ登録↔メンバー名義の出演」「メンバー登録↔
+   グループ名義の出演」を拾えず、推しがいるのに「出演イベントがありません」に
+   なることがあった。候補選択の照合（exactMatch）と同仕様にそろえる:
+   登録名そのもの／同一プロフィール（別名・正式名）／グループとメンバーの相互展開 */
+var oshiExpCache=null, oshiExpKey="";
+function ensureOshiExpanded(){
+  var key=Array.from(favPerfs).sort().join("\u0001")+"|"+(profilesLoaded?Object.keys(artistProfiles).length:0);
+  if(oshiExpCache && oshiExpKey===key) return oshiExpCache;
+  var names=new Set(favPerfs), profs=new Set();
+  favPerfs.forEach(function(f){
+    var pr=artistProfileFor(f); if(pr) profs.add(pr);
+    groupMembers(f).forEach(function(m){ names.add(m); });
+    groupsOfMember(f).forEach(function(g){ names.add(g); });
+  });
+  Object.keys(artistProfiles).forEach(function(k){
+    var pr=artistProfiles[k];
+    if(profs.has(pr)){ names.add(k); (pr.al||[]).forEach(function(a){ names.add(a); }); }
+  });
+  oshiExpCache={names:names, profs:profs}; oshiExpKey=key;
+  return oshiExpCache;
+}
+function oshiNameHit(p){
+  if(favPerfs.has(p)) return true;
+  var ex=ensureOshiExpanded();
+  if(ex.names.has(p)) return true;
+  var pr=artistProfileFor(p);
+  return !!(pr && ex.profs.has(pr));
+}
+function hasOshi(ev){ return (ev._perfList||[]).some(oshiNameHit); }
+function oshiIn(ev){ return (ev._perfList||[]).filter(oshiNameHit); }
+/* 1人の推しに絞った照合（推しタグをタップしたときの個別表示用） */
+function oshiFocusHit(ev, name){
+  return (ev._perfList||[]).some(function(p){
+    if(p===name) return true;
+    var pr=artistProfileFor(p), fr=artistProfileFor(name);
+    if(pr && fr && pr===fr) return true;
+    if(groupMembers(p).indexOf(name)>=0) return true;
+    if(groupMembers(name).indexOf(p)>=0) return true;
+    return false;
+  });
+}
+var oshiFocus=null;
 
 /* ---------- date / price helpers (スペース版と同仕様) ---------- */
 function todayStr(){
@@ -2474,6 +2553,7 @@ function filtered(){
     if(listSet && !listSet.has(String(ev.id))) return false;
     if(view==="fav" && !favEvents.has(String(ev.id))) return false;
     if(view==="oshi" && !hasOshi(ev)) return false;
+    if(view==="oshi" && oshiFocus && !oshiFocusHit(ev, oshiFocus)) return false;
     if(view==="christmas"){
       if(!isXmasEvent(ev)) return false;
       if(xmasSub!=="all"){
@@ -3676,7 +3756,9 @@ function renderDetailInner(){
 }
 function renderCountsOnly(){
   els.favCnt.textContent = favEvents.size? "("+favEvents.size+")":"";
-  var oshiCount = allEvents.filter(hasOshi).length;
+  /* タブの件数は一覧の見出しと揃える（v104）: 終了分は既定で一覧に出ないため、
+     以前の「終了込み」の数だと一覧より大きく出て一致しなかった */
+  var oshiCount = allEvents.filter(function(ev){ return hasOshi(ev) && (showEnded || !isEnded(ev)); }).length;
   /* 詳細（出演者）結合前の件数は不完全なため数として出さない（v53） */
   els.oshiCnt.textContent = favPerfs.size? ((detailsState==="merged"||detailsState==="failed") ? "("+oshiCount+")" : "（読み込み中）"):"";
   if(els.listsCnt) els.listsCnt.textContent = myLists.length? "("+myLists.length+")":"";
@@ -3751,10 +3833,14 @@ function wireCardImages(root){
 
 function renderOshiBar(){
   var list=Array.from(favPerfs);
+  if(oshiFocus && !favPerfs.has(oshiFocus)) oshiFocus=null;
   els.oshiBar.classList.toggle("show", view==="oshi");
   els.oshiEmpty.hidden = list.length>0;
+  /* タグの名前部分をタップすると、その推しだけの出演イベントに絞る（v104）。
+     もう一度タップで全員表示に戻る。✕は従来どおり解除 */
   els.oshiList.innerHTML = list.map(function(p){
-    return '<span class="oshi-tag">★ '+esc(p)+'<button type="button" data-unoshi="'+esc(p)+'" aria-label="'+esc(p)+' を推しから外す">✕</button></span>';
+    var on = oshiFocus===p;
+    return '<span class="oshi-tag'+(on?" on":"")+'"><button type="button" class="oshi-name" data-oshi-focus="'+esc(p)+'" aria-pressed="'+on+'">★ '+esc(p)+'</button><button type="button" data-unoshi="'+esc(p)+'" aria-label="'+esc(p)+' を推しから外す">✕</button></span>';
   }).join("");
 }
 
@@ -3884,7 +3970,7 @@ function renderInner(){
   renderActiveFilters();
   var endedHidden = showEnded ? 0 : allEvents.filter(function(ev){ return isEnded(ev); }).length;
   els.resultLine.innerHTML = "<strong>"+list.length.toLocaleString()+"件</strong> のイベント（全"+allEvents.length.toLocaleString()+"件中）"
-    + (view==="fav" ? "（お気に入り）" : view==="oshi" ? "（推しが出演）" : view==="expo" ? "（アフター万博特集）" : view==="christmas" ? "（クリスマス特集"+(xmasSub!=="all" ? "・"+esc((XMAS_SUBS.filter(function(s){ return s.k===xmasSub; })[0]||{}).label||"") : "")+"）" : "")
+    + (view==="fav" ? "（お気に入り）" : view==="oshi" ? (oshiFocus? "（推し："+esc(oshiFocus)+"）" : "（推しが出演）") : view==="expo" ? "（アフター万博特集）" : view==="christmas" ? "（クリスマス特集"+(xmasSub!=="all" ? "・"+esc((XMAS_SUBS.filter(function(s){ return s.k===xmasSub; })[0]||{}).label||"") : "")+"）" : "")
     + (view==="lists" ? "（"+(listPreset ? esc(presetLabel(listPreset))+"一覧" : "リスト"+(activeList()?"："+esc(activeList().name):""))+"）" : "")
     + (exactTarget ? " ・ 候補で選択中：「"+esc(exactTarget.value)+"」"+(exactTarget.kind==="eventTitle" ? "（タイトルに含む全件）" : "のみ表示") : (query.trim() ? " ・ 検索：「"+esc(query.trim())+"」"+(currentTicketUrlQuery()!=null ? "（チケットURLで検索中）" : "") : ""))
     + (activeCat!=="すべて" ? " ・ カテゴリ："+esc(activeCat) : "")
@@ -3906,7 +3992,14 @@ function renderInner(){
       else { els.emptyTitle.textContent="このリストに合うイベントがありません"; els.emptyText.textContent="検索・絞り込みの条件を外すか、イベント詳細の「＋ リスト」やアーティストページの「リストに追加」から追加してください。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
     }
     else if(view==="fav"){ els.emptyTitle.textContent="お気に入りはまだありません"; els.emptyText.textContent="カード右上の ♡ をタップすると、ここに集まります。"; }
-    else if(view==="oshi"){ els.emptyTitle.textContent="推しが出演するイベントがありません"; els.emptyText.textContent="イベント詳細で出演者名をタップすると推しに登録でき、ここにその出演イベントが表示されます。"; }
+    else if(view==="oshi"){
+      /* 出演者データ（詳細）の取得が終わっていない間は「ありません」と断定しない（v104）。
+         取得前は出演者欄が空で照合できないため、読み込み中／失敗をそのまま伝える */
+      if(detailsState==="pending" || detailsState==="none"){ els.emptyTitle.textContent="出演者情報を読み込み中です"; els.emptyText.textContent="読み込みが終わると、推しの出演イベントがここに表示されます。そのまま少しお待ちください。"; }
+      else if(detailsState==="failed"){ els.emptyTitle.textContent="出演者情報を読み込めませんでした"; els.emptyText.textContent="通信の状態を確認して、「再読み込み」でもう一度お試しください。推しの登録自体は消えていません。"; }
+      else if(oshiFocus){ els.emptyTitle.textContent="「"+oshiFocus+"」が出演するイベントがありません"; els.emptyText.textContent="上の推しタグをもう一度タップすると、推し全員の表示に戻ります。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
+      else { els.emptyTitle.textContent="推しが出演するイベントがありません"; els.emptyText.textContent="イベント詳細で出演者名をタップすると推しに登録でき、ここにその出演イベントが表示されます。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
+    }
     else if(view==="christmas"){ els.emptyTitle.textContent="この種類のクリスマスイベントはまだありません"; els.emptyText.textContent="種類チップを「すべて」に戻すか、検索・絞り込みを外してお試しください。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
     else if(view==="expo"){ els.emptyTitle.textContent="アフター万博特集のイベントはまだありません"; els.emptyText.textContent="検索・絞り込みを外すか、「終了したイベントも表示」をONにしてお試しください。"; }
     else if(currentTicketUrlQuery()!=null){
@@ -3986,6 +4079,7 @@ function renderPlan(){
   els.planEmpty.hidden = slots.length>0;
   document.getElementById("copyPlanBtn").disabled = slots.length===0;
   document.getElementById("icsBtn").disabled = slots.length===0;
+  document.getElementById("shioriBtn").disabled = slots.length===0;
   els.planBody.innerHTML = groupSlots(slots).map(function(g){
     var dayHtml = '<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>' + g.items.map(function(s){
       return '<button class="slot" type="button" data-open="'+esc(s.id)+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue)+vsChipHTML(s):"")+'</span></span><span class="tag '+(s.kind==="fav"?"tag-fav":"tag-oshi")+'">'+(s.kind==="fav"?"♥ お気に入り":"★ 推し")+'</span></button>';
@@ -4001,6 +4095,11 @@ function renderPlan(){
           var tm=h.startMin!=null? esc(minToTime(h.startMin)) : "出番から";
           return '<div class="plan-cand"><button type="button" class="plan-cand-main" data-open="'+esc(String(h.ev.id))+'"><span class="slot-time">'+tm+'</span><span class="slot-main"><span class="slot-act">'+esc(h.ev.title)+'</span><span class="slot-sub" style="display:block">'+esc(h.ev.venue||"")+' ・ '+esc(h.note)+'</span></span></button><button type="button" class="plan-cand-add" data-plan-add="'+esc(String(h.ev.id))+'">＋ 追加</button></div>';
         }).join("") + '<p class="plan-next-note">「追加」で ♥ お気に入りとしてプランに入ります</p></div>';
+      }
+      /* その日のプランを起点に、候補を全部見る入口（v104）。上の候補は抜粋で、
+         こちらは回せる現場ビューの判定（次の予定への帰着・時刻表つき）で開く */
+      if(g.date===todayStr()){
+        dayHtml += '<p style="margin-top:8px"><button type="button" class="btn-ghost" data-route-from="'+esc(String(last.ev.id))+'">この日のプランから回せる現場を全部見る</button></p>';
       }
     }
     return dayHtml + '</div>';
@@ -4039,6 +4138,123 @@ function buildICS(){
   out.push("END:VCALENDAR");
   return out.join("\r\n");
 }
+
+/* ---------- しおり用テキスト（v104） ----------
+   立てた回しプランを、GPT等のAIに渡して「たびのしおり」を作るための文面と、
+   画像生成で1枚にまとめやすいコンパクト文面を書き出す。どちらもシート内の
+   テキストエリアで自由に手直ししてからコピー／保存できる（プランは変えない） */
+function shioriTravelLine(prevEv, ev){
+  if(!prevEv || !ev || String(prevEv.id)===String(ev.id)) return "";
+  var tr=hopTravelMin(prevEv, ev);
+  if(tr==null) return "";
+  return tr===0? "　→ 同じ会場です" : "　→ 移動 約"+tr+"分（推定）";
+}
+function shioriTextAI(){
+  var groups=groupSlots(buildSlots());
+  var lines=[
+    "【お願い】",
+    "以下のイベント回しスケジュールをもとに、「たびのしおり」を作ってください。",
+    "・1日ごとに、時刻順に並べてください",
+    "・各イベントは「時刻／イベント名／会場／推しの出番」が一目で分かるようにしてください",
+    "・移動の目安時間も入れて、流れが追えるようにしてください",
+    "・全体は明るく読みやすいレイアウトでお願いします",
+    "（このお願い文は、好みに合わせて書き換えてください）",
+    "",
+    "【スケジュール】"
+  ];
+  groups.forEach(function(g){
+    lines.push("■ "+fmtDateFull(g.date));
+    var prevEv=null;
+    g.items.forEach(function(s){
+      var ev=s.ev;
+      var tl=shioriTravelLine(prevEv, ev); if(tl) lines.push(tl);
+      lines.push((s.time||"時間未定")+"　"+s.act);
+      if(ev){
+        if(s.act!==s.title) lines.push("　イベント："+s.title);
+        var place=(ev.venue||"")+(ev.vs? " "+ev.vs : "");
+        var vp=ev.venue? venueProfileFor(ev.venue) : null;
+        if(place) lines.push("　会場："+place+(vp&&vp.ad? "（"+vp.ad+"）":""));
+        var osh=oshiIn(ev);
+        if(osh.length) lines.push("　推し："+osh.join("、"));
+        if(ev.price) lines.push("　料金："+ev.price);
+        if(ev.linkTicket) lines.push("　チケット："+ev.linkTicket);
+        prevEv=ev;
+      }
+      lines.push("");
+    });
+  });
+  return lines.join("\n").replace(/\n+$/,"")+"\n";
+}
+function shioriTextCompact(){
+  var groups=groupSlots(buildSlots());
+  var lines=[
+    "【画像生成へのお願い】",
+    "次の回しスケジュールを、縦長1枚の「たびのしおり」画像にしてください。",
+    "文字は大きく読みやすく、1日＝1ブロックで、時刻・イベント名・会場・推しだけを載せてください。",
+    ""
+  ];
+  groups.forEach(function(g){
+    lines.push("■ "+fmtDateFull(g.date));
+    var prevEv=null;
+    g.items.forEach(function(s){
+      var ev=s.ev;
+      if(ev){
+        if(prevEv && String(prevEv.id)!==String(ev.id)){
+          var tr=hopTravelMin(prevEv, ev);
+          if(tr!=null && tr>0) lines.push("→ 移動"+tr+"分");
+        }
+        prevEv=ev;
+      }
+      var osh=ev? oshiIn(ev) : [];
+      lines.push((s.time||"時間未定")+" 『"+s.title+"』 @"+(s.venue||"")+(osh.length? " ★"+osh.join(" ★") : ""));
+    });
+    lines.push("");
+  });
+  return lines.join("\n").replace(/\n+$/,"")+"\n";
+}
+var shFmt="ai";
+var SH_NOTES={
+  ai:"GPTなどにそのまま貼ると、しおりの形に整えてもらえます。お願いの文面も含めてあります。",
+  img:"画像生成AIに渡す前提の短い文面です。1枚に収まるよう、情報は時刻・名前・会場・推しだけに絞ってあります。",
+  plain:"従来のプランのコピーと同じ文面です。"
+};
+function shRegen(){
+  var ta=document.getElementById("shText");
+  ta.value = shFmt==="ai"? shioriTextAI() : shFmt==="img"? shioriTextCompact() : planText();
+  document.getElementById("shNote").textContent=SH_NOTES[shFmt];
+  document.querySelectorAll("[data-sh-fmt]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-sh-fmt")===shFmt); });
+}
+function openShiori(){
+  shFmt="ai"; shRegen();
+  document.getElementById("shBackdrop").classList.remove("hidden");
+  document.getElementById("shSheet").classList.remove("hidden");
+}
+function closeShiori(){
+  document.getElementById("shBackdrop").classList.add("hidden");
+  document.getElementById("shSheet").classList.add("hidden");
+}
+document.getElementById("shioriBtn").addEventListener("click", openShiori);
+document.getElementById("shClose").addEventListener("click", closeShiori);
+document.getElementById("shBackdrop").addEventListener("click", closeShiori);
+document.querySelectorAll("[data-sh-fmt]").forEach(function(b){
+  b.addEventListener("click", function(){ shFmt=b.getAttribute("data-sh-fmt"); shRegen(); });
+});
+document.getElementById("shReset").addEventListener("click", shRegen);
+document.getElementById("shCopy").addEventListener("click", function(){
+  var text=document.getElementById("shText").value;
+  function done(){ toast("しおり用テキストをコピーしました"); }
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text); done(); }); }
+  else { fallbackCopy(text); done(); }
+});
+document.getElementById("shDl").addEventListener("click", function(){
+  var text=document.getElementById("shText").value;
+  var blob=new Blob([text], {type:"text/plain;charset=utf-8"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="tabi-shiori.txt";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+  toast("テキストファイルを保存しました");
+});
 
 /* ---------- modal ---------- */
 var currentEv=null;
@@ -4216,6 +4432,7 @@ function openModal(ev){
     + '<button class="mini-btn interest'+(isInt?" on":"")+'" type="button" id="modalInt">'+(isInt?"✓ 気になる":"気になる")+'</button>'
     + '<button class="mini-btn" type="button" id="modalShare">共有</button>'
     + '<button class="mini-btn" type="button" id="modalList">'+(inListsCount? "✓ リスト（"+inListsCount+"）" : "＋ リスト")+'</button>'
+    + ((ev.date===todayStr() && !isEnded(ev) && !/^【中止】/.test(ev.title||""))? '<button class="mini-btn" type="button" id="modalRoute">このイベントの後で回せる現場</button>' : '')
     + '</div>'
     + relatedEventsHTML(ev)
     + '<div class="modal-edit-row"><button class="modal-edit-btn" type="button" id="modalEdit">このイベントの修正を送る</button></div>'
@@ -4244,6 +4461,12 @@ function openModal(ev){
     else { toast("このブラウザでは共有できません"); }
   });
   document.getElementById("modalList").addEventListener("click", function(){ openListPicker("event", String(ev.id)); });
+  /* 見ているイベントを起点に回せる現場へ（v104）。起点の基準時刻はこの公演の終了時刻 */
+  var modalRouteBtn=document.getElementById("modalRoute");
+  if(modalRouteBtn) modalRouteBtn.addEventListener("click", function(){
+    if(!rfSetOriginFromEvent(ev)){ toast("時刻が分からないイベントは起点にできません"); return; }
+    closeModal(); view="routefit"; render(); window.scrollTo(0,0);
+  });
   document.getElementById("modalEdit").addEventListener("click", function(){
     var id=String(ev.id);
     closeModal();
@@ -5777,10 +6000,21 @@ if(els.expoBanner){
   });
 }
 els.oshiList.addEventListener("click", function(e){
+  var f=e.target.closest("[data-oshi-focus]");
+  if(f){ var n=f.getAttribute("data-oshi-focus"); oshiFocus = (oshiFocus===n)? null : n; render(); return; }
   var b=e.target.closest("[data-unoshi]"); if(!b) return;
   favPerfs.delete(b.getAttribute("data-unoshi")); saveSet(LS_OSHI, favPerfs); toast("推しから外しました"); render();
 });
 els.planBody.addEventListener("click", function(e){
+  var rf=e.target.closest("[data-route-from]");
+  if(rf){
+    var evR=allEvents.find(function(x){ return String(x.id)===rf.getAttribute("data-route-from"); });
+    if(evR){
+      if(rfSetOriginFromEvent(evR)){ view="routefit"; render(); window.scrollTo(0,0); }
+      else toast("時刻が分からないイベントは起点にできません");
+    }
+    return;
+  }
   var ad=e.target.closest("[data-plan-add]");
   if(ad){ toggleFav(ad.getAttribute("data-plan-add")); render(); return; }
   var b=e.target.closest("[data-open]"); if(!b) return;
@@ -6346,7 +6580,37 @@ function mergeDetails(events, detEvents){
    判定はすべて端末内の決定的計算（トークン不要）。移動時間は直線距離からの
    推定で、実際の経路・時刻表は Google マップ／Yahoo!乗換案内へ委任する。
    現在地は端末内だけで使い、保存・送信しない */
-var rfOrigin=null, rfOriginKey="", rfCat="すべて";
+var rfOrigin=null, rfOriginKey="", rfCat="すべて", rfOriginTouched=false;
+/* イベントを回せる現場の起点にする共通処理（プルダウン／詳細／プランで共用、v104）。
+   基準時刻はその公演の終了時刻（未定なら開始＋60分）。時刻が無い公演は起点にできない */
+function rfSetOriginFromEvent(ev){
+  if(!ev) return false;
+  var base=ev.endMin!=null? ev.endMin : (ev.startMin!=null? ev.startMin+60 : null);
+  if(base==null) return false;
+  var evp=venueProfileFor(ev.venue);
+  rfOrigin={kind:"event", label:ev.title, evId:ev.id, baseMin:base, lat:(evp&&evp.lt)?evp.lt:null, lng:(evp&&evp.lg)?evp.lg:null};
+  rfOriginKey="e:"+String(ev.id);
+  return true;
+}
+/* 今日の回しプラン（お気に入り＋推し出演の予定）をプラン順に並べたもの（v104） */
+function rfTodayPlanList(){
+  var t=todayStr(), seen={}, out=[];
+  buildSlots().forEach(function(s){
+    if(s.date!==t || !s.ev) return;
+    var k=String(s.ev.id); if(seen[k]) return; seen[k]=1;
+    out.push({ev:s.ev, startMin:(s.startMin!=null? s.startMin : s.ev.startMin)});
+  });
+  return out;
+}
+/* 起点にしたプラン予定の「次の予定」（帰着判定用、v104） */
+function rfNextPlanAfter(evId){
+  var pl=rfTodayPlanList(), idx=-1;
+  pl.forEach(function(p,i){ if(String(p.ev.id)===String(evId)) idx=i; });
+  if(idx<0 || idx>=pl.length-1) return null;
+  var nx=pl[idx+1];
+  if(nx.startMin==null) return null;
+  return {ev:nx.ev, startMin:nx.startMin};
+}
 function rfNowMin(){ var d=new Date(); return d.getHours()*60+d.getMinutes(); }
 function rfTodayEvents(){
   var t=todayStr();
@@ -6407,6 +6671,12 @@ function rfBuildControls(){
     vlist.forEach(function(vp){ html+='<option value="v:'+esc(vp._key)+'">'+esc(vp.n||vp._key)+'</option>'; });
     html+='</optgroup>';
   }
+  var planList=rfTodayPlanList();
+  if(planList.length){
+    html+='<optgroup label="今日の回しプランから">';
+    planList.forEach(function(p){ var ev=p.ev; html+='<option value="e:'+esc(String(ev.id))+'">★/♥ '+esc(ev.title)+"（"+(ev.endMin!=null? "終了 "+minToTime(ev.endMin) : "開始 "+minToTime(ev.startMin))+"）"+'</option>'; });
+    html+='</optgroup>';
+  }
   var withTime=evs.filter(function(ev){ return ev.endMin!=null || ev.startMin!=null; });
   withTime.sort(function(a,b){ var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
   if(withTime.length){
@@ -6424,14 +6694,27 @@ function rfBuildControls(){
 }
 function renderRouteFit(){
   rfBuildControls();
+  /* 既定の起点（v104）: 起点をまだ選んでいない状態で開いたら、今日の回しプランが
+     あれば「いまの予定の続き」を自動で起点にする（開催中の予定→次の予定→
+     最後の予定）。プルダウンで明示的に選び直した後は自動で上書きしない */
+  if(!rfOriginTouched && !rfOrigin && !rfOriginKey){
+    var plA=rfTodayPlanList(), nowA=rfNowMin(), pick=null;
+    for(var iA=0;iA<plA.length;iA++){ var eA=plA[iA].ev; if(eA.startMin!=null && eA.startMin<=nowA && (eA.endMin==null || eA.endMin>nowA)){ pick=eA; break; } }
+    if(!pick){ for(var jA=0;jA<plA.length;jA++){ if(plA[jA].startMin!=null && plA[jA].startMin>nowA){ pick=plA[jA].ev; break; } } }
+    if(!pick && plA.length) pick=plA[plA.length-1].ev;
+    if(pick) rfSetOriginFromEvent(pick);
+  }
   var nowMin=rfNowMin();
   var origin=rfOrigin, baseMin=nowMin;
   if(origin && origin.kind==="event" && origin.baseMin!=null) baseMin=origin.baseMin;
+  /* 起点がプランの予定なら、その次の予定への帰着も判定する（v104） */
+  var planNext=(origin && origin.kind==="event")? rfNextPlanAfter(origin.evId) : null;
   var maxTravel=parseInt(els.rfMaxSel.value,10)||0;
   var freeOnly=els.rfFreeChk.checked;
   els.rfOriginInfo.textContent = !profilesLoaded ? "会場データを読み込み中です（距離判定は読み込み後に有効になります）。"
     : origin ? ("起点："+origin.label+"／基準時刻 "+minToTime(baseMin)+"（移動時間は推定です）")
     : "起点なし：時刻だけで判定しています。GPSか起点を選ぶと移動時間も加味します。";
+  if(planNext) els.rfOriginInfo.textContent += "／次の予定「"+planNext.ev.title+"」（"+minToTime(planNext.startMin)+"開始）までに戻れるかも判定しています。";
   /* グループ分けはスペース版ガイドの回せる現場と同一（2026-11-23 統一）：
      「間に合う・途中から行ける（推定）」「開催中（終了時刻不明）」「距離不明」
      「時間未確認のため判定不可」。間に合う/途中からの区別はカードのラベルで示す */
@@ -6503,6 +6786,38 @@ function renderRouteFit(){
   reachList.sort(function(a,b){ return a.sortKey-b.sortKey; });
   unknownEndList.sort(function(a,b){ return a.sortKey-b.sortKey; });
   noCoordList.sort(function(a,b){ var as=a.ev.startMin==null?99999:a.ev.startMin, bs=b.ev.startMin==null?99999:b.ev.startMin; return as-bs; });
+  /* 次の予定への帰着判定（v104）: 候補の終了＋戻りの移動時間が次の予定の
+     開始に間に合うか。座標が無い組は判定せず、注記も付けない */
+  if(planNext){
+    var npVp=venueProfileFor(planNext.ev.venue);
+    [reachList, unknownEndList, noCoordList].forEach(function(list){
+      list.forEach(function(rec){
+        var cEnd=rec.ev.endMin!=null? rec.ev.endMin : (rec.ev.startMin!=null? rec.ev.startMin+120 : null);
+        if(cEnd==null) return;
+        var back=null;
+        if(rec.vp && rec.vp.lt && rec.vp.lg && npVp && npVp.lt && npVp.lg) back=rfTravelMin(rfHaversineKm(rec.vp.lt, rec.vp.lg, npVp.lt, npVp.lg));
+        if(back==null) return;
+        rec.planOk = (cEnd+back<=planNext.startMin);
+        rec.planNote = rec.planOk
+          ? "次の予定「"+planNext.ev.title+"」（"+minToTime(planNext.startMin)+"開始）までに戻れる見込み"
+          : "次の予定「"+planNext.ev.title+"」（"+minToTime(planNext.startMin)+"開始）には間に合わない可能性";
+      });
+    });
+  }
+  /* 候補の時刻表をその場で確認できるよう、説明JSONの行を小さく添える（v104） */
+  function ttHTML(ev){
+    var d=parseDesc(ev.description);
+    if(!d || !d.rows || !d.rows.length) return "";
+    var rows=d.rows.map(function(r){ return descRowParts(r); }).filter(function(rp){ return rp.time || rp.text || rp.label; });
+    if(!rows.length) return "";
+    var show=rows.slice(0,8), h='<div class="rf-tt"><div class="rf-tt-h">タイムテーブル</div>';
+    show.forEach(function(rp){
+      var act=((rp.label&&rp.text)?(rp.label+" "+rp.text):(rp.text||rp.label||"")).trim();
+      h+='<div class="rf-tt-row"><span class="rf-tt-time">'+esc(rp.time||"")+'</span><span>'+esc(act)+'</span></div>';
+    });
+    if(rows.length>show.length) h+='<div class="rf-tt-more">ほか '+(rows.length-show.length)+' 行（タップで詳細表示）</div>';
+    return h+'</div>';
+  }
   function rowHTML(rec, badgeCls){
     var ev=rec.ev;
     var showEnd=(ev.endMin!=null && (ev.startMin==null || ev.endMin>ev.startMin));
@@ -6515,6 +6830,8 @@ function renderRouteFit(){
       +'<span class="rf-title">'+esc(ev.title)+'</span>'
       +'<div class="rf-meta">'+esc(meta)+'</div>'
       +(rec.slot? '<div class="rf-slot">'+esc(rec.slot)+'</div>' : "")
+      +(rec.planNote? '<div class="rf-plan'+(rec.planOk?"":" warn")+'">'+esc(rec.planNote)+'</div>' : "")
+      + ttHTML(ev)
       +'<div class="rf-links"><a href="'+esc(maps)+'" target="_blank" rel="noopener">Googleマップで経路</a>'
       +(yahoo? '<a href="'+esc(yahoo)+'" target="_blank" rel="noopener">Yahoo!乗換案内</a>' : "")
       +'</div></article>';
@@ -6546,6 +6863,7 @@ els.rfGpsBtn.addEventListener("click", function(){
 });
 els.rfOriginSel.addEventListener("change", function(){
   var v=els.rfOriginSel.value;
+  rfOriginTouched=true;
   rfOriginKey=v;
   if(!v){ rfOrigin=null; render(); return; }
   if(v==="gps"){ render(); return; }
@@ -6557,12 +6875,7 @@ els.rfOriginSel.addEventListener("change", function(){
   }
   if(v.indexOf("e:")===0){
     var ev=allEvents.find(function(x){ return String(x.id)===v.slice(2); });
-    if(ev){
-      var base=ev.endMin!=null? ev.endMin : (ev.startMin!=null? ev.startMin+60 : null);
-      if(base==null){ toast("時刻が分からないイベントは起点にできません"); rfOrigin=null; rfOriginKey=""; render(); return; }
-      var evp=venueProfileFor(ev.venue);
-      rfOrigin={kind:"event", label:ev.title, evId:ev.id, baseMin:base, lat:(evp&&evp.lt)?evp.lt:null, lng:(evp&&evp.lg)?evp.lg:null};
-    }
+    if(ev && !rfSetOriginFromEvent(ev)){ toast("時刻が分からないイベントは起点にできません"); rfOrigin=null; rfOriginKey=""; }
     render();
   }
 });
