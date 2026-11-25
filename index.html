@@ -447,8 +447,7 @@
   .rel-note{font-size:11.5px;font-weight:700;color:var(--accent)}
   .plan-next{margin:10px 0 4px;border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
   .plan-next-label{font-size:12.5px;font-weight:800;color:var(--muted);margin-bottom:2px}
-  .plan-cand-sec{margin-top:20px;border-top:1px solid var(--line);padding-top:12px}
-  .plan-cand-h{font-size:15px;margin:0 0 4px}
+  .tag-conf{background:#b3261e;color:#fff}
   .plan-cand{display:flex;align-items:stretch;gap:8px;margin-top:6px}
   .plan-cand-main{flex:1;display:flex;gap:10px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;color:inherit;min-width:0}
   .plan-cand-add{flex:none;border-radius:10px;border:1.5px solid var(--accent);color:var(--accent);background:var(--surface);font-weight:800;padding:0 14px;cursor:pointer;min-height:44px}
@@ -900,7 +899,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v117';
+  window.__kgShell='v118';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1258,7 +1257,7 @@
     <div id="planBody"></div>
     <div id="planEmpty" class="state" hidden="">
       <h2>プランに入れる予定がまだありません</h2>
-      <p>イベントカードの ♥ でお気に入りに追加するか、詳細から出演者を推しに登録すると、その出演時刻がここに並びます。</p>
+      <p>イベントの詳細で「＋ 回しプラン」を押した予定だけが、ここに並びます。お気に入りや推しは候補であって、プランには入りません。</p>
       <p><button class="btn-ghost" id="planFindBtn" type="button">現在地・出発地から「回せる現場」を探す</button></p>
     </div>
   </section>
@@ -4171,17 +4170,6 @@ function buildPlanSlots(){
   slots.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
   return slots;
 }
-function planCandHTML(){
-  var auto=buildSlots().filter(function(s){ return !planIds.has(String(s.id)); });
-  if(!auto.length) return "";
-  var h='<div class="plan-cand-sec"><h3 class="plan-cand-h">候補（推し・お気に入りの今後の予定）</h3><p class="plan-next-note">プランに入れたい予定だけ「追加」してください。追加した分だけが回しプランになります。</p>';
-  groupSlots(auto).slice(0,14).forEach(function(g){
-    h+='<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>'+g.items.map(function(s){
-      return '<div class="plan-cand"><button type="button" class="plan-cand-main" data-open="'+esc(String(s.id))+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue):"")+'</span></span></button><button type="button" class="plan-cand-add" data-plan-add="'+esc(String(s.id))+'">＋ 追加</button></div>';
-    }).join("")+'</div>';
-  });
-  return h+'</div>';
-}
 function renderPlan(){
   var slots=buildPlanSlots();
   els.planEmpty.hidden = slots.length>0;
@@ -4189,21 +4177,15 @@ function renderPlan(){
   document.getElementById("icsBtn").disabled = slots.length===0;
   document.getElementById("shioriBtn").disabled = slots.length===0;
   els.planBody.innerHTML = groupSlots(slots).map(function(g){
-    var dayHtml = '<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>' + g.items.map(function(s){
-      return '<button class="slot" type="button" data-open="'+esc(s.id)+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue)+vsChipHTML(s):"")+'</span></span><span class="tag '+(s.kind==="fav"||s.kind==="plan"?"tag-fav":"tag-oshi")+'">'+(s.kind==="plan"?"✓ プラン":(s.kind==="fav"?"♥ お気に入り":"★ 推し"))+'</span></button>';
+    var conf={}; g.items.forEach(function(a,ai){ var as=a.startMin, ae=(a.ev&&a.ev.endMin!=null)?a.ev.endMin:(as!=null?as+120:null); if(as==null||ae==null) return; g.items.forEach(function(b,bi){ if(ai===bi) return; var bs=b.startMin, be=(b.ev&&b.ev.endMin!=null)?b.ev.endMin:(bs!=null?bs+120:null); if(bs==null||be==null) return; if(as<be && bs<ae){ conf[ai]=1; conf[bi]=1; } }); });
+    var dayHtml = '<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>' + g.items.map(function(s, si){
+      return '<button class="slot" type="button" data-open="'+esc(s.id)+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue)+vsChipHTML(s):"")+'</span></span><span class="tag '+(s.kind==="fav"||s.kind==="plan"?"tag-fav":"tag-oshi")+'">'+(s.kind==="plan"?"✓ プラン":(s.kind==="fav"?"♥ お気に入り":"★ 推し"))+'</span>'+(conf[si]? '<span class="tag tag-conf">⚠ 時間が重なっています</span>' : '')+'</button>';
     }).join("");
     /* その日の最後の予定から、移動込みで回せる候補を静かに出す（v76）。
        知らない・見落としている公演の発見と、そのままプランへの追加のため */
     var last=g.items[g.items.length-1];
     if(last && last.ev){
       var baseEnd=(last.ev.endMin!=null)? last.ev.endMin : (last.startMin!=null? last.startMin+120 : null);
-      var hops=hopCandidates(last.ev, baseEnd, 6).filter(function(h){ return !planIds.has(String(h.ev.id)); }).slice(0,3);
-      if(hops.length){
-        dayHtml += '<div class="plan-next"><div class="plan-next-label">このあと回せる候補（移動時間は推定）</div>' + hops.map(function(h){
-          var tm=h.startMin!=null? esc(minToTime(h.startMin)) : "出番から";
-          return '<div class="plan-cand"><button type="button" class="plan-cand-main" data-open="'+esc(String(h.ev.id))+'"><span class="slot-time">'+tm+'</span><span class="slot-main"><span class="slot-act">'+esc(h.ev.title)+'</span><span class="slot-sub" style="display:block">'+esc(h.ev.venue||"")+' ・ '+esc(h.note)+'</span></span></button><button type="button" class="plan-cand-add" data-plan-add="'+esc(String(h.ev.id))+'">＋ 追加</button></div>';
-        }).join("") + '<p class="plan-next-note">「追加」で回しプランに入ります</p></div>';
-      }
       /* その日のプランを起点に、候補を全部見る入口（v104）。上の候補は抜粋で、
          こちらは回せる現場ビューの判定（次の予定への帰着・時刻表つき）で開く */
       if(g.date===todayStr()){
@@ -4212,8 +4194,6 @@ function renderPlan(){
     }
     return dayHtml + '</div>';
   }).join("");
-  var cand=planCandHTML();
-  if(cand) els.planBody.innerHTML+=cand;
 }
 function planText(){
   var slots=buildPlanSlots();
