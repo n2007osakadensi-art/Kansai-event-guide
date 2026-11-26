@@ -1010,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v180';
+  window.__kgShell='v181';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -6257,6 +6257,10 @@ function renderHomeExtras(){
   /* 検索中は検索結果だけを表示する（Kota指示 2026-11-23）：
      キーワードが入っている間は おすすめ棚・ジャンル提案・アンケートCTA を出さない */
   var isHome = view==="all" && !(query||"").trim();
+  /* 検索中は3つの棚を必ず隠す（Kota指示 2026-11-26、スペース版と挙動を揃える）：
+     検索語が入っている／候補で選択中のあいだは、おすすめ・関心ランキング・
+     おすすめフォローを他の条件に関わらず出さない。クリアすれば元の表示に戻る */
+  var searching = !!(query||"").trim() || !!exactTarget;
   /* CTAは「未回答」だけでなく「スキップ済みでも未選択」の間も出し続け、
      アンケートへの入口が消えないようにする。選択が1つでもあれば消える */
   if(els.prefsCta){
@@ -6289,7 +6293,7 @@ function renderHomeExtras(){
     /* おすすめ棚は「トップページの初期表示」だけ（Kota指示 2026-11-24）：
        検索中・カテゴリ選択中（チップ／絞り込みパネル）・特集など他のビューでは出さない。
        さらに設定でオフにしている端末では常時出さない */
-    var showShelf = isHome && activeCat==="すべて" && selCats.size===0 && !prefs.recoOff && (hasPrefSelection() || learnTotal()>0);
+    var showShelf = isHome && !searching && activeCat==="すべて" && selCats.size===0 && !prefs.recoOff && (hasPrefSelection() || learnTotal()>0);
     els.recoShelf.classList.toggle("hidden", !showShelf);
     if(showShelf){
       var recos=allEvents.filter(function(ev){ return !isEnded(ev); })
@@ -6319,7 +6323,7 @@ function renderHomeExtras(){
   if(els.rankShelf){
     /* 関心ランキングもトップページの初期表示だけ（おすすめ棚と同じ条件）。
        表示オフ設定（recoOff）でも消える。信号のあるイベントが3件未満なら出さない */
-    var showRank = isHome && activeCat==="すべて" && selCats.size===0 && !prefs.recoOff;
+    var showRank = isHome && !searching && activeCat==="すべて" && selCats.size===0 && !prefs.recoOff;
     var ranked=[];
     if(showRank){
       ranked=allEvents.filter(function(ev){ return !isEnded(ev); })
@@ -6341,7 +6345,7 @@ function renderHomeExtras(){
   }
   if(els.followShelf){
     /* おすすめフォローもトップページの初期表示だけ（おすすめ棚と同じ条件・同じオフ設定） */
-    var showFollow = isHome && activeCat==="すべて" && selCats.size===0 && !prefs.recoOff;
+    var showFollow = isHome && !searching && activeCat==="すべて" && selCats.size===0 && !prefs.recoOff;
     var sugs = showFollow ? buildFollowSuggestions() : [];
     showFollow = showFollow && sugs.length>=3;
     els.followShelf.classList.toggle("hidden", !showFollow);
