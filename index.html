@@ -1004,7 +1004,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v177';
+  window.__kgShell='v178';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4822,6 +4822,28 @@ function relatedEventsHTML(ev){
   function take(list){ var out=[]; list.forEach(function(e2){ var k=String(e2.id); if(!used[k]){ used[k]=1; out.push(e2); } }); return out; }
   var structured=relatedEventsOf(ev);
   if(structured.length) axes.push({label:"同時開催・関連イベント", list:take(structured), total:structured.length});
+  /* 同じ会場の他の開催（v178、Kota仕様）：会場キーの完全一致で自動生成する
+     （relatedEventIdsとは別仕組み・登録不要）。同日（開始時刻順）を先頭に、
+     続いて日付の近い順。最大10件。行には施設内スペース（vs）を出す */
+  if(ev.venue){
+    function dayNum(ds){ var p=String(ds||"").split("-"); return p.length===3? Math.floor(Date.UTC(+p[0],+p[1]-1,+p[2])/86400000) : 0; }
+    var svAll=allEvents.filter(function(e2){ return String(e2.id)!==selfId && (e2.venue||"")===ev.venue; });
+    if(svAll.length){
+      var baseDay=dayNum(ev.date);
+      svAll.sort(function(a,b){
+        var ad=a.date===ev.date?0:1, bd=b.date===ev.date?0:1;
+        if(ad!==bd) return ad-bd;
+        var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin;
+        if(ad===0) return as-bs;
+        var da=Math.abs(dayNum(a.date)-baseDay), db=Math.abs(dayNum(b.date)-baseDay);
+        if(da!==db) return da-db;
+        if(a.date!==b.date) return a.date<b.date?-1:1;
+        return as-bs;
+      });
+      var svt=take(svAll);
+      if(svt.length) axes.push({label:"同じ会場の他の開催", list:svt, total:svAll.length, max:10, venueMode:true});
+    }
+  }
   var bk=episodeBaseKey(ev.title);
   var series=allEvents.filter(function(e2){ return String(e2.id)!==selfId && episodeBaseKey(e2.title)===bk; }).sort(byDateAsc);
   if(series.length) axes.push({label:"他の開催日", list:take(series), total:series.length});
@@ -4871,10 +4893,11 @@ function relatedEventsHTML(ev){
   var html='<h3 style="margin:20px 0 8px;font-size:15px">関連イベント</h3>';
   axes.forEach(function(ax){
     html+='<div class="rel-axis"><div class="rel-label">'+esc(ax.label)+(ax.total>ax.list.length?'（全'+ax.total+'件）':'')+'</div>';
-    html+=ax.list.slice(0,5).map(function(e2){
+    html+=ax.list.slice(0, ax.max||5).map(function(e2){
       var tm=e2.startMin!=null? ' '+esc(minToTime(e2.startMin))+(ax.range&&e2.endMin!=null&&e2.endMin>e2.startMin?'–'+esc(minToTime(e2.endMin)):'') : '';
       var rnote=(ax.notes && ax.notes[String(e2.id)])? '<span class="rel-note">'+esc(ax.notes[String(e2.id)])+'</span>' : '';
-      return '<button type="button" class="rel-row" data-rel-id="'+esc(String(e2.id))+'"><span class="rel-date">'+esc(fmtDate(e2.date))+tm+'</span><span class="rel-title">'+esc(e2.title)+'</span><span class="rel-venue">'+esc(e2.venue||"")+'</span>'+rnote+'</button>';
+      var vspan=ax.venueMode? (e2.vs? '<span class="rel-venue">'+esc(e2.vs)+'</span>' : '') : '<span class="rel-venue">'+esc(e2.venue||"")+'</span>';
+      return '<button type="button" class="rel-row" data-rel-id="'+esc(String(e2.id))+'"><span class="rel-date">'+esc(fmtDate(e2.date))+tm+'</span><span class="rel-title">'+esc(e2.title)+'</span>'+vspan+rnote+'</button>';
     }).join("");
     if(ax.org) html+='<button type="button" class="rel-row" data-org-open="'+esc(ax.org)+'"><span class="rel-title">主催「'+esc(ax.org)+'」の全スケジュールを見る →</span></button>';
     html+='</div>';

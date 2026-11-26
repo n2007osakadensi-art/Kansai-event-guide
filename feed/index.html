@@ -1798,6 +1798,23 @@ function openFeedDetail(ev){
   if(ev.linkInstagram) links.push(["Instagram", ev.linkInstagram]);
   var perfs=ev._perfList||[];
   var relFeed=relatedEventsOf(ev);
+  var svFeed=(ev.venue? allEvents.filter(function(e2){ return String(e2.id)!==String(ev.id) && (e2.venue||"")===ev.venue; }) : []);
+  if(svFeed.length){
+    var fdn=function(ds){ var p=String(ds||"").split("-"); return p.length===3? Math.floor(Date.UTC(+p[0],+p[1]-1,+p[2])/86400000) : 0; };
+    var fbase=fdn(ev.date);
+    svFeed.sort(function(a,b){
+      var ad=a.date===ev.date?0:1, bd=b.date===ev.date?0:1;
+      if(ad!==bd) return ad-bd;
+      var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin;
+      if(ad===0) return as-bs;
+      var da=Math.abs(fdn(a.date)-fbase), db=Math.abs(fdn(b.date)-fbase);
+      if(da!==db) return da-db;
+      if(a.date!==b.date) return a.date<b.date?-1:1;
+      return as-bs;
+    });
+    svFeed=svFeed.slice(0,10);
+  }
+  var fmin=function(m){ return Math.floor(m/60)+":"+String(m%60).padStart(2,"0"); };
   var imgs=feedImageList(ev);
   var mediaHtml= imgs.length>=2
     ? '<div class="dt-gal" id="dtGal">'+imgs.map(function(u,i){ return '<img class="dt-gal-img" src="'+esc(u)+'" alt="" data-dimg="'+i+'" data-fbk="'+esc(ev.id)+':'+i+'" onerror="evImgErr(this)">'; }).join("")+'</div><div class="dt-gal-ui"><button type="button" class="dt-gal-nav" id="dtGalPrev" aria-label="前の画像">‹</button><span class="dt-gal-count" id="dtGalCount">1/'+imgs.length+'</span><button type="button" class="dt-gal-nav" id="dtGalNext" aria-label="次の画像">›</button></div>'
@@ -1811,6 +1828,7 @@ function openFeedDetail(ev){
     + (perfs.length? '<div class="dt-sec">出演者</div><div>'+perfs.map(function(p){ return '<button type="button" class="dt-prof" data-fprof="artist" data-fname="'+esc(p)+'">'+esc(p)+'</button>'; }).join("")+'</div>' : (ev.performersNone? '<div class="dt-sec">出演者</div><div>出演者なし</div>' : ''))
     + (ev.organizerName? '<div class="dt-sec">主催</div><div><button type="button" class="dt-prof" data-fprof="organizer" data-fname="'+esc(ev.organizerName)+'">'+esc(ev.organizerName)+'</button></div>' : '')
     + (relFeed.length? '<div class="dt-sec">同時開催・関連イベント</div><div>'+relFeed.map(function(e2){ return '<button type="button" class="dt-rel" data-frel="'+esc(String(e2.id))+'">'+esc(e2.title)+'<span class="dt-rel-sub">'+esc(fmtDate(e2.date))+(e2.venue? '　'+esc(e2.venue) : '')+'</span></button>'; }).join("")+'</div>' : '')
+    + (svFeed.length? '<div class="dt-sec">同じ会場の他の開催</div><div>'+svFeed.map(function(e2){ return '<button type="button" class="dt-rel" data-frel="'+esc(String(e2.id))+'">'+esc(e2.title)+'<span class="dt-rel-sub">'+esc(fmtDate(e2.date))+(e2.startMin!=null? ' '+esc(fmin(e2.startMin)) : '')+(feedVsOf(e2)? '　'+esc(feedVsOf(e2)) : '')+'</span></button>'; }).join("")+'</div>' : '')
     + (ev.description? '<div class="dt-sec">詳細</div><div class="dt-text pre">'+esc(ev.description)+'</div>' : '')
     + (links.length? '<div class="dt-links">'+links.map(function(l){ return '<a href="'+esc(l[1])+'" target="_blank" rel="noopener">'+esc(l[0])+'</a>'; }).join("")+'</div>' : '')
     + '<div class="dt-acts">'+actBtn("fav", favEvents, "♥", "お気に入り")+actBtn("want", wantEvents, "✓", "行きたい")+actBtn("int", intEvents, "●", "気になる")+'</div>';
