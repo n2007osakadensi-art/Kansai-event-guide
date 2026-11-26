@@ -99,6 +99,8 @@
     field('追加の会場（1行に1会場、複数会場のとき）', '<textarea id="ke-venues"></textarea>') +
     sec('出演者') +
     field('出演者（1行に1組。まとめて貼って「一括分割」も使えます）', '<textarea id="ke-performers"></textarea>') +
+    '<label class="chk"><input id="ke-perf-none" type="checkbox"> 出演者なし確定（ゲスト出演・ステージイベントがない）</label>' +
+    '<p class="mini" id="ke-perf-none-note" style="display:none">出演者なし確定中は、出演者を入力できません。ステージやゲストがある場合は、このチェックを外す（解除）と入力できるようになります。</p>' +
     '<p><button id="ke-split" type="button">一括分割（改行・、・／・｜などで区切る）</button></p>' +
     '<div id="ke-perf-preview" class="mini"></div>' +
     sec('カテゴリ') +
@@ -413,6 +415,16 @@
     $('ke-perf-preview').textContent = list.length ? '出演者 ' + list.length + '組：' + list.join(' / ') : '';
   }
   $('ke-performers').addEventListener('input', perfPreview);
+  /* 出演者なし確定（本体ガイドと同仕様）: チェック中は出演者入力をロックする。
+     チェックを外す＝解除で、その場で出演者を入力・登録できる */
+  function applyPerfNoneLock() {
+    var on = $('ke-perf-none').checked;
+    $('ke-performers').disabled = on;
+    var sp = $('ke-split'); if (sp) sp.disabled = on;
+    var note = $('ke-perf-none-note'); if (note) note.style.display = on ? '' : 'none';
+    if (on) { $('ke-perf-preview').textContent = ''; } else { perfPreview(); }
+  }
+  $('ke-perf-none').addEventListener('change', applyPerfNoneLock);
   /* 画像URLプレビュー: 貼ったURLの画像をその場で表示し、読み込めないURLは知らせる */
   function escA(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
   var imgPrevTimer = null;
@@ -603,7 +615,8 @@
     var perfs = ev.performers;
     if (typeof perfs === 'string') perfs = perfs ? perfs.split(/[、,]/).map(function (s) { return s.trim(); }).filter(Boolean) : [];
     setLines('ke-performers', perfs || []);
-    perfPreview();
+    $('ke-perf-none').checked = !!ev.performersNone;
+    applyPerfNoneLock();
     var note = '';
     ttBox.innerHTML = '';
     try {
@@ -672,8 +685,8 @@
         timeLabel: payload.timeLabel || '', startMin: payload.startMin, endMin: payload.endMin,
         venue: payload.venue || '', venueSpaceNote: payload.venueSpaceNote || '',
         area: payload.area || '', prefecture: payload.prefecture || '',
-        category: payload.category || '', categories: (payload.categories || []).join('、'),
-        price: payload.price || '', performers: (payload.performers || []).join('、'),
+        category: payload.category || '', categories: [payload.category || ''].concat(payload.categories || []).filter(function (c) { return !!c; }).join('、'),
+        price: payload.price || '', performers: (payload.performers || []).join('、'), performersNone: !!payload.performersNone,
         description: descText, imageUrl: (payload.importImageUrls || [])[0] || '',
         linkWeb: payload.linkWeb || '', linkTicket: payload.linkTicket || '', linkX: payload.linkX || '', linkInstagram: payload.linkInstagram || '',
         organizerName: payload.organizerName || '', isFree: !!payload.isFree, priceClass: payload.priceClass || ''
@@ -732,7 +745,7 @@
       prefecture: $('ke-pref').value, area: $('ke-area').value.trim(),
       category: $('ke-category').value.trim(), categories: lines('ke-categories').filter(function (c) { return c !== $('ke-category').value.trim(); }), subCategories: lines('ke-subcategories'),
       price: $('ke-price').value.trim(), priceClass: priceClass, isFree: $('ke-isfree').checked,
-      performers: perfList(), timetableRows: sortTtRows(ttRows()), description: $('ke-desc').value.trim(),
+      performers: $('ke-perf-none').checked ? [] : perfList(), performersNone: $('ke-perf-none').checked, timetableRows: sortTtRows(ttRows()), description: $('ke-desc').value.trim(),
       descriptionUnchanged: ($('ke-kind').value === 'edit' && loadedEventId !== '' && !ttTouched && !noteTouched),
       organizerName: $('ke-organizer').value.trim(), organizerWeb: $('ke-orgweb').value.trim(), organizerX: $('ke-orgx').value.trim(), organizerInstagram: $('ke-orgig').value.trim(),
       linkWeb: $('ke-linkweb').value.trim(), linkTicket: $('ke-ticket').value.trim(), linkX: $('ke-linkx').value.trim(), linkInstagram: $('ke-linkig').value.trim(),
@@ -772,6 +785,7 @@
     $('ke-kind').value = 'new';
     $('ke-date').value = ''; $('ke-dateend').value = '';
     $('ke-isfree').checked = false; $('ke-collab').checked = false; $('ke-closed').checked = false;
+    $('ke-perf-none').checked = false; applyPerfNoneLock();
     $('ke-source').value = 'primary';
     if ($('ke-pick-list')) $('ke-pick-list').innerHTML = '';
     if ($('ke-perf-preview')) $('ke-perf-preview').textContent = '';

@@ -208,6 +208,16 @@
   .btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
   .plan-day{margin:0 0 20px}
   .plan-day h3{margin:0 0 8px;font-size:16px;border-left:5px solid var(--accent);padding-left:10px}
+  .plan-leg{font-size:12.5px;color:var(--muted);margin:-2px 0 8px 14px}
+  .plan-leg a{color:var(--accent);font-weight:700}
+  .muni-strip{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-top:12px}
+  .muni-emb{width:34px;height:34px;object-fit:contain;flex:none}
+  .muni-strip-main{flex:1;min-width:0}
+  .muni-strip-name{font-size:14.5px;font-weight:900;margin:0;line-height:1.3}
+  .muni-kind{font-size:11px;font-weight:700;color:var(--muted);margin-left:8px}
+  .muni-strip-stats{font-size:12px;color:var(--muted);margin:2px 0 0;line-height:1.5}
+  .muni-strip-link{font-size:12.5px;font-weight:700;color:var(--accent);white-space:nowrap}
+  .muni-note{font-size:10.5px;color:var(--muted);line-height:1.6;margin:6px 0 0}
   .slot{display:flex;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:8px;align-items:flex-start;text-align:left;width:100%;color:var(--ink)}
   .slot-time{flex:none;font-weight:800;font-size:14.5px;min-width:52px;color:var(--accent)}
   .slot-main{flex:1;min-width:0}
@@ -957,7 +967,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v164';
+  window.__kgShell='v174';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1452,6 +1462,16 @@
   </div>
   <div class="filter-scroll" id="filterScroll">
   <div class="fgroup">
+    <h3>テーマ・特別条件</h3>
+    <div class="fopts" id="themeOpts"></div>
+    <p class="fnotes">「無料のみ」はドリンク代もかからないイベントだけが対象です。入場無料でもドリンク代がかかるものは「ドリンク代のみ」で絞れます。</p>
+  </div>
+  <div class="fgroup">
+    <h3>カテゴリ（複数選択可）</h3>
+    <div class="fopts" id="catOpts"></div>
+    <p class="fnotes">上のカテゴリチップ（1つだけ選択）と組み合わせると、両方を満たすイベントだけが残ります。複数カテゴリで探したいときはこちらを使ってください。</p>
+  </div>
+  <div class="fgroup">
     <h3>期間</h3>
     <div class="fopts" id="periodOpts">
       <button type="button" class="fopt" data-period="all" aria-pressed="true">全期間</button>
@@ -1469,6 +1489,35 @@
     <p class="fnotes">日付を指定すると期間プリセットより優先されます。複数日イベントは会期が範囲に重なれば対象です。</p>
   </div>
   <div class="fgroup">
+    <h3>表示オプション</h3>
+    <div class="fopts">
+      <button type="button" class="fopt" id="hideLongBtn" aria-pressed="false">長期開催（7日以上）を隠す</button>
+      <button type="button" class="fopt" id="endedBtn" aria-pressed="false">終了したイベントも表示（OFF）</button>
+      <button type="button" class="fopt" id="ongoingOnlyBtn" aria-pressed="false">開催中のみ</button>
+      <button type="button" class="fopt" id="imgOnlyBtn" aria-pressed="false">画像ありのみ</button>
+      <button type="button" class="fopt" id="ticketOnlyBtn" aria-pressed="false">チケットリンクありのみ</button>
+      <button type="button" class="fopt" id="favOnlyBtn" aria-pressed="false">♥ お気に入りのみ</button>
+      <button type="button" class="fopt" id="wantOnlyBtn" aria-pressed="false">行きたいのみ</button>
+      <button type="button" class="fopt" id="intOnlyBtn" aria-pressed="false">気になるのみ</button>
+      <button type="button" class="fopt" id="oshiOnlyBtn" aria-pressed="false">★ 推し出演のみ</button>
+    </div>
+    <p class="fnotes">長期開催は通常、開催中バッジ付きで一覧に含まれます。「隠す」をONにするとすべてのリストと検索から除外されます。</p>
+  </div>
+  <div class="fgroup">
+    <h3>料金（複数選択可）</h3>
+    <div class="fopts" id="priceOpts"></div>
+    <p class="fnotes">料金区分は登録時の設定（無料フラグ・料金3区分）を正とし、設定がないものだけ料金テキストから判定します。判定できないものはどの区分にも含まれません。</p>
+  </div>
+  <div class="fgroup">
+    <h3>料金上限（1つだけ選択）</h3>
+    <div class="fopts" id="maxPriceOpts"></div>
+    <p class="fnotes">料金テキストから読み取れる一番安い有料額（無料は0円、ドリンク代のみはドリンク代の額）で判定します。料金が読み取れないイベントは対象外です。もう一度押すと解除されます。</p>
+  </div>
+  <div class="fgroup">
+    <h3>会期（複数選択可）</h3>
+    <div class="fopts" id="durOpts"></div>
+  </div>
+  <div class="fgroup">
     <h3>曜日（複数選択可）</h3>
     <div class="fopts" id="dowOpts"></div>
     <p class="fnotes">複数日イベントは、会期中にその曜日が含まれれば対象です。</p>
@@ -1476,6 +1525,11 @@
   <div class="fgroup">
     <h3>開始時間帯（複数選択可）</h3>
     <div class="fopts" id="timeOpts"></div>
+  </div>
+  <div class="fgroup">
+    <h3>会場ジャンル（複数選択可）</h3>
+    <div class="fopts" id="vgenreOpts"></div>
+    <p class="fnotes">会場DBに登録された施設ジャンルで絞ります（例：ライブハウスだけ、ホールだけ）。ジャンル未登録の会場は対象外です。</p>
   </div>
   <div class="fgroup">
     <h3>都道府県（複数選択可）</h3>
@@ -1503,50 +1557,6 @@
     <input class="fsearch" id="organizerSearch" type="search" placeholder="主催者名で候補を絞る" aria-label="主催者候補を絞る">
     <div class="fopts" id="organizerOpts"></div>
     <p class="fnotes">主催が登録されているイベントだけが候補に出ます。</p>
-  </div>
-  <div class="fgroup">
-    <h3>料金（複数選択可）</h3>
-    <div class="fopts" id="priceOpts"></div>
-    <p class="fnotes">料金区分は登録時の設定（無料フラグ・料金3区分）を正とし、設定がないものだけ料金テキストから判定します。判定できないものはどの区分にも含まれません。</p>
-  </div>
-  <div class="fgroup">
-    <h3>テーマ・特別条件</h3>
-    <div class="fopts" id="themeOpts"></div>
-    <p class="fnotes">「無料のみ」はドリンク代もかからないイベントだけが対象です。入場無料でもドリンク代がかかるものは「ドリンク代のみ」で絞れます。</p>
-  </div>
-  <div class="fgroup">
-    <h3>会期（複数選択可）</h3>
-    <div class="fopts" id="durOpts"></div>
-  </div>
-  <div class="fgroup">
-    <h3>表示オプション</h3>
-    <div class="fopts">
-      <button type="button" class="fopt" id="hideLongBtn" aria-pressed="false">長期開催（7日以上）を隠す</button>
-      <button type="button" class="fopt" id="endedBtn" aria-pressed="false">終了したイベントも表示（OFF）</button>
-      <button type="button" class="fopt" id="ongoingOnlyBtn" aria-pressed="false">開催中のみ</button>
-      <button type="button" class="fopt" id="imgOnlyBtn" aria-pressed="false">画像ありのみ</button>
-      <button type="button" class="fopt" id="ticketOnlyBtn" aria-pressed="false">チケットリンクありのみ</button>
-      <button type="button" class="fopt" id="favOnlyBtn" aria-pressed="false">♥ お気に入りのみ</button>
-      <button type="button" class="fopt" id="wantOnlyBtn" aria-pressed="false">行きたいのみ</button>
-      <button type="button" class="fopt" id="intOnlyBtn" aria-pressed="false">気になるのみ</button>
-      <button type="button" class="fopt" id="oshiOnlyBtn" aria-pressed="false">★ 推し出演のみ</button>
-    </div>
-    <p class="fnotes">長期開催は通常、開催中バッジ付きで一覧に含まれます。「隠す」をONにするとすべてのリストと検索から除外されます。</p>
-  </div>
-  <div class="fgroup">
-    <h3>カテゴリ（複数選択可）</h3>
-    <div class="fopts" id="catOpts"></div>
-    <p class="fnotes">上のカテゴリチップ（1つだけ選択）と組み合わせると、両方を満たすイベントだけが残ります。複数カテゴリで探したいときはこちらを使ってください。</p>
-  </div>
-  <div class="fgroup">
-    <h3>会場ジャンル（複数選択可）</h3>
-    <div class="fopts" id="vgenreOpts"></div>
-    <p class="fnotes">会場DBに登録された施設ジャンルで絞ります（例：ライブハウスだけ、ホールだけ）。ジャンル未登録の会場は対象外です。</p>
-  </div>
-  <div class="fgroup">
-    <h3>料金上限（1つだけ選択）</h3>
-    <div class="fopts" id="maxPriceOpts"></div>
-    <p class="fnotes">料金テキストから読み取れる一番安い有料額（無料は0円、ドリンク代のみはドリンク代の額）で判定します。料金が読み取れないイベントは対象外です。もう一度押すと解除されます。</p>
   </div>
   <div class="fgroup">
     <h3>リンク・掲載情報</h3>
@@ -1733,6 +1743,13 @@ function parseGvizObject(json){
     if(lk==="views") viewsIdx=idx[k];
     if(lk==="impressions") impIdx=idx[k];
   });
+  /* 出演者なし確定フラグ（シート列 performersNone・ヘッダー名で取得）。
+     列が無いタブ／旧データでは false（＝未確定。空欄は従来どおり未調査扱い） */
+  var pnIdx=null;
+  Object.keys(idx).forEach(function(k){ if(k.toLowerCase()==="performersnone") pnIdx=idx[k]; });
+  /* 関連イベント列（シート列 relatedEventIds・ヘッダー名で取得。列が無い間は空） */
+  var relIdx=null;
+  Object.keys(idx).forEach(function(k){ if(k.toLowerCase()==="relatedeventids") relIdx=idx[k]; });
   /* 複数画像タブ（events_images）用： imageUrls 列（公開URLのJSON配列文字列） */
   var imgUrlsIdx = idx["imageUrls"]!=null ? idx["imageUrls"] : null;
   var events=[];
@@ -1753,6 +1770,8 @@ function parseGvizObject(json){
     /* 閲覧数／表示数（公開版の人気集計と同一列）。列が無い場合は null */
     ev._views = viewsIdx==null ? null : parseCountCell(c[viewsIdx]);
     ev._impressions = impIdx==null ? null : parseCountCell(c[impIdx]);
+    ev.performersNone = pnIdx==null ? false : (parseSheetBool(rawCellValue(c[pnIdx]))===true);
+    ev.relatedIds = relIdx==null ? [] : parseRelatedIds(rawCellValue(c[relIdx]));
     ev.sheetImageUrls = imgUrlsIdx==null ? null : String(rawCellValue(c[imgUrlsIdx])||"");
     if(!ev.title && !ev.id) return;
     ev.date = normalizeDate(ev.date);
@@ -2001,6 +2020,50 @@ function isStrictFree(ev){
   return textPriceClassOf(ev)==="free";
 }
 function isDrinkOnly(ev){ return priceClassOf(ev)==="drink"; }
+/* 市町村レイヤー（v174）：スペース版 muniData.ts の MUNI_INFO を移植。
+   人口・世帯数・公式サイトは会場DBの項目ではなく検証済み静的データセット。
+   解決順はスペース版と同じ（住所→会場キーの市町村サフィックス） */
+var muniInfo=null, muniNote="";
+function parseMuniFromText(s){
+  if(!s || !muniInfo) return null;
+  var t=String(s).trim();
+  var prefs=["大阪府","京都府","兵庫県","滋賀県","奈良県","和歌山県"];
+  for(var i=0;i<prefs.length;i++){ if(t.indexOf(prefs[i])===0){ t=t.slice(prefs[i].length); break; } }
+  var city=/^(.+?市)/.exec(t);
+  if(city && muniInfo[city[1]]) return city[1];
+  var town=/郡(.+?[町村])/.exec(t);
+  if(town && muniInfo[town[1]]) return town[1];
+  var direct=/^(.+?[町村])/.exec(t);
+  if(direct && muniInfo[direct[1]]) return direct[1];
+  return null;
+}
+function muniOfVenue(name, prof){
+  if(!muniInfo) return null;
+  var fromAddr=parseMuniFromText(prof&&prof.ad?prof.ad:"");
+  if(fromAddr) return fromAddr;
+  var m=/（([^（）]+)）\s*$/.exec(name||"");
+  return parseMuniFromText(m?m[1]:"");
+}
+function muniStripHTML(name, prof){
+  var mn=muniOfVenue(name, prof); if(!mn) return "";
+  var info=muniInfo[mn]; if(!info) return "";
+  var bits=[];
+  if(info.pop!=null) bits.push("人口 "+Number(info.pop).toLocaleString("ja-JP")+"人"+(info.popDate? "（"+info.popDate+"）" : ""));
+  if(info.hh!=null) bits.push("世帯数 "+Number(info.hh).toLocaleString("ja-JP")+"世帯");
+  var h='<div class="muni-strip">';
+  if(info.img) h+='<img class="muni-emb" src="assets/muni/'+esc(info.img)+'" alt="" loading="lazy">';
+  h+='<div class="muni-strip-main"><p class="muni-strip-name">'+esc(mn)+'<span class="muni-kind">所在地の自治体</span></p>';
+  if(bits.length) h+='<p class="muni-strip-stats">'+esc(bits.join(" ・ "))+'</p>';
+  h+='</div>';
+  if(info.web) h+='<a class="muni-strip-link" href="'+esc(info.web)+'" target="_blank" rel="noopener">公式サイト</a>';
+  return h+'</div>';
+}
+function mapLinksHTML(mq, lt, lg){
+  var h='<a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">Googleマップで開く</a>';
+  h+='<a class="link-btn lb-map" href="https://maps.apple.com/?q='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">Appleマップで開く</a>';
+  if(lt!=null && lg!=null && lt!=="" && lg!=="") h+='<a class="link-btn lb-map" href="https://www.locationsmart.org/map.html?lat='+lt+'&lon='+lg+'" target="_blank" rel="noopener">ロケスマで周辺を見る</a>';
+  return h;
+}
 var PRICE_LABELS={free:"入場無料",drink:"ドリンク代のみ",partial:"一部無料",paid:"有料"};
 /* 料金上限フィルタ用：読み取れる一番安い実質負担額。無料・一部無料は0円、
    ドリンク代のみはドリンク額、有料は最小の有料額。読み取れなければ null */
@@ -3422,7 +3485,8 @@ function loadProfiles(){
      取れなければ取れた分だけで続行する */
   try{
   function get(u){ var ctl=("AbortController" in window)?new AbortController():null; var tm=ctl?setTimeout(function(){ ctl.abort(); },20000):null; return fetch(u, ctl?{signal:ctl.signal}:undefined).then(function(r){ if(tm)clearTimeout(tm); if(!r.ok) throw new Error(u); return r.json(); }).catch(function(){ if(tm)clearTimeout(tm); return null; }); }
-  profilesLoading=Promise.all([get("assets/venues.json"),get("assets/artists.json"),get("assets/readings.json"),get("assets/venue-supp.json"),get("assets/dict.json"),get("assets/artist-cats.json")]).then(function(res){
+  profilesLoading=Promise.all([get("assets/venues.json"),get("assets/artists.json"),get("assets/readings.json"),get("assets/venue-supp.json"),get("assets/dict.json"),get("assets/artist-cats.json"),get("assets/muni.json")]).then(function(res){
+    if(res[6] && res[6].info){ muniInfo=res[6].info; muniNote=res[6].note||""; }
     if(res[0]){ venueProfiles=res[0]; indexVenueProfiles(); }
     if(res[1]){ artistProfiles=res[1]; }
     if(res[2]){ Object.keys(res[2]).forEach(function(rd){ var nm=res[2][rd]; if(nm && !readingByName[nm]) readingByName[nm]=rd; }); }
@@ -3881,6 +3945,8 @@ function renderDetailInner(){
         vprof.am.forEach(function(a){ if(a && a.t) vrows+='<dt>'+esc(AM_LBL[a.k]||a.k||"設備")+'</dt><dd>'+esc(a.t)+'</dd>'; });
       }
       if(vrows) head+='<dl class="detail" style="margin-top:12px">'+vrows+'</dl>';
+      head+=muniStripHTML(name, vprof);
+      if(muniNote && muniOfVenue(name, vprof)) head+='<p class="muni-note">'+esc(muniNote)+'</p>';
       var vlinks="";
       if(vprof.ws) vlinks+='<a class="link-btn lb-web" href="'+esc(vprof.ws)+'" target="_blank" rel="noopener">公式サイト</a>';
       if(vprof.x) vlinks+='<a class="link-btn lb-x" href="'+esc(vprof.x)+'" target="_blank" rel="noopener">X</a>';
@@ -3888,11 +3954,11 @@ function renderDetailInner(){
       if(vprof.fm) vlinks+='<a class="link-btn lb-ticket" href="'+esc(vprof.fm)+'" target="_blank" rel="noopener">施設案内</a>';
       if(vprof.mi && vprof.mi.length) vprof.mi.forEach(function(e){ if(e && e.u) vlinks+='<a class="link-btn lb-ticket" href="'+esc(e.u)+'" target="_blank" rel="noopener">'+esc(e.l||e.k||"フロアガイド")+'</a>'; });
       var mq=(vprof.lt!=null&&vprof.lg!=null)?(vprof.lt+","+vprof.lg):((vprof.n||name)+(vprof.ad? " "+vprof.ad : ""));
-      vlinks+='<a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">地図を開く</a>';
+      vlinks+=mapLinksHTML(mq, vprof.lt, vprof.lg);
       head+='<div class="link-row">'+vlinks+'</div>';
       head+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(mq)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     } else {
-      head+='<div class="link-row"><a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
+      head+='<div class="link-row">'+mapLinksHTML(name, null, null)+'</div>';
       head+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(name)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     }
     head+='<div style="margin-top:10px"><button class="modal-fav" type="button" id="detailFollowBtn" style="border-color:var(--accent);color:'+(venueFollowed(name)?"#fff":"var(--accent)")+';'+(venueFollowed(name)?"background:var(--accent)":"")+'">'+(venueFollowed(name)?"フォロー中":"フォローする")+'</button></div>';
@@ -4318,7 +4384,7 @@ function renderPlan(){
   els.planBody.innerHTML = groupSlots(slots).map(function(g){
     var conf={}; g.items.forEach(function(a,ai){ var as=a.startMin, ae=(a.ev&&a.ev.endMin!=null)?a.ev.endMin:(as!=null?as+120:null); if(as==null||ae==null) return; g.items.forEach(function(b,bi){ if(ai===bi) return; var bs=b.startMin, be=(b.ev&&b.ev.endMin!=null)?b.ev.endMin:(bs!=null?bs+120:null); if(bs==null||be==null) return; if(as<be && bs<ae){ conf[ai]=1; conf[bi]=1; } }); });
     var dayHtml = '<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>' + g.items.map(function(s, si){
-      return '<button class="slot" type="button" data-open="'+esc(s.id)+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue)+vsChipHTML(s):"")+'</span></span><span class="tag '+(s.kind==="fav"||s.kind==="plan"?"tag-fav":"tag-oshi")+'">'+(s.kind==="plan"?"✓ プラン":(s.kind==="fav"?"♥ お気に入り":"★ 推し"))+'</span>'+(conf[si]? '<span class="tag tag-conf">⚠ 時間が重なっています</span>' : '')+'</button>';
+      return (si>0? planLegHTML(g.items[si-1], s) : "") + '<button class="slot" type="button" data-open="'+esc(s.id)+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue)+vsChipHTML(s):"")+'</span></span><span class="tag '+(s.kind==="fav"||s.kind==="plan"?"tag-fav":"tag-oshi")+'">'+(s.kind==="plan"?"✓ プラン":(s.kind==="fav"?"♥ お気に入り":"★ 推し"))+'</span>'+(conf[si]? '<span class="tag tag-conf">⚠ 時間が重なっています</span>' : '')+'</button>';
     }).join("");
     /* その日の最後の予定から、移動込みで回せる候補を静かに出す（v76）。
        知らない・見落としている公演の発見と、そのままプランへの追加のため */
@@ -4333,6 +4399,28 @@ function renderPlan(){
     }
     return dayHtml + '</div>';
   }).join("");
+}
+/* 回しプランの移動区間（v173）：前の予定→次の予定の経路リンクを、次スロットの
+   日付・開始時刻（タイムテーブル由来の時刻を含む）への到着指定で出す */
+function planLegHTML(prev, next){
+  if(!prev || !next || !prev.ev || !next.ev) return "";
+  var tr=hopTravelMin(prev.ev, next.ev);
+  if(tr===0) return '<div class="plan-leg">→ 同じ会場です</div>';
+  var pv=venueProfileFor(prev.venue), nv=venueProfileFor(next.venue);
+  var fromName=(pv&&pv.n?pv.n:(prev.venue||"")), destName=(nv&&nv.n?nv.n:(next.venue||""));
+  var g="https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(destName+(nv&&nv.ad?" "+nv.ad:""))+"&origin="+encodeURIComponent(fromName+(pv&&pv.ad?" "+pv.ad:""))+"&travelmode=transit";
+  var y="https://transit.yahoo.co.jp/search/result?from="+encodeURIComponent(fromName)+"&to="+encodeURIComponent(destName);
+  if(next.startMin!=null && next.date){
+    var p=next.date.split("-");
+    if(p.length===3){
+      var dt=new Date(+p[0],+p[1]-1,+p[2], Math.floor(next.startMin/60), next.startMin%60);
+      g+="&arrival_time="+Math.floor(dt.getTime()/1000);
+      var mm=next.startMin%60;
+      y+="&y="+p[0]+"&m="+p[1]+"&d="+p[2]+"&hh="+Math.floor(next.startMin/60)+"&mm="+(mm<10?"0"+mm:mm)+"&type=2";
+    }
+  }
+  return '<div class="plan-leg">→ '+(tr!=null? '移動 約'+tr+'分（推定）　' : '移動時間は経路で確認　')
+    +'<a href="'+esc(g)+'" target="_blank" rel="noopener">Googleマップで経路</a>　<a href="'+esc(y)+'" target="_blank" rel="noopener">Yahoo!乗換案内</a></div>';
 }
 function planText(){
   var slots=buildPlanSlots();
@@ -4538,12 +4626,44 @@ function hopCandidates(baseEv, baseEndMin, cap){
   return out.slice(0, cap||3);
 }
 
+/* 関連イベントIDの解釈： JSON配列でも、カンマ／読点／空白区切りでも受ける。
+   数値ID以外は捨てる（誤データで無関係なイベントを結ばないため） */
+function parseRelatedIds(raw){
+  if(raw==null) return [];
+  var s=String(raw).trim(); if(!s) return [];
+  var arr=null;
+  if(s.charAt(0)==="["){ try{ var j=JSON.parse(s); if(Array.isArray(j)) arr=j; }catch(e){} }
+  if(!arr) arr=s.split(/[,、\s|｜]+/);
+  var out=[], seen={};
+  arr.forEach(function(x){ var k=String(x==null?"":x).trim(); if(k && /^\d+$/.test(k) && !seen[k]){ seen[k]=1; out.push(k); } });
+  return out;
+}
+/* 関連イベントの双方向解決： 自分が指している相手＋自分を指している相手（逆引き）。
+   シートの relatedEventIds が片側にしか入っていなくても、両側の詳細で関連として出す */
+var relRevCache={src:null, rev:null};
+function relatedEventsOf(ev){
+  var selfId=String(ev.id);
+  if(relRevCache.src!==allEvents){
+    var rev={};
+    allEvents.forEach(function(e2){ (e2.relatedIds||[]).forEach(function(x){ var k=String(x); (rev[k]=rev[k]||[]).push(String(e2.id)); }); });
+    relRevCache={src:allEvents, rev:rev};
+  }
+  var byId={};
+  allEvents.forEach(function(e2){ byId[String(e2.id)]=e2; });
+  var ids=[], seen={}; seen[selfId]=1;
+  (ev.relatedIds||[]).concat(relRevCache.rev[selfId]||[]).forEach(function(x){ var k=String(x); if(!seen[k]){ seen[k]=1; ids.push(k); } });
+  var out=ids.map(function(k){ return byId[k]; }).filter(Boolean);
+  out.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
+  return out;
+}
 function relatedEventsHTML(ev){
   var selfId=String(ev.id);
   var used={}; used[selfId]=1;
   var axes=[];
   function byDateAsc(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; }
   function take(list){ var out=[]; list.forEach(function(e2){ var k=String(e2.id); if(!used[k]){ used[k]=1; out.push(e2); } }); return out; }
+  var structured=relatedEventsOf(ev);
+  if(structured.length) axes.push({label:"同時開催・関連イベント", list:take(structured), total:structured.length});
   var bk=episodeBaseKey(ev.title);
   var series=allEvents.filter(function(e2){ return String(e2.id)!==selfId && episodeBaseKey(e2.title)===bk; }).sort(byDateAsc);
   if(series.length) axes.push({label:"他の開催日", list:take(series), total:series.length});
@@ -4662,7 +4782,7 @@ function openModal(ev){
     + (links? '<h3 style="margin:20px 0 8px;font-size:15px">チケット・公式リンク</h3><div class="link-row" style="margin-top:0">'+links+'</div>':"")
     + (ev._perfList.length? '<h3 style="margin:20px 0 8px;font-size:15px">出演者</h3><div class="perf-list">'
         + ev._perfList.map(function(p){ var on=favPerfs.has(p); return '<button class="perf'+(on?" on":"")+'" type="button" data-perf="'+esc(p)+'" aria-pressed="'+on+'">'+esc(p)+'</button>'; }).join("")
-        + '</div><p class="perf-hint">出演者名をタップすると、その出演者のプロフィールが開きます（推しの登録もできます）。</p>' : "")
+        + '</div><p class="perf-hint">出演者名をタップすると、その出演者のプロフィールが開きます（推しの登録もできます）。</p>' : (ev.performersNone? '<h3 style="margin:20px 0 8px;font-size:15px">出演者</h3><p>出演者なし</p>' : ""))
     + '<h3 style="margin:20px 0 8px;font-size:15px">詳細・タイムテーブル</h3>'+descHTML
     + '<div class="mini-acts-row">'
     + '<button class="mini-btn'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
@@ -5470,7 +5590,7 @@ function pendingEventObject(p){
     id:"pend"+(p.ts||0), title:f.title||"", date:f.date||"", dateEnd:(f.dateEnd&&f.dateEnd!==f.date)?f.dateEnd:"",
     timeLabel:f.timeLabel||"", startMin:(typeof f.startMin==="number")?f.startMin:null, endMin:(typeof f.endMin==="number")?f.endMin:null,
     venue:f.venue||"", sheetVs:f.venueSpaceNote||"", area:f.area||"", prefecture:f.prefecture||"",
-    category:f.category||"", categories:f.categories||"", price:f.price||"", performers:f.performers||"",
+    category:f.category||"", categories:f.categories||"", price:f.price||"", performers:f.performers||"", performersNone:!!f.performersNone,
     description:f.description||"", linkWeb:f.linkWeb||"", linkTicket:f.linkTicket||"", linkX:f.linkX||"",
     linkInstagram:f.linkInstagram||"", organizerName:f.organizerName||"", imageUrl:f.imageUrl||"",
     isFree:f.isFree?"TRUE":"", priceClass:f.priceClass||"",
@@ -5484,7 +5604,7 @@ function pendingOverlayObject(base, p){
   var ev=pendingEventObject(p);
   var out={};
   Object.keys(base).forEach(function(k){ out[k]=base[k]; });
-  ["title","date","dateEnd","timeLabel","startMin","endMin","venue","sheetVs","area","prefecture","category","categories","price","performers","description","linkWeb","linkTicket","linkX","linkInstagram","organizerName","imageUrl","_freeSheet","_pcSheet"].forEach(function(k){ out[k]=ev[k]; });
+  ["title","date","dateEnd","timeLabel","startMin","endMin","venue","sheetVs","area","prefecture","category","categories","price","performers","performersNone","description","linkWeb","linkTicket","linkX","linkInstagram","organizerName","imageUrl","_freeSheet","_pcSheet"].forEach(function(k){ out[k]=ev[k]; });
   out.id=base.id;
   out._perfList=ev._perfList;
   out._pending=true;
@@ -5500,13 +5620,27 @@ function pendingEditReflected(sheetEv, f){
   if(!sheetEv) return false;
   function s(x){ return x==null ? "" : String(x); }
   function n(x){ return (typeof x==="number") ? x : null; }
+  /* カテゴリは表現が三者三様（シート="|"連結の全カテゴリ、送信payload=追加分のみ、
+     反映待ち保存="、"連結）なので、主カテゴリと合わせて集合として比べる。
+     出演者も区切り表記を正規化してから比べる（v165） */
+  function catSet(cat, cats){
+    var set=[];
+    function add(x){ x=String(x||"").trim(); if(x && set.indexOf(x)<0) set.push(x); }
+    add(cat);
+    s(cats).split(/[|、,，\/／｜]/).forEach(add);
+    return set.sort().join("|");
+  }
+  function perfNorm(x){
+    return s(x).split(/[、,，]/).map(function(p){ return p.trim(); }).filter(function(p){ return !!p; }).join("、");
+  }
   return s(sheetEv.title)===s(f.title) && s(sheetEv.date)===s(f.date)
     && s(sheetEv.dateEnd)===s(f.dateEnd) && s(sheetEv.venue)===s(f.venue)
     && s(sheetEv.timeLabel)===s(f.timeLabel) && s(sheetEv.price)===s(f.price)
-    && s(sheetEv.performers)===s(f.performers) && s(sheetEv.category)===s(f.category)
-    && s(sheetEv.categories)===s(f.categories) && s(sheetEv.area)===s(f.area)
+    && perfNorm(sheetEv.performers)===perfNorm(f.performers) && s(sheetEv.category)===s(f.category)
+    && catSet(sheetEv.category, sheetEv.categories)===catSet(f.category, f.categories) && s(sheetEv.area)===s(f.area)
     && s(sheetEv.prefecture)===s(f.prefecture)
-    && n(sheetEv.startMin)===n(f.startMin) && n(sheetEv.endMin)===n(f.endMin);
+    && n(sheetEv.startMin)===n(f.startMin) && n(sheetEv.endMin)===n(f.endMin)
+    && (!!sheetEv.performersNone)===(!!f.performersNone);
 }
 function mergePendingEvents(sheetEvents){
   var list=loadPendings();
@@ -7009,7 +7143,7 @@ function rfTimesOf(text){
   while((m=re.exec(String(text||""))) && out.length<3) out.push((+m[1])*60+(+m[2]));
   return out;
 }
-function rfSlotNote(ev, baseMin, travel){
+function rfSlotScan(ev, baseMin, travel){
   var desc=parseDesc(ev.description); if(!desc || !desc.rows) return null;
   var arrival=baseMin+travel, bestEnd=null, bestStart=null;
   desc.rows.forEach(function(row){
@@ -7017,11 +7151,24 @@ function rfSlotNote(ev, baseMin, travel){
     var ts=rfTimesOf(rp.time); if(!ts.length) return;
     var act=((rp.label&&rp.text)?(rp.label+" "+rp.text):(rp.text||rp.label)).trim(); if(!act) return;
     if(/^(開場|開演|終演)$/.test(act)) return; /* 式次第の行は出番として扱わない */
-    if(ts.length>1){ if(ts[1]>baseMin && arrival<=ts[1] && (!bestEnd || ts[1]>bestEnd.e)) bestEnd={act:act, time:rp.time, e:ts[1]}; }
+    if(ts.length>1){ if(ts[1]>baseMin && arrival<=ts[1] && (!bestEnd || ts[1]>bestEnd.e)) bestEnd={act:act, time:rp.time, s:ts[0], e:ts[1]}; }
     else if(arrival<=ts[0] && ts[0]>=baseMin && (!bestStart || ts[0]<bestStart.s)) bestStart={act:act, time:rp.time, s:ts[0]};
   });
-  if(bestEnd) return "今からでも "+bestEnd.act+"（出番 "+bestEnd.time+"）には間に合う";
-  if(bestStart) return "今からでも "+bestStart.act+"（出番 "+bestStart.time+" 開始）には間に合う";
+  if(!bestEnd && !bestStart) return null;
+  return {bestEnd:bestEnd, bestStart:bestStart};
+}
+function rfSlotNote(ev, baseMin, travel){
+  var sc=rfSlotScan(ev, baseMin, travel); if(!sc) return null;
+  if(sc.bestEnd) return "今からでも "+sc.bestEnd.act+"（出番 "+sc.bestEnd.time+"）には間に合う";
+  if(sc.bestStart) return "今からでも "+sc.bestStart.act+"（出番 "+sc.bestStart.time+" 開始）には間に合う";
+  return null;
+}
+/* 経路リンクの到着目標：判定に使った出番の開始時刻（タイムテーブル連動）。
+   出番が無ければ null（呼び出し側でイベント開始時刻を使う） */
+function rfSlotTargetMin(ev, baseMin, travel){
+  var sc=rfSlotScan(ev, baseMin, travel); if(!sc) return null;
+  if(sc.bestEnd) return sc.bestEnd.s;
+  if(sc.bestStart) return sc.bestStart.s;
   return null;
 }
 function rfMapsUrl(ev, vp, origin, km, targetMin){
@@ -7037,9 +7184,18 @@ function rfMapsUrl(ev, vp, origin, km, targetMin){
   }
   return u;
 }
-function rfYahooUrl(ev, vp, origin){
+function rfYahooUrl(ev, vp, origin, targetMin){
   if(!origin || origin.kind==="gps" || !origin.label) return "";
-  return "https://transit.yahoo.co.jp/search/result?from="+encodeURIComponent(origin.label)+"&to="+encodeURIComponent(vp&&vp.n?vp.n:(ev.venue||""));
+  var u="https://transit.yahoo.co.jp/search/result?from="+encodeURIComponent(origin.label)+"&to="+encodeURIComponent(vp&&vp.n?vp.n:(ev.venue||""));
+  if(targetMin!=null){
+    var dstr=(ev.date<todayStr())? todayStr() : ev.date;
+    var p=dstr.split("-");
+    if(p.length===3){
+      var hh=Math.floor(targetMin/60), mm=targetMin%60;
+      u+="&y="+p[0]+"&m="+p[1]+"&d="+p[2]+"&hh="+hh+"&mm="+(mm<10?"0"+mm:mm)+"&type=2";
+    }
+  }
+  return u;
 }
 function rfBuildControls(){
   var evs=rfTodayEvents();
@@ -7206,8 +7362,10 @@ function renderRouteFit(){
     var showEnd=(ev.endMin!=null && (ev.startMin==null || ev.endMin>ev.startMin));
     var meta=fmtDate(ev.date)+(ev.startMin!=null? " "+minToTime(ev.startMin):"")+(showEnd? "〜"+minToTime(ev.endMin):"")+"／"+(ev.venue||"");
     if(rec.travel!=null) meta+="／移動 約"+rec.travel+"分（推定・直線"+rec.km.toFixed(1)+"km）";
-    var maps=rfMapsUrl(ev, rec.vp, origin, rec.km, ev.startMin);
-    var yahoo=rfYahooUrl(ev, rec.vp, origin);
+    var targetMin=ev.startMin;
+    if(rec.slot && rec.travel!=null){ var stm=rfSlotTargetMin(ev, baseMin, rec.travel); if(stm!=null) targetMin=stm; }
+    var maps=rfMapsUrl(ev, rec.vp, origin, rec.km, targetMin);
+    var yahoo=rfYahooUrl(ev, rec.vp, origin, targetMin);
     return '<article class="rf-row" data-rf-id="'+esc(String(ev.id))+'" role="button" tabindex="0">'
       +'<span class="rf-badge'+(badgeCls||"")+'">'+esc(rec.label)+'</span>'
       +'<span class="rf-title">'+esc(ev.title)+'</span>'
@@ -8510,16 +8668,17 @@ function psInfoHTML(kind, name, prof, upcoming, evs){
       if(prof.tp) rows+='<dt>施設種別</dt><dd>'+esc(prof.tp)+'</dd>';
       if(prof.gg) rows+='<dt>ジャンル分類</dt><dd>'+esc(prof.gg)+'</dd>';
       if(rows) h+='<dl class="detail">'+rows+'</dl>';
+      h+=muniStripHTML(name, prof);
       var vl="";
       if(prof.ws) vl+='<a class="link-btn lb-web" href="'+esc(prof.ws)+'" target="_blank" rel="noopener">公式サイト</a>';
       if(prof.x) vl+='<a class="link-btn lb-x" href="'+esc(prof.x)+'" target="_blank" rel="noopener">X</a>';
       if(prof.ig) vl+='<a class="link-btn lb-ig" href="'+esc(prof.ig)+'" target="_blank" rel="noopener">Instagram</a>';
       var mq=(prof.lt!=null&&prof.lg!=null)? (prof.lt+","+prof.lg) : ((prof.n||name)+(prof.ad? " "+prof.ad : ""));
-      vl+='<a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">地図を開く</a>';
+      vl+=mapLinksHTML(mq, prof.lt, prof.lg);
       h+='<div class="link-row">'+vl+'</div>';
       h+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(mq)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     } else {
-      h+='<div class="link-row"><a class="link-btn lb-map" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
+      h+='<div class="link-row">'+mapLinksHTML(name, null, null)+'</div>';
       h+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(name)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     }
   } else {
@@ -9083,6 +9242,7 @@ window.KGEditorBridge = {
 };
 window.KGAccountBridge = {
   keys: {event:LS_FAV, artist:LS_OSHI},
+  profileNames: function(){ return {artists:Object.keys(artistProfiles), organizers:Object.keys(organizerProfiles), venues:Object.keys(venueProfiles)}; },
   read: function(){ return {event:Array.from(favEvents),artist:Array.from(favPerfs)}; },
   replace: function(data){
     favEvents = new Set(data.event || []); favPerfs = new Set(data.artist || []);

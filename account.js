@@ -22,13 +22,13 @@
     '<div id="kg-account-choice" hidden><p><strong>この端末のデータをどうしますか？</strong></p><p>統合すると、この端末の推しとお気に入りがアカウントに追加されます。共有端末や別の方のデータなら「アカウントのデータを使う」を選んでください。</p><button id="kg-merge" type="button">この端末のデータを統合</button> <button id="kg-use-cloud" type="button">アカウントのデータを使う</button></div>' +
     '<div id="kg-member" hidden><hr><p><strong>会員コード</strong>（Googleアカウント不要）</p>' +
     '<div id="kg-member-off"><p>サイトが発行するコードがログインの鍵です。普段のログインはコードだけで、Googleアカウントは要りません。コードの発行（初回のみ）と、コードを失くしたときの再発行には、本人確認としてGoogleアカウントでの確認を行い、コードはそのGoogleアカウントに紐づきます。</p><button id="kg-code-issue" type="button">会員コードを発行する（初回はGoogle本人確認）</button><p><input id="kg-code-input" type="text" placeholder="持っているコードを入力" autocomplete="off" autocapitalize="characters" style="min-width:200px;padding:6px"> <button id="kg-code-login" type="button">コードでログイン</button></p><p style="font-size:13px">コードを失くした方は、発行時に紐づけたGoogleアカウントで本人確認をして、新しいコードを発行できます（古いコードは使えなくなります）。</p><p><button id="kg-google-recover" type="button">コードを失くした方（Google本人確認で新しいコードを発行）</button></p></div>' +
-    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button><span id="kg-code-reissue-confirm" hidden> <span style="font-size:13px">新しいコードを発行します。今までのコードは使えなくなります。</span> <button id="kg-code-reissue-yes" type="button">発行する</button> <button id="kg-code-reissue-no" type="button">やめる</button></span></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><div id="kg-bind-block" hidden><p style="font-size:13px">このアカウントは、まだGoogleアカウントと紐づいていません。コードを失くしたときの本人確認のため、初回のみ紐づけをお願いします。</p><p><button id="kg-bind-google" type="button">Googleアカウントと紐づける</button></p></div><p style="font-size:13px">コードの再発行には、紐づけたGoogleアカウントでの本人確認が必要です。再発行すると、今までのコードは使えなくなります。</p><button id="kg-code-logout" type="button">この端末からログアウト</button><span id="kg-code-logout-confirm" hidden> <span style="font-size:13px">この端末内のデータをすべて消去します。会員コードの控えがない場合、データに戻れなくなります。</span> <button id="kg-code-logout-yes" type="button">ログアウトする</button> <button id="kg-code-logout-no" type="button">やめる</button></span></div></div>' +
+    '<div id="kg-member-on" hidden><p>会員コードでログイン中です。</p><p id="kg-role-display" hidden style="font-weight:700"></p><p>あなたのコード：<strong id="kg-code-display"></strong> <button id="kg-code-copy" type="button">コピー</button> <button id="kg-code-reissue" type="button">コードを再発行</button><span id="kg-code-reissue-confirm" hidden> <span style="font-size:13px">新しいコードを発行します。今までのコードは使えなくなります。</span> <button id="kg-code-reissue-yes" type="button">発行する</button> <button id="kg-code-reissue-no" type="button">やめる</button></span></p><p style="font-size:13px">このコードの控えがバックアップになります。別の端末ではこのコードを入力してください。</p><div id="kg-bind-block" hidden><p style="font-size:13px">このアカウントは、まだGoogleアカウントと紐づいていません。コードを失くしたときの本人確認のため、初回のみ紐づけをお願いします。</p><p><button id="kg-bind-google" type="button">Googleアカウントと紐づける</button></p></div><p style="font-size:13px">コードの再発行には、紐づけたGoogleアカウントでの本人確認が必要です。再発行すると、今までのコードは使えなくなります。</p><button id="kg-code-logout" type="button">この端末からログアウト</button><span id="kg-code-logout-confirm" hidden> <span style="font-size:13px">この端末内のデータをすべて消去します。会員コードの控えがない場合、データに戻れなくなります。</span> <button id="kg-code-logout-yes" type="button">ログアウトする</button> <button id="kg-code-logout-no" type="button">やめる</button></span></div></div>' +
     '<div id="kg-guest"><hr><p><strong>ゲスト利用</strong>（一時的な端末向け）</p>' +
     '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
     '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button><span id="kg-guest-end-confirm" hidden> <span style="font-size:13px">この端末のデータを消去しますか？</span> <button id="kg-guest-end-yes" type="button">消去する</button> <button id="kg-guest-end-no" type="button">やめる</button></span></div></div>' +
     '<div id="kg-admin"><hr><p><strong>管理者モード</strong></p>' +
     '<div id="kg-admin-off"><p style="font-size:13px">管理者のGoogleアカウントでログインすると、スマホでもPCでも自動で管理者として扱われます（端末ごとに設定は要りません）。パスフレーズで、この端末だけを管理者にすることもできます（端末内にだけ保存されます）。</p><p><input id="kg-admin-p1" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-admin-p2" type="password" placeholder="確認のためもう一度（新規設定のとき）" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-enable" type="button">管理者モードを有効にする</button></div>' +
-    '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。ログイン操作は不要です。</p><p><input id="kg-admin-off-p" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></div></div>' +
+    '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。ログイン操作は不要です。</p><div id="kg-role-admin"><hr><p><strong>アーティスト・主催者コード管理</strong></p><p style="font-size:13px">アーティスト・主催者向けの会員コードを発行・管理します。発行したコードを相手に渡してください。相手の初回ログイン時に、Google本人確認でコードがそのGoogleに紐づきます（通常のコードと同じ仕組み）。このコードに特別な編集権限は付かず、送信は従来どおりフォーム＋取り込み確認を通ります。</p><p><label>種別 <select id="kg-role-kind"><option value="artist">アーティスト</option><option value="organizer">主催者</option><option value="venue">会場</option></select></label></p><p><input id="kg-role-email" type="email" placeholder="申し込みメールアドレス（任意）" style="min-width:260px;padding:6px"></p><p><input id="kg-role-link" type="text" placeholder="紐づけ先（アーティストのプロフィールキー／主催者名）" list="kg-role-link-list" style="min-width:260px;padding:6px"><datalist id="kg-role-link-list"></datalist></p><p><button id="kg-role-issue" type="button">コードを発行する</button></p><p id="kg-role-issued" hidden>発行したコード：<strong id="kg-role-issued-code"></strong> <button id="kg-role-issued-copy" type="button">コピー</button><br><span style="font-size:13px">このコードは後から再表示できません。必ず控えてから相手に渡してください。</span></p><p id="kg-role-list-status" style="font-size:13px"></p><div id="kg-role-list"></div><p><button id="kg-role-reload" type="button">一覧を読み直す</button></p></div><p><input id="kg-admin-off-p" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></div></div>' +
     '<p style="font-size:13px">メールアドレス・推し・お気に入りを認証・保存サービスで扱います。サービス提供者のプライバシーポリシーをご確認ください。</p></dialog>';
   document.body.appendChild(overlay);
   var dialog = $('kg-account-dialog');
@@ -412,7 +412,7 @@
   function recoveryHashOf(q,a){ return sha256hex('kg-recovery:'+normQA(q)+':'+normQA(a)); }
   function cloudOf(d){ return {event:Array.isArray(d.events)?d.events:[], artist:Array.isArray(d.artists)?d.artists:[]}; }
   function saveMemberSession(){ if(member) localStorage.setItem('kg_member_session_v2', JSON.stringify({acct:member.acct, code:member.code||null})); }
-  function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has) $('kg-code-display').textContent = member.code ? member.code : '（未設定）'; if(has) refreshBindBlock(); }
+  function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has) $('kg-code-display').textContent = member.code ? member.code : '（未設定）'; var rd=$('kg-role-display'); if(rd){ if(has && member.role && member.linkName){ rd.hidden=false; rd.textContent=roleLabel(member.role)+' '+member.linkName+' としてログイン中です。'; } else { rd.hidden=true; } } if(has) refreshBindBlock(); }
   function scheduleMemberPush(){ if(!member||!memberReady)return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member)return; memberPushFavorites(member.acct).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
   /* ---------- その他の端末データの同期（v105で追加） ----------
      推し・お気に入り以外の端末データ（行きたい／気になる／マイリスト／
@@ -552,7 +552,9 @@
   async function activateMember(acct, code, fromRestore){
     var d = await memberDoc(acct);
     if(!d) return false;
-    member = {acct:acct, code:code||null};
+    if(d.roleStatus==='revoked'){ if(fromRestore){ try{ localStorage.removeItem('kg_member_session_v2'); }catch(_){} } return false; }
+    member = {acct:acct, code:code||null, role:d.role||null, linkName:d.linkName||null};
+    if(!fromRestore){ memberSetMeta(acct, {lastLoginAt:Date.now()}).catch(function(){}); }
     saveMemberSession();
     renderMember(); renderState();
     if(localStorage.getItem('kg_member_selected_v2')===acct){ bridge.replace(cloudOf(d)); memberReady=true; text('同期済み（会員コード）。'); udPullMerge(); }
@@ -717,6 +719,147 @@
     text('ゲスト利用を終了し、この端末のデータを消去しました。');
     setTimeout(function(){ location.reload(); }, 400);
   };
+
+  /* ================= アーティスト・主催者コード（管理者発行） =================
+     Kota指示 2026-11-26、仕様 docs/specs/artist-organizer-code-issuance-spec-20261126.md。
+     自己登録は作らず、管理者がコードを発行してプロフィールと紐づけて管理する。
+     台帳はアカウント用シートの r: 台帳行（入口のキー規則 ^[mcrg]:[a-f0-9]{64}$ に
+     合う固定ハッシュ）に置き、管理者発行分だけを載せる（閲覧者の通常コードは対象外）。
+     アカウント本体（m:行）には role / linkName / issuedAt / roleStatus を保持する。
+     紐づけ（Google本人確認）は相手の初回ログイン時に、既存の紐づけ案内
+     （kg-bind-block）でそのまま行われる。無効化は索引 c: を消し、
+     activateMember でも roleStatus==='revoked' を弾く（端末に残った
+     セッションでもログイン状態にならない） */
+  var ROLE_REGISTRY_HASH=null, roleAdminLoaded=false;
+  async function roleRegistryKey(){ if(!ROLE_REGISTRY_HASH) ROLE_REGISTRY_HASH=await sha256hex('kg-role-registry:v1'); return 'r:'+ROLE_REGISTRY_HASH; }
+  async function roleRegistryRead(){ if(!syncReady()) throw backendMissing(); var v=await kvGet(await roleRegistryKey()); return (v && Array.isArray(v.accounts)) ? v.accounts : []; }
+  async function roleRegistryWrite(accounts){ await kvSet(await roleRegistryKey(), {accounts:accounts, updatedAt:Date.now()}); }
+  function roleLabel(role){ return role==='artist'? 'アーティスト' : role==='venue'? '会場' : '主催者'; }
+  async function issueRoleCode(role, linkName, email){
+    var accounts=await roleRegistryRead();
+    var dup=accounts.find(function(a){ return a.status==='active' && a.role===role && a.linkName===linkName; });
+    if(dup) throw new Error('同じ紐づけ先の有効なコードがすでにあります。再発行か無効化をしてから発行してください。');
+    var acct=newAcct(); var code=newCode(); var ch=await codeHashOf(code); var now=Date.now();
+    await memberWriteFields(acct, {events:[], artists:[], updatedAt:now, codeHash:ch, role:role, linkName:linkName, contactEmail:email||'', issuedAt:now, issuedBy:'admin', roleStatus:'active'});
+    await idxSet('c:', ch, acct);
+    accounts.push({acct:acct, role:role, linkName:linkName, contactEmail:email||'', issuedAt:now, status:'active'});
+    await roleRegistryWrite(accounts);
+    return code;
+  }
+  async function changeRoleLink(entry, newName){
+    await memberSetMeta(entry.acct, {linkName:newName});
+    docCacheDrop('m:'+entry.acct);
+    var accounts=await roleRegistryRead();
+    accounts.forEach(function(a){ if(a.acct===entry.acct) a.linkName=newName; });
+    await roleRegistryWrite(accounts);
+  }
+  async function revokeRoleCode(entry){
+    var d=await memberDoc(entry.acct);
+    if(d && d.codeHash) await idxDel('c:', d.codeHash);
+    await memberSetMeta(entry.acct, {roleStatus:'revoked'});
+    docCacheDrop('m:'+entry.acct);
+    var accounts=await roleRegistryRead();
+    accounts.forEach(function(a){ if(a.acct===entry.acct) a.status='revoked'; });
+    await roleRegistryWrite(accounts);
+  }
+  async function reissueRoleCode(entry){
+    await memberSetMeta(entry.acct, {roleStatus:'active'});
+    var code=await issueNewCodeFor(entry.acct);
+    var accounts=await roleRegistryRead(); var now=Date.now();
+    accounts.forEach(function(a){ if(a.acct===entry.acct){ a.status='active'; a.issuedAt=now; } });
+    await roleRegistryWrite(accounts);
+    return code;
+  }
+  function fmtDay(t){ if(!t) return '—'; var d=new Date(t); return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate(); }
+  function fillRoleLinkList(){
+    var dl=$('kg-role-link-list'); if(!dl) return;
+    var names={artists:[], organizers:[], venues:[]};
+    try{ if(bridge && bridge.profileNames) names=bridge.profileNames(); }catch(_){}
+    var kind=($('kg-role-kind')||{}).value||'artist';
+    var src=(kind==='artist'? names.artists : kind==='venue'? names.venues : names.organizers)||[];
+    dl.innerHTML='';
+    src.slice(0, 500).forEach(function(n){ var o=document.createElement('option'); o.value=n; dl.appendChild(o); });
+  }
+  async function renderRoleAdmin(){
+    var listEl=$('kg-role-list'); if(!listEl) return;
+    fillRoleLinkList();
+    if(!syncReady()){ $('kg-role-list-status').textContent='同期の接続先が未設定のため、管理できません。'; return; }
+    $('kg-role-list-status').textContent='一覧を読み込んでいます…';
+    try{
+      var accounts=await roleRegistryRead();
+      roleAdminLoaded=true;
+      if(!accounts.length){ listEl.innerHTML=''; $('kg-role-list-status').textContent='発行済みのアーティスト・主催者コードはまだありません。'; return; }
+      $('kg-role-list-status').textContent='';
+      listEl.innerHTML='';
+      var rows=accounts.slice().reverse();
+      for(var ri=0; ri<rows.length; ri++){
+        var entry=rows[ri];
+        var d=null; try{ d=await memberDoc(entry.acct); }catch(_){}
+        var row=document.createElement('div');
+        row.style.cssText='border-top:1px solid #ccc;padding:8px 0';
+        var head=document.createElement('div');
+        head.textContent=roleLabel(entry.role)+'：'+entry.linkName;
+        head.style.fontWeight='700';
+        var meta=document.createElement('div');
+        meta.style.cssText='font-size:13px';
+        meta.textContent='発行日：'+fmtDay(entry.issuedAt)+'／状態：'+(entry.status==='active'?'有効':'無効')+'／最終ログイン：'+((d&&d.lastLoginAt)? fmtDay(d.lastLoginAt) : '—')+(entry.contactEmail? '／申し込み：'+entry.contactEmail : '');
+        var acts=document.createElement('div');
+        var rb=document.createElement('button'); rb.type='button'; rb.textContent='再発行';
+        rb.onclick=(function(en, btn){ return async function(){
+          if(!confirm('新しいコードを発行します。今までのコードは使えなくなります。よろしいですか？')) return;
+          btn.disabled=true;
+          try{ var code=await reissueRoleCode(en); $('kg-role-issued').hidden=false; $('kg-role-issued-code').textContent=code; text('新しいコードを発行しました。控えて相手に渡してください。'); renderRoleAdmin(); }
+          catch(e){ text('再発行できませんでした（'+((e&&e.message)||'エラー')+'）。'); }
+          finally{ btn.disabled=false; }
+        }; })(entry, rb);
+        var vb=document.createElement('button'); vb.type='button'; vb.textContent='無効化'; vb.style.marginLeft='8px';
+        if(entry.status!=='active') vb.disabled=true;
+        vb.onclick=(function(en, btn){ return async function(){
+          if(!confirm('このコードを無効化します。相手はログインできなくなります。よろしいですか？')) return;
+          btn.disabled=true;
+          try{ await revokeRoleCode(en); text('無効化しました。'); renderRoleAdmin(); }
+          catch(e){ text('無効化できませんでした（'+((e&&e.message)||'エラー')+'）。'); }
+          finally{ btn.disabled=false; }
+        }; })(entry, vb);
+        var eb=document.createElement('button'); eb.type='button'; eb.textContent='紐づけ変更'; eb.style.marginLeft='8px';
+        var editDiv=document.createElement('div'); editDiv.hidden=true; editDiv.style.marginTop='6px';
+        var ein=document.createElement('input'); ein.type='text'; ein.value=entry.linkName; ein.style.cssText='min-width:240px;padding:6px';
+        var esb=document.createElement('button'); esb.type='button'; esb.textContent='保存'; esb.style.marginLeft='8px';
+        eb.onclick=function(){ editDiv.hidden=!editDiv.hidden; };
+        esb.onclick=(function(en, input, btn){ return async function(){
+          var nn=(input.value||'').trim(); if(!nn){ text('紐づけ先を入力してください。'); return; }
+          btn.disabled=true;
+          try{ await changeRoleLink(en, nn); text('紐づけ先を変更しました。'); renderRoleAdmin(); }
+          catch(e){ text('変更できませんでした（'+((e&&e.message)||'エラー')+'）。'); }
+          finally{ btn.disabled=false; }
+        }; })(entry, ein, esb);
+        editDiv.appendChild(ein); editDiv.appendChild(esb);
+        acts.appendChild(rb); acts.appendChild(vb); acts.appendChild(eb);
+        row.appendChild(head); row.appendChild(meta); row.appendChild(acts); row.appendChild(editDiv);
+        listEl.appendChild(row);
+      }
+    }catch(e){ $('kg-role-list-status').textContent='一覧を読み込めませんでした。通信を確認して「一覧を読み直す」を押してください。'; }
+  }
+
+  $('kg-role-issue').onclick=async function(){
+    if(this.disabled) return;
+    if(!adminOn()){ text('管理者モードが必要です。'); return; }
+    if(noBackend()){ text('接続の準備中です。少し待ってからお試しください。'); return; }
+    var role=$('kg-role-kind').value, linkName=($('kg-role-link').value||'').trim(), email=($('kg-role-email').value||'').trim();
+    if(!linkName){ text('紐づけ先を入力してください。'); return; }
+    var btn=this; btn.disabled=true;
+    try{
+      var code=await issueRoleCode(role, linkName, email);
+      $('kg-role-issued').hidden=false; $('kg-role-issued-code').textContent=code;
+      $('kg-role-link').value=''; $('kg-role-email').value='';
+      text('コードを発行しました。コードを控えて、相手に渡してください。');
+      renderRoleAdmin();
+    }catch(e){ text('発行できませんでした（'+((e&&e.message)||'エラー')+'）。'); }
+    finally{ btn.disabled=false; }
+  };
+  $('kg-role-issued-copy').onclick=function(){ var c=$('kg-role-issued-code').textContent; if(c && navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(c).then(function(){ text('コードをコピーしました。'); }, function(){ text('コピーできませんでした。コードをメモしてください。'); }); } };
+  $('kg-role-reload').onclick=function(){ renderRoleAdmin(); };
+  $('kg-role-kind').addEventListener('change', fillRoleLinkList);
   /* 管理者モード（Kota、2026-11-23）：管理者の端末ではログイン操作を不要にする。
      端末内にだけ保存される印で、サーバ側の権限ではない（公開側に守る管理データはない）。
      有効化・解除には本人が決めたパスフレーズが要る（ハッシュだけを端末に保存）。 */
@@ -734,7 +877,7 @@
     }catch(_){}
     return false;
   }
-  function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）。ログインは不要です。'); renderState(); }
+  function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）。ログインは不要です。'); if(on && !roleAdminLoaded) renderRoleAdmin(); renderState(); }
   /* パスフレーズはダイアログ内の通常 input で扱う（v53）。prompt() は
      ダイアログ抑制環境で無言で null を返し、管理者フロー全体が死ぬため使わない。
      ハッシュ保存形式（kg-admin: 前置＋ kg_admin_hash_v1 / kg_admin_mode_v1）は従来互換 */

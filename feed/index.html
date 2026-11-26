@@ -128,6 +128,15 @@
   .dt-title{font-size:17px;margin:2px 0 8px;line-height:1.45}
   .dt-row{font-size:13.5px;opacity:.92;margin-bottom:5px}
   .dt-sec{font-size:11.5px;font-weight:800;letter-spacing:.08em;opacity:.7;margin:12px 0 4px}
+  .dt-rel{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid rgba(255,255,255,.14);color:#fff;padding:9px 0;font-family:inherit;cursor:pointer;font-size:14px;font-weight:700}
+  .muni-strip{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;margin-top:12px;text-align:left}
+  .muni-emb{width:34px;height:34px;object-fit:contain;flex:none}
+  .muni-strip-main{flex:1;min-width:0}
+  .muni-strip-name{font-size:14.5px;font-weight:900;margin:0;line-height:1.3}
+  .muni-kind{font-size:11px;font-weight:700;opacity:.65;margin-left:8px}
+  .muni-strip-stats{font-size:12px;opacity:.75;margin:2px 0 0;line-height:1.5}
+  .muni-strip-link{font-size:12.5px;font-weight:700;white-space:nowrap}
+  .dt-rel-sub{display:block;font-size:12px;font-weight:400;opacity:.75;margin-top:1px}
   .dt-text{font-size:14px;line-height:1.65}
   .dt-text.pre{white-space:pre-wrap;word-break:break-word}
   .dt-links{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
@@ -270,6 +279,44 @@ function catColor(cat){
   var h=0; for(var i=0;i<cat.length;i++){ h=(h*31+cat.charCodeAt(i))>>>0; }
   return "hsl("+(h%360)+",58%,38%)";
 }
+var feedMuniInfo=null;
+function feedParseMuniFromText(s){
+  if(!s || !feedMuniInfo) return null;
+  var t=String(s).trim();
+  var prefs=["大阪府","京都府","兵庫県","滋賀県","奈良県","和歌山県"];
+  for(var i=0;i<prefs.length;i++){ if(t.indexOf(prefs[i])===0){ t=t.slice(prefs[i].length); break; } }
+  var city=/^(.+?市)/.exec(t);
+  if(city && feedMuniInfo[city[1]]) return city[1];
+  var town=/郡(.+?[町村])/.exec(t);
+  if(town && feedMuniInfo[town[1]]) return town[1];
+  var direct=/^(.+?[町村])/.exec(t);
+  if(direct && feedMuniInfo[direct[1]]) return direct[1];
+  return null;
+}
+function feedMuniStripHTML(name, prof){
+  if(!feedMuniInfo) return "";
+  var mn=feedParseMuniFromText(prof&&prof.ad?prof.ad:"");
+  if(!mn){ var m=/（([^（）]+)）\s*$/.exec(name||""); mn=feedParseMuniFromText(m?m[1]:""); }
+  if(!mn) return "";
+  var info=feedMuniInfo[mn]; if(!info) return "";
+  var bits=[];
+  if(info.pop!=null) bits.push("人口 "+Number(info.pop).toLocaleString("ja-JP")+"人"+(info.popDate? "（"+info.popDate+"）" : ""));
+  if(info.hh!=null) bits.push("世帯数 "+Number(info.hh).toLocaleString("ja-JP")+"世帯");
+  var h='<div class="muni-strip">';
+  if(info.img) h+='<img class="muni-emb" src="../assets/muni/'+esc(info.img)+'" alt="" loading="lazy">';
+  h+='<div class="muni-strip-main"><p class="muni-strip-name">'+esc(mn)+'<span class="muni-kind">所在地の自治体</span></p>';
+  if(bits.length) h+='<p class="muni-strip-stats">'+esc(bits.join(" ・ "))+'</p>';
+  h+='</div>';
+  if(info.web) h+='<a class="muni-strip-link" href="'+esc(info.web)+'" target="_blank" rel="noopener">公式サイト</a>';
+  return h+'</div>';
+}
+function loadFeedMuni(){ try{ fetch("../assets/muni.json").then(function(r){ return r.ok? r.json() : null; }).then(function(j){ if(j && j.info){ feedMuniInfo=j.info; renderFeed(true); } }).catch(function(){}); }catch(e){} }
+function mapLinksHTML(mq, lt, lg){
+  var h='<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">Googleマップで開く</a>';
+  h+='<a href="https://maps.apple.com/?q='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">Appleマップで開く</a>';
+  if(lt!=null && lg!=null && lt!=="" && lg!=="") h+='<a href="https://www.locationsmart.org/map.html?lat='+lt+'&lon='+lg+'" target="_blank" rel="noopener">ロケスマで周辺を見る</a>';
+  return h;
+}
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 /* 画像の保険（v100・本体と共通）: 公開URLが切れたら一次情報元の画像URLへ差し替える */
 var feedFallbacks={}, feedFallbacksLoaded=false, feedFbWaiters=[];
@@ -349,6 +396,11 @@ function parseGvizObject(json, FIELDS){
   }});
   var hasIsFreeCol = idx["isFree"]!=null;
   var hasPriceClassCol = idx["priceClass"]!=null;
+  /* 出演者なし確定フラグ（シート列 performersNone・ヘッダー名で取得。本体と同仕様） */
+  var pnIdx=null;
+  Object.keys(idx).forEach(function(k){ if(k.toLowerCase()==="performersnone") pnIdx=idx[k]; });
+  var relIdx=null;
+  Object.keys(idx).forEach(function(k){ if(k.toLowerCase()==="relatedeventids") relIdx=idx[k]; });
   var events=[];
   rows.forEach(function(r){
     var c=r.c||[]; var ev={};
@@ -358,6 +410,8 @@ function parseGvizObject(json, FIELDS){
     });
     var vsIdx = idx["venueSpaceNote"]!=null ? idx["venueSpaceNote"] : (idx["venueSupp"]!=null ? idx["venueSupp"] : idx["会場補足"]);
     ev.sheetVs = vsIdx==null ? "" : String(rawCellValue(c[vsIdx])||"").trim();
+    ev.performersNone = pnIdx==null ? false : (parseSheetBool(rawCellValue(c[pnIdx]))===true);
+    ev.relatedIds = relIdx==null ? [] : parseRelatedIds(rawCellValue(c[relIdx]));
     ev._freeSheet = hasIsFreeCol ? parseSheetBool(ev.isFree) : null;
     var pcRaw = hasPriceClassCol ? String(ev.priceClass||"").trim().toLowerCase() : null;
     ev._pcSheet = pcRaw==null ? null : ((pcRaw==="paid"||pcRaw==="free"||pcRaw==="drink"||pcRaw==="partial") ? pcRaw : "");
@@ -1291,7 +1345,7 @@ function pendingEventObject(p){
     id:"pend"+(p.ts||0), title:f.title||"", date:f.date||"", dateEnd:(f.dateEnd&&f.dateEnd!==f.date)?f.dateEnd:"",
     timeLabel:f.timeLabel||"", startMin:(typeof f.startMin==="number")?f.startMin:null, endMin:(typeof f.endMin==="number")?f.endMin:null,
     venue:f.venue||"", sheetVs:f.venueSpaceNote||"", area:f.area||"", prefecture:f.prefecture||"",
-    category:f.category||"", categories:f.categories||"", price:f.price||"", performers:f.performers||"",
+    category:f.category||"", categories:f.categories||"", price:f.price||"", performers:f.performers||"", performersNone:!!f.performersNone,
     description:f.description||"", linkWeb:f.linkWeb||"", linkTicket:f.linkTicket||"", linkX:f.linkX||"",
     linkInstagram:f.linkInstagram||"", organizerName:f.organizerName||"", imageUrl:f.imageUrl||"",
     isFree:f.isFree?"TRUE":"", priceClass:f.priceClass||"",
@@ -1305,7 +1359,7 @@ function pendingOverlayObject(base, p){
   var ev=pendingEventObject(p);
   var out={};
   Object.keys(base).forEach(function(k){ out[k]=base[k]; });
-  ["title","date","dateEnd","timeLabel","startMin","endMin","venue","sheetVs","area","prefecture","category","categories","price","performers","description","linkWeb","linkTicket","linkX","linkInstagram","organizerName","imageUrl","_freeSheet","_pcSheet"].forEach(function(k){ out[k]=ev[k]; });
+  ["title","date","dateEnd","timeLabel","startMin","endMin","venue","sheetVs","area","prefecture","category","categories","price","performers","performersNone","description","linkWeb","linkTicket","linkX","linkInstagram","organizerName","imageUrl","_freeSheet","_pcSheet"].forEach(function(k){ out[k]=ev[k]; });
   out.id=base.id;
   out._perfList=ev._perfList;
   out._pending=true;
@@ -1321,13 +1375,27 @@ function pendingEditReflected(sheetEv, f){
   if(!sheetEv) return false;
   function s(x){ return x==null ? "" : String(x); }
   function n(x){ return (typeof x==="number") ? x : null; }
+  /* カテゴリは表現が三者三様（シート="|"連結の全カテゴリ、送信payload=追加分のみ、
+     反映待ち保存="、"連結）なので、主カテゴリと合わせて集合として比べる。
+     出演者も区切り表記を正規化してから比べる（v165） */
+  function catSet(cat, cats){
+    var set=[];
+    function add(x){ x=String(x||"").trim(); if(x && set.indexOf(x)<0) set.push(x); }
+    add(cat);
+    s(cats).split(/[|、,，\/／｜]/).forEach(add);
+    return set.sort().join("|");
+  }
+  function perfNorm(x){
+    return s(x).split(/[、,，]/).map(function(p){ return p.trim(); }).filter(function(p){ return !!p; }).join("、");
+  }
   return s(sheetEv.title)===s(f.title) && s(sheetEv.date)===s(f.date)
     && s(sheetEv.dateEnd)===s(f.dateEnd) && s(sheetEv.venue)===s(f.venue)
     && s(sheetEv.timeLabel)===s(f.timeLabel) && s(sheetEv.price)===s(f.price)
-    && s(sheetEv.performers)===s(f.performers) && s(sheetEv.category)===s(f.category)
-    && s(sheetEv.categories)===s(f.categories) && s(sheetEv.area)===s(f.area)
+    && perfNorm(sheetEv.performers)===perfNorm(f.performers) && s(sheetEv.category)===s(f.category)
+    && catSet(sheetEv.category, sheetEv.categories)===catSet(f.category, f.categories) && s(sheetEv.area)===s(f.area)
     && s(sheetEv.prefecture)===s(f.prefecture)
-    && n(sheetEv.startMin)===n(f.startMin) && n(sheetEv.endMin)===n(f.endMin);
+    && n(sheetEv.startMin)===n(f.startMin) && n(sheetEv.endMin)===n(f.endMin)
+    && (!!sheetEv.performersNone)===(!!f.performersNone);
 }
 function mergePendingEvents(sheetEvents){
   var list=loadPendings();
@@ -1689,6 +1757,36 @@ function loadFeedImages(){
 /* ---------- イベント詳細シート（フィード内で開く） ---------- */
 var detailSheet=document.getElementById("detailSheet"), detailBackdrop=document.getElementById("detailBackdrop"), detailBody=document.getElementById("detailBody"), detailEv=null;
 function closeFeedDetail(){ detailSheet.classList.add("hidden"); detailBackdrop.classList.add("hidden"); detailEv=null; }
+/* 関連イベントIDの解釈： JSON配列でも、カンマ／読点／空白区切りでも受ける。
+   数値ID以外は捨てる（誤データで無関係なイベントを結ばないため） */
+function parseRelatedIds(raw){
+  if(raw==null) return [];
+  var s=String(raw).trim(); if(!s) return [];
+  var arr=null;
+  if(s.charAt(0)==="["){ try{ var j=JSON.parse(s); if(Array.isArray(j)) arr=j; }catch(e){} }
+  if(!arr) arr=s.split(/[,、\s|｜]+/);
+  var out=[], seen={};
+  arr.forEach(function(x){ var k=String(x==null?"":x).trim(); if(k && /^\d+$/.test(k) && !seen[k]){ seen[k]=1; out.push(k); } });
+  return out;
+}
+/* 関連イベントの双方向解決： 自分が指している相手＋自分を指している相手（逆引き）。
+   シートの relatedEventIds が片側にしか入っていなくても、両側の詳細で関連として出す */
+var relRevCache={src:null, rev:null};
+function relatedEventsOf(ev){
+  var selfId=String(ev.id);
+  if(relRevCache.src!==allEvents){
+    var rev={};
+    allEvents.forEach(function(e2){ (e2.relatedIds||[]).forEach(function(x){ var k=String(x); (rev[k]=rev[k]||[]).push(String(e2.id)); }); });
+    relRevCache={src:allEvents, rev:rev};
+  }
+  var byId={};
+  allEvents.forEach(function(e2){ byId[String(e2.id)]=e2; });
+  var ids=[], seen={}; seen[selfId]=1;
+  (ev.relatedIds||[]).concat(relRevCache.rev[selfId]||[]).forEach(function(x){ var k=String(x); if(!seen[k]){ seen[k]=1; ids.push(k); } });
+  var out=ids.map(function(k){ return byId[k]; }).filter(Boolean);
+  out.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
+  return out;
+}
 function openFeedDetail(ev){
   detailEv=ev;
   var id=String(ev.id);
@@ -1699,6 +1797,7 @@ function openFeedDetail(ev){
   if(ev.linkX) links.push(["X", ev.linkX]);
   if(ev.linkInstagram) links.push(["Instagram", ev.linkInstagram]);
   var perfs=ev._perfList||[];
+  var relFeed=relatedEventsOf(ev);
   var imgs=feedImageList(ev);
   var mediaHtml= imgs.length>=2
     ? '<div class="dt-gal" id="dtGal">'+imgs.map(function(u,i){ return '<img class="dt-gal-img" src="'+esc(u)+'" alt="" data-dimg="'+i+'" data-fbk="'+esc(ev.id)+':'+i+'" onerror="evImgErr(this)">'; }).join("")+'</div><div class="dt-gal-ui"><button type="button" class="dt-gal-nav" id="dtGalPrev" aria-label="前の画像">‹</button><span class="dt-gal-count" id="dtGalCount">1/'+imgs.length+'</span><button type="button" class="dt-gal-nav" id="dtGalNext" aria-label="次の画像">›</button></div>'
@@ -1709,8 +1808,9 @@ function openFeedDetail(ev){
     + '<div class="dt-row">'+esc(dateLabel(ev))+(ev.timeLabel? '　'+esc(ev.timeLabel) : '')+'</div>'
     + (ev.venue? '<div class="dt-row"><button type="button" class="dt-prof" data-fprof="venue" data-fname="'+esc(ev.venue)+'">'+esc(ev.venue)+(feedVsOf(ev) && String(ev.venue).indexOf(feedVsOf(ev))<0? '（'+esc(feedVsOf(ev))+'）' : '')+'</button></div>' : '')
     + (ev.price? '<div class="dt-row">'+esc(ev.price)+'</div>' : '')
-    + (perfs.length? '<div class="dt-sec">出演者</div><div>'+perfs.map(function(p){ return '<button type="button" class="dt-prof" data-fprof="artist" data-fname="'+esc(p)+'">'+esc(p)+'</button>'; }).join("")+'</div>' : '')
+    + (perfs.length? '<div class="dt-sec">出演者</div><div>'+perfs.map(function(p){ return '<button type="button" class="dt-prof" data-fprof="artist" data-fname="'+esc(p)+'">'+esc(p)+'</button>'; }).join("")+'</div>' : (ev.performersNone? '<div class="dt-sec">出演者</div><div>出演者なし</div>' : ''))
     + (ev.organizerName? '<div class="dt-sec">主催</div><div><button type="button" class="dt-prof" data-fprof="organizer" data-fname="'+esc(ev.organizerName)+'">'+esc(ev.organizerName)+'</button></div>' : '')
+    + (relFeed.length? '<div class="dt-sec">同時開催・関連イベント</div><div>'+relFeed.map(function(e2){ return '<button type="button" class="dt-rel" data-frel="'+esc(String(e2.id))+'">'+esc(e2.title)+'<span class="dt-rel-sub">'+esc(fmtDate(e2.date))+(e2.venue? '　'+esc(e2.venue) : '')+'</span></button>'; }).join("")+'</div>' : '')
     + (ev.description? '<div class="dt-sec">詳細</div><div class="dt-text pre">'+esc(ev.description)+'</div>' : '')
     + (links.length? '<div class="dt-links">'+links.map(function(l){ return '<a href="'+esc(l[1])+'" target="_blank" rel="noopener">'+esc(l[0])+'</a>'; }).join("")+'</div>' : '')
     + '<div class="dt-acts">'+actBtn("fav", favEvents, "♥", "お気に入り")+actBtn("want", wantEvents, "✓", "行きたい")+actBtn("int", intEvents, "●", "気になる")+'</div>';
@@ -1744,6 +1844,8 @@ detailBackdrop.addEventListener("click", closeFeedDetail);
 detailBody.addEventListener("click", function(e){
   var im=(e.target && e.target.closest)? e.target.closest("[data-dimg]") : null;
   if(im && detailEv){ openImgViewer(detailEv, parseInt(im.getAttribute("data-dimg"),10)||0); return; }
+  var rl=(e.target && e.target.closest)? e.target.closest("[data-frel]") : null;
+  if(rl){ var t=allEvents.find(function(e2){ return String(e2.id)===rl.getAttribute("data-frel"); }); if(t) openFeedDetail(t); return; }
   var pf=(e.target && e.target.closest)? e.target.closest("[data-fprof]") : null;
   if(pf){ openFeedProfile(pf.getAttribute("data-fprof"), pf.getAttribute("data-fname")); return; }
   var b=(e.target && e.target.closest)? e.target.closest("[data-dact]") : null;
@@ -1908,16 +2010,17 @@ function feedProfInfoHTML(kind, name, prof, upcoming, evs){
       if(prof.tp) rows+='<dt>施設種別</dt><dd>'+esc(prof.tp)+'</dd>';
       if(prof.gg) rows+='<dt>ジャンル分類</dt><dd>'+esc(prof.gg)+'</dd>';
       if(rows) h+='<dl class="fp-dl">'+rows+'</dl>';
+      h+=feedMuniStripHTML(name, prof);
       var vl="";
       if(prof.ws) vl+='<a href="'+esc(prof.ws)+'" target="_blank" rel="noopener">公式サイト</a>';
       if(prof.x) vl+='<a href="'+esc(prof.x)+'" target="_blank" rel="noopener">X</a>';
       if(prof.ig) vl+='<a href="'+esc(prof.ig)+'" target="_blank" rel="noopener">Instagram</a>';
       var mq=(prof.lt!=null && prof.lg!=null)? (prof.lt+","+prof.lg) : ((prof.n||name)+(prof.ad? " "+prof.ad : ""));
-      vl+='<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mq)+'" target="_blank" rel="noopener">地図を開く</a>';
+      vl+=mapLinksHTML(mq, prof.lt, prof.lg);
       h+='<div class="dt-links">'+vl+'</div>';
       h+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(mq)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     } else {
-      h+='<div class="dt-links"><a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name)+'" target="_blank" rel="noopener">地図を開く</a></div>';
+      h+='<div class="dt-links">'+mapLinksHTML(name, null, null)+'</div>';
       h+='<div style="margin-top:10px"><iframe title="地図" src="https://www.google.com/maps?q='+encodeURIComponent(name)+'&output=embed" style="width:100%;height:240px;border:0;border-radius:12px;display:block" loading="lazy" allowfullscreen></iframe></div>';
     }
   } else {
@@ -2096,7 +2199,7 @@ function loadFeedSourcesConfig(done){
 }
 function start(){
   renderScopeBar();
-  loadFeedImages(); loadFeedVenueSupp();
+  loadFeedImages(); loadFeedVenueSupp(); loadFeedMuni();
   showState('<div class="spinner" aria-hidden="true"></div><div>読み込み中…</div>');
   loadFeedSourcesConfig(function(sources){
     var liteResults=new Array(sources.length), liteDone=0, liteOk=0;
