@@ -210,6 +210,11 @@
   .plan-day h3{margin:0 0 8px;font-size:16px;border-left:5px solid var(--accent);padding-left:10px}
   .plan-leg{font-size:12.5px;color:var(--muted);margin:-2px 0 8px 14px}
   .plan-leg a{color:var(--accent);font-weight:700}
+  .plan-leg-badge{font-weight:800}
+  .plan-leg-badge.ok, .rf-margin.ok{color:#2e7d32}
+  .plan-leg-badge.tight, .rf-margin.tight{color:#b7791f}
+  .plan-leg-badge.late, .rf-margin.late{color:#c62828}
+  .rf-margin{font-size:12.5px;font-weight:800;margin-top:2px}
   .muni-strip{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-top:12px}
   .muni-emb{width:34px;height:34px;object-fit:contain;flex:none}
   .muni-strip-main{flex:1;min-width:0}
@@ -985,7 +990,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v175';
+  window.__kgShell='v176';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4376,13 +4381,23 @@ function buildPlanSlots(){
     if(!planIds.has(String(ev.id))) return;
     var desc=parseDesc(ev.description); var added=false;
     if(desc && desc.rows.length){
+      /* タイムテーブルがある場合、プランの時刻は先頭行ではなく「推しの出番」を優先する（v176）。
+         推しの行が無ければ従来どおり先頭行 */
+      var firstOk=-1, oshiRi=-1;
       for(var ri=0; ri<desc.rows.length; ri++){
-        var rp=descRowParts(desc.rows[ri]);
+        var rp0=descRowParts(desc.rows[ri]);
+        var a0=(rp0.label&&rp0.text)?(rp0.label+" "+rp0.text):(rp0.text||rp0.label);
+        if(!rp0.time && !a0) continue;
+        if(firstOk<0) firstOk=ri;
+        if(a0 && favPerfs && favPerfs.size){ var hit=false; favPerfs.forEach(function(nm){ if(nm && a0.indexOf(nm)>=0) hit=true; }); if(hit){ oshiRi=ri; break; } }
+      }
+      var useRi = oshiRi>=0? oshiRi : firstOk;
+      if(useRi>=0){
+        var rp=descRowParts(desc.rows[useRi]);
         var time=rp.time, act=(rp.label&&rp.text)?(rp.label+" "+rp.text):(rp.text||rp.label);
-        if(!time && !act) continue;
-        var key=ev.id+"|slot"; if(seen[key]) break; seen[key]=1;
+        var key=ev.id+"|slot"; seen[key]=1;
         slots.push({date:ev.date, time:time, startMin:(timeToMin(time)!=null?timeToMin(time):ev.startMin), act:act||ev.title, title:ev.title, venue:ev.venue, vs:ev.vs||"", id:ev.id, kind:"plan", ev:ev});
-        added=true; break;
+        added=true;
       }
     }
     if(!added){
@@ -4448,7 +4463,8 @@ function renderPlan(){
   document.getElementById("shioriBtn").disabled = slots.length===0;
   els.planBody.innerHTML = groupSlots(slots).map(function(g){
     var conf={}; g.items.forEach(function(a,ai){ var as=a.startMin, ae=(a.ev&&a.ev.endMin!=null)?a.ev.endMin:(as!=null?as+120:null); if(as==null||ae==null) return; g.items.forEach(function(b,bi){ if(ai===bi) return; var bs=b.startMin, be=(b.ev&&b.ev.endMin!=null)?b.ev.endMin:(bs!=null?bs+120:null); if(bs==null||be==null) return; if(as<be && bs<ae){ conf[ai]=1; conf[bi]=1; } }); });
-    var dayHtml = '<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>' + g.items.map(function(s, si){
+    var gpsBtn = (g.date===todayStr() && g.items.length)? '<p style="margin:0 0 8px"><button type="button" class="btn-ghost" data-plan-gps="'+esc(String(g.items[0].id))+'">現在地（GPS）から最初の現場への経路</button></p>' : "";
+    var dayHtml = '<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>' + gpsBtn + g.items.map(function(s, si){
       return (si>0? planLegHTML(g.items[si-1], s) : "") + '<button class="slot" type="button" data-open="'+esc(s.id)+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue)+vsChipHTML(s):"")+'</span></span><span class="tag '+(s.kind==="fav"||s.kind==="plan"?"tag-fav":"tag-oshi")+'">'+(s.kind==="plan"?"✓ プラン":(s.kind==="fav"?"♥ お気に入り":"★ 推し"))+'</span>'+(conf[si]? '<span class="tag tag-conf">⚠ 時間が重なっています</span>' : '')+'</button>';
     }).join("");
     /* その日の最後の予定から、移動込みで回せる候補を静かに出す（v76）。
@@ -4467,10 +4483,21 @@ function renderPlan(){
 }
 /* 回しプランの移動区間（v173）：前の予定→次の予定の経路リンクを、次スロットの
    日付・開始時刻（タイムテーブル由来の時刻を含む）への到着指定で出す */
+/* 到着の目安（v176）：出発可能時刻＋移動推定と、次の開始時刻の差を一目で出す */
+function marginBadge(depMin, travel, arrMin){
+  if(depMin==null || travel==null || arrMin==null) return null;
+  var m=arrMin-(depMin+travel);
+  if(m>=15) return {cls:"ok", text:"目安："+m+"分前に到着"};
+  if(m>=0) return {cls:"tight", text:"目安：到着はギリギリ（"+m+"分前）"};
+  return {cls:"late", text:"目安："+(-m)+"分ほど遅れる可能性"};
+}
 function planLegHTML(prev, next){
   if(!prev || !next || !prev.ev || !next.ev) return "";
   var tr=hopTravelMin(prev.ev, next.ev);
-  if(tr===0) return '<div class="plan-leg">→ 同じ会場です</div>';
+  var prevEnd=(prev.ev.endMin!=null)? prev.ev.endMin : (prev.startMin!=null? prev.startMin+120 : null);
+  var mb=(tr!=null)? marginBadge(prevEnd, tr, next.startMin) : null;
+  var badge=mb? ' <span class="plan-leg-badge '+mb.cls+'">'+esc(mb.text)+'</span>' : "";
+  if(tr===0) return '<div class="plan-leg">→ 同じ会場です'+badge+'</div>';
   var pv=venueProfileFor(prev.venue), nv=venueProfileFor(next.venue);
   var fromName=(pv&&pv.n?pv.n:(prev.venue||"")), destName=(nv&&nv.n?nv.n:(next.venue||""));
   var g="https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(destName+(nv&&nv.ad?" "+nv.ad:""))+"&origin="+encodeURIComponent(fromName+(pv&&pv.ad?" "+pv.ad:""))+"&travelmode=transit";
@@ -4484,7 +4511,7 @@ function planLegHTML(prev, next){
       y+="&y="+p[0]+"&m="+p[1]+"&d="+p[2]+"&hh="+Math.floor(next.startMin/60)+"&mm="+(mm<10?"0"+mm:mm)+"&type=2";
     }
   }
-  return '<div class="plan-leg">→ '+(tr!=null? '移動 約'+tr+'分（推定）　' : '移動時間は経路で確認　')
+  return '<div class="plan-leg">→ '+(tr!=null? '移動 約'+tr+'分（推定）' : '移動時間は経路で確認')+badge+'　' 
     +'<a href="'+esc(g)+'" target="_blank" rel="noopener">Googleマップで経路</a>　<a href="'+esc(y)+'" target="_blank" rel="noopener">Yahoo!乗換案内</a></div>';
 }
 function planText(){
@@ -6511,6 +6538,23 @@ els.planBody.addEventListener("click", function(e){
   }
   var ad=e.target.closest("[data-plan-add]");
   if(ad){ togglePlan(ad.getAttribute("data-plan-add")); render(); return; }
+  var pg=e.target.closest("[data-plan-gps]");
+  if(pg){
+    var gid=pg.getAttribute("data-plan-gps");
+    var gev=allEvents.find(function(x){ return String(x.id)===gid; });
+    if(gev){
+      if(!navigator.geolocation){ toast("この端末では現在地が使えません"); return; }
+      toast("現在地を取得しています…");
+      navigator.geolocation.getCurrentPosition(function(pos){
+        var vp=venueProfileFor(gev.venue||"");
+        var dest=(vp&&vp.n? vp.n : (gev.venue||""))+((vp&&vp.ad)? " "+vp.ad : "");
+        var u="https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(pos.coords.latitude+","+pos.coords.longitude)+"&destination="+encodeURIComponent(dest)+"&travelmode=transit";
+        if(gev.startMin!=null && gev.date){ var pp=gev.date.split("-"); if(pp.length===3){ var dt2=new Date(+pp[0],+pp[1]-1,+pp[2], Math.floor(gev.startMin/60), gev.startMin%60); u+="&arrival_time="+Math.floor(dt2.getTime()/1000); } }
+        window.open(u, "_blank");
+      }, function(){ toast("現在地が取得できませんでした"); }, {timeout:10000});
+    }
+    return;
+  }
   var pt=e.target.closest("[data-pick-tab]");
   if(pt){ planPickTab=pt.getAttribute("data-pick-tab"); planPickOpen=""; renderPlanPick(); return; }
   var pe=e.target.closest("[data-pick-ent]");
@@ -7433,6 +7477,8 @@ function renderRouteFit(){
     if(rec.travel!=null) meta+="／移動 約"+rec.travel+"分（推定・直線"+rec.km.toFixed(1)+"km）";
     var targetMin=ev.startMin;
     if(rec.slot && rec.travel!=null){ var stm=rfSlotTargetMin(ev, baseMin, rec.travel); if(stm!=null) targetMin=stm; }
+    var marginHtml="";
+    if(rec.travel!=null && targetMin!=null){ var mb2=marginBadge(baseMin, rec.travel, targetMin); if(mb2) marginHtml='<div class="rf-margin '+mb2.cls+'">'+esc(mb2.text)+'（'+(rec.slot? "出番":"開始")+" "+minToTime(targetMin)+' 基準）</div>'; }
     var maps=rfMapsUrl(ev, rec.vp, origin, rec.km, targetMin);
     var yahoo=rfYahooUrl(ev, rec.vp, origin, targetMin);
     return '<article class="rf-row" data-rf-id="'+esc(String(ev.id))+'" role="button" tabindex="0">'
@@ -7440,6 +7486,7 @@ function renderRouteFit(){
       +'<span class="rf-title">'+esc(ev.title)+'</span>'
       +'<div class="rf-meta">'+esc(meta)+'</div>'
       +(rec.slot? '<div class="rf-slot">'+esc(rec.slot)+'</div>' : "")
+      + marginHtml
       +(rec.planNote? '<div class="rf-plan'+(rec.planOk?"":" warn")+'">'+esc(rec.planNote)+'</div>' : "")
       + ttHTML(ev)
       +'<div class="rf-links"><a href="'+esc(maps)+'" target="_blank" rel="noopener">Googleマップで経路</a>'
