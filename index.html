@@ -1010,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v182';
+  window.__kgShell='v183';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -7400,7 +7400,8 @@ function rfTimesOf(text){
 function isNonPerfAct(act){
   var a=String(act||"").trim();
   if(!a) return true;
-  return /^(時間調整|調整時間|調整|開場|開演|終演|閉場|物販|特典会|受付|入場|リハーサル|サウンドチェック|休憩|準備)/.test(a);
+  if(/^(時間調整|調整時間|調整|開場|開演|終演|閉場|物販|特典会|受付|入場|リハーサル|サウンドチェック|休憩|準備)/.test(a)) return true;
+  return /^(OPEN|CLOSE)([\s:：]|$)/.test(a);
 }
 function rfSlotScan(ev, baseMin, travel){
   var desc=parseDesc(ev.description); if(!desc || !desc.rows) return null;
