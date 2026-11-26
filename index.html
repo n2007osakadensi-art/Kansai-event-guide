@@ -467,6 +467,12 @@
   .perf-hint{font-size:12.5px;color:var(--muted);margin-top:6px}
   .rel-axis{margin-bottom:12px}
   .rel-label{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px}
+  .rel-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .rel-chips::-webkit-scrollbar{display:none}
+  .rel-chip{flex:none;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:44px;padding:5px 13px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:700;font-size:13.5px;cursor:pointer;line-height:1.25}
+  .rel-chip.on{background:var(--accent);border-color:var(--accent);color:#fff;cursor:default}
+  .rel-chip-next{font-size:9.5px;font-weight:800;color:var(--accent);line-height:1.1}
+  .rel-chip.on .rel-chip-next{color:#fff}
   .rel-row{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:10px 12px;margin-bottom:6px;cursor:pointer;font-size:14px}
   .rel-note{font-size:11.5px;font-weight:700;color:var(--accent)}
   .plan-next{margin:10px 0 4px;border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
@@ -1004,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v179';
+  window.__kgShell='v180';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4836,7 +4842,7 @@ function relatedEventsHTML(ev){
     var st=take(series);
     var snotes={};
     if(st.length && st[0].date>=ev.date) snotes[String(st[0].id)]="次回";
-    if(st.length) axes.push({label:"他の開催日", list:st, total:series.length, notes:snotes});
+    if(st.length) axes.push({label:"他の開催日", list:st, total:series.length, notes:snotes, chips:true});
   }
   /* 同じ会場の他の開催（v178、Kota仕様）：会場キーの完全一致で自動生成する
      （relatedEventIdsとは別仕組み・登録不要）。同日（開始時刻順）を先頭に、
@@ -4906,6 +4912,28 @@ function relatedEventsHTML(ev){
   var html='<h3 style="margin:20px 0 8px;font-size:15px">関連イベント</h3>';
   axes.forEach(function(ax){
     html+='<div class="rel-axis"><div class="rel-label">'+esc(ax.label)+(ax.total>ax.list.length?'（全'+ax.total+'件）':'')+'</div>';
+    if(ax.chips){
+      /* 他の開催日はチップ切り替え（v180、スペース版の良い所をスマホ向けに
+         ブラッシュアップ）：横スクロールの日付チップ、表示中は塗り、次回に印。
+         縦リストと違い場所を取らず、親指でそのまま別日へ移れる */
+      var withSelf=ax.list.concat([ev]);
+      withSelf.sort(function(a,b){
+        var ga=a.date===ev.date?0:(a.date>ev.date?1:2), gb=b.date===ev.date?0:(b.date>ev.date?1:2);
+        if(ga!==gb) return ga-gb;
+        if(ga===2){ if(a.date!==b.date) return a.date>b.date?-1:1; }
+        else if(a.date!==b.date) return a.date<b.date?-1:1;
+        var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs;
+      });
+      var dateCount={}; withSelf.forEach(function(e2){ dateCount[e2.date]=(dateCount[e2.date]||0)+1; });
+      var nextId=ax.notes? Object.keys(ax.notes)[0] : null;
+      html+='<div class="rel-chips">'+withSelf.map(function(e2){
+        var isSelf=String(e2.id)===selfId;
+        var lab=esc(fmtDate(e2.date))+(dateCount[e2.date]>1 && e2.startMin!=null? ' '+esc(minToTime(e2.startMin)) : '');
+        var inner=(nextId && String(e2.id)===nextId? '<span class="rel-chip-next">次回</span>' : '')+'<span>'+lab+'</span>';
+        return isSelf? '<span class="rel-chip on" aria-current="true">'+inner+'</span>' : '<button type="button" class="rel-chip" data-rel-id="'+esc(String(e2.id))+'">'+inner+'</button>';
+      }).join("")+'</div></div>';
+      return;
+    }
     html+=ax.list.slice(0, ax.max||5).map(function(e2){
       var tm=e2.startMin!=null? ' '+esc(minToTime(e2.startMin))+(ax.range&&e2.endMin!=null&&e2.endMin>e2.startMin?'–'+esc(minToTime(e2.endMin)):'') : '';
       var rnote=(ax.notes && ax.notes[String(e2.id)])? '<span class="rel-note">'+esc(ax.notes[String(e2.id)])+'</span>' : '';
