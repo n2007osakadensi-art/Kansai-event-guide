@@ -831,6 +831,11 @@
   .notice-item h3{margin:3px 0 5px;font-size:15px}
   .notice-item p{margin:0 0 6px;font-size:13.5px;line-height:1.65;white-space:pre-wrap}
   .notice-item a{font-size:13.5px;font-weight:700}
+  .ni-embed{margin:8px 0 4px}
+  .ni-embed iframe{width:100%;border:0;border-radius:10px;background:#fff}
+  .ni-embed .ni-x{height:560px}
+  .ni-embed .ni-ig{height:500px}
+  .ni-embed .ni-tt{height:580px}
   .ni-empty{color:var(--muted);font-size:13.5px;padding:10px 0 16px}
   .sg-overlay{position:fixed;inset:0;z-index:120;background:#0e0f12;color:#f4f2ec;display:none;flex-direction:column}
   .sg-overlay.open{display:flex}
@@ -1010,7 +1015,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v190';
+  window.__kgShell='v191';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -7300,11 +7305,27 @@ function renderNoticeStrip(){
 function openNotices(){
   var list=document.getElementById("noticeList"); if(!list) return;
   list.innerHTML=noticesList.length? noticesList.map(function(n){
-    return '<article class="notice-item"><div class="ni-date">'+esc(n.dateText)+'</div><h3>'+esc(n.title)+'</h3>'+(n.body? '<p>'+esc(n.body)+'</p>' : '')+(n.url? '<a href="'+esc(n.url)+'" target="_blank" rel="noopener">'+esc(n.urlLabel||"詳しく見る")+'</a>' : '')+'</article>';
+    return '<article class="notice-item"><div class="ni-date">'+esc(n.dateText)+'</div><h3>'+esc(n.title)+'</h3>'+(n.body? '<p>'+esc(n.body)+'</p>' : '')+(n.embed? noticeEmbedHTML(n.embed) : '')+(n.url? '<a href="'+esc(n.url)+'" target="_blank" rel="noopener">'+esc(n.urlLabel||"詳しく見る")+'</a>' : '')+'</article>';
   }).join("") : '<p class="ni-empty">お知らせはまだありません。</p>';
   var ov=document.getElementById("noticeOverlay"); if(ov) ov.classList.remove("hidden");
   try{ localStorage.setItem("kg_notice_seen_v1", noticesList.length? noticesList[0].key : ""); }catch(e){}
   var nb=document.getElementById("noticeNew"); if(nb) nb.classList.add("hidden");
+}
+function kgThreadsEmbedJs(){
+  if(window.__kgThreadsJs) return; window.__kgThreadsJs=true;
+  var s=document.createElement("script"); s.async=true; s.src="https://www.threads.net/embed.js"; document.head.appendChild(s);
+}
+function noticeEmbedHTML(u){
+  u=String(u||"").trim(); if(!u) return "";
+  var m;
+  if((m=u.match(/(?:x\.com|twitter\.com)\/[^/?#]+\/status\/(\d+)/))) return '<div class="ni-embed"><iframe class="ni-embed-frame ni-x" src="https://platform.twitter.com/embed/Tweet.html?id='+m[1]+'" loading="lazy" title="X\u306e\u6295\u7a3f" allow="encrypted-media; picture-in-picture"></iframe></div>';
+  if((m=u.match(/instagram\.com\/(p|reel|reels)\/([\w-]+)/))) return '<div class="ni-embed"><iframe class="ni-embed-frame ni-ig" src="https://www.instagram.com/'+m[1]+'/'+m[2]+'/embed" loading="lazy" title="Instagram\u306e\u6295\u7a3f" allow="encrypted-media; picture-in-picture"></iframe></div>';
+  if((m=u.match(/tiktok\.com\/@[^/?#]+\/video\/(\d+)/))) return '<div class="ni-embed"><iframe class="ni-embed-frame ni-tt" src="https://www.tiktok.com/embed/v2/'+m[1]+'" loading="lazy" title="TikTok\u306e\u6295\u7a3f" allow="encrypted-media; picture-in-picture; autoplay" allowfullscreen></iframe></div>';
+  if(/threads\.(net|com)\//.test(u) && /(?:\/post\/|\/t\/)/.test(u)){
+    kgThreadsEmbedJs();
+    return '<div class="ni-embed"><blockquote class="text-post-media" data-text-post-permalink="'+esc(u)+'" data-text-post-version="0"><a href="'+esc(u)+'" target="_blank" rel="noopener">Threads\u306e\u6295\u7a3f\u3092\u898b\u308b</a></blockquote></div>';
+  }
+  return "";
 }
 function loadNotices(){
   if(noticesStarted) return; noticesStarted=true;
@@ -7322,7 +7343,7 @@ function loadNotices(){
         function cv(i){ var c=r.c[i]; if(!c) return ""; if(c.v!=null) return c.v; return ""; }
         function cf(i){ var c=r.c[i]; return (c && c.f!=null && c.f!=="")? String(c.f) : ""; }
         var title=String(cv(1)||"").trim(); if(!title) return;
-        out.push({ key:noticeParseKey(cv(0)), dateText:noticeDateText(cv(0), cf(0)), title:title, body:String(cv(2)||"").trim(), url:String(cv(3)||"").trim(), urlLabel:String(cv(4)||"").trim() });
+        out.push({ key:noticeParseKey(cv(0)), dateText:noticeDateText(cv(0), cf(0)), title:title, body:String(cv(2)||"").trim(), url:String(cv(3)||"").trim(), urlLabel:String(cv(4)||"").trim(), embed:String(cv(5)||"").trim() });
       });
       out.sort(function(a,b){ return a.key<b.key? 1 : (a.key>b.key? -1 : 0); });
       noticesList=out.slice(0,20);
