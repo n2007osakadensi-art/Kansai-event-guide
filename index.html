@@ -1010,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v184';
+  window.__kgShell='v185';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1984,6 +1984,20 @@ function oshiNameHit(p){
 function hasOshi(ev){ return (ev._perfList||[]).some(oshiNameHit); }
 function oshiIn(ev){ return (ev._perfList||[]).filter(oshiNameHit); }
 /* 1人の推しに絞った照合（推しタグをタップしたときの個別表示用） */
+/* 出演者名と対象名の照合（検索・推し照合と同仕様）: 完全一致／表記ゆれ正規化の
+   一致／同一プロフィール／グループとメンバーの相互展開で判定する。
+   生の文字列一致だけで判定すると、登録名の表記（例 FairyDOLLosaka）と
+   出演者欄の表記（FairyDOLL OSAKA）が食い違うだけで「予定なし」になる */
+function perfNameMatch(p, name){
+  if(!p || !name) return false;
+  if(p===name) return true;
+  if(normSearch(p)===normSearch(name)) return true;
+  var pr=artistProfileFor(p), fr=artistProfileFor(name);
+  if(pr && fr && pr===fr) return true;
+  if(groupMembers(p).indexOf(name)>=0) return true;
+  if(groupMembers(name).indexOf(p)>=0) return true;
+  return false;
+}
 function oshiFocusHit(ev, name){
   return (ev._perfList||[]).some(function(p){
     if(p===name) return true;
@@ -4439,7 +4453,7 @@ function buildPlanSlots(){
         var a0=(rp0.label&&rp0.text)?(rp0.label+" "+rp0.text):(rp0.text||rp0.label);
         if(!rp0.time && !a0) continue;
         if(firstOk<0 && !isNonPerfAct(a0)) firstOk=ri;
-        if(a0 && favPerfs && favPerfs.size){ var hit=false; favPerfs.forEach(function(nm){ if(nm && a0.indexOf(nm)>=0) hit=true; }); if(hit){ oshiRi=ri; break; } }
+        if(a0 && favPerfs && favPerfs.size){ var na0=normSearch(a0); var hit=false; ensureOshiExpanded().names.forEach(function(nm){ if(nm && na0.indexOf(normSearch(nm))>=0) hit=true; }); if(hit){ oshiRi=ri; break; } }
       }
       var useRi = oshiRi>=0? oshiRi : firstOk;
       if(useRi>=0){
@@ -4472,8 +4486,8 @@ function planPickEvents(name){
   var list=allEvents.filter(function(ev){
     if(((ev.dateEnd||ev.date)||"") < t) return false;
     if(planPickTab==="venue") return sameVenueFacility(ev.venue||"", name);
-    if(planPickTab==="organizer") return (ev.organizerName||"")===name;
-    return (ev.performers||[]).indexOf(name)>=0;
+    if(planPickTab==="organizer") return (ev.organizerName||"")===name || normSearch(ev.organizerName||"")===normSearch(name);
+    return (ev._perfList||[]).some(function(p){ return perfNameMatch(p, name); });
   });
   list.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
   return list;
@@ -4491,7 +4505,7 @@ function renderPlanPick(){
   h+=ents.map(function(name){
     var evs=planPickEvents(name);
     var open = planPickOpen===name;
-    var row='<div class="plan-pick-ent"><button type="button" class="plan-pick-entbtn" data-pick-ent="'+esc(name)+'"'+(evs.length?"":" disabled")+'><span class="plan-pick-name">'+esc(name)+'</span><span class="plan-pick-cnt">'+(evs.length? "今後のイベント "+evs.length+" 件" : "今後のイベントなし")+'</span><span class="plan-pick-arrow">'+(evs.length? (open?"▾":"▸") : "")+'</span></button>';
+    var row='<div class="plan-pick-ent"><button type="button" class="plan-pick-entbtn" data-pick-ent="'+esc(name)+'"><span class="plan-pick-name">'+esc(name)+'</span><span class="plan-pick-cnt">'+(evs.length? "今後のイベント "+evs.length+" 件" : "今後のイベントなし")+'</span><span class="plan-pick-arrow">'+(evs.length? (open?"▾":"▸") : "")+'</span></button>';
     if(open && evs.length){
       row+='<div class="plan-pick-evs">'+evs.slice(0,20).map(function(ev){
         var inPlan=planIds.has(String(ev.id));
@@ -8599,10 +8613,7 @@ function tlMeOshiStats(){
     var hit=null;
     favPerfs.forEach(function(f){
       if(hit) return;
-      if(p===f){ hit=f; return; }
-      var pr=artistProfileFor(p), fr=artistProfileFor(f);
-      if(pr && fr && pr===fr){ hit=f; return; }
-      if(groupMembers(p).indexOf(f)>=0 || groupMembers(f).indexOf(p)>=0) hit=f;
+      if(perfNameMatch(p, f)) hit=f;
     });
     cache[p]=hit; return hit;
   }
