@@ -1646,7 +1646,9 @@ function showState(html){
   stateEl.style.display="flex";
   stateEl.innerHTML=html;
 }
+var feedHashDone=false;
 function renderFeed(keepIdx){
+  if(!feedHashDone && typeof allEvents!=="undefined" && allEvents && allEvents.length){ feedHashDone=true; try{ var hm=(location.hash||"").match(/^#\/event\/(.+)$/); if(hm){ var fev=allEvents.find(function(x){ return String(x.id)===String(hm[1]); }); if(fev) openFeedDetail(fev); } }catch(e){} }
   kgFeedRestoreKick();
   var searchRes = (feedQuery || feedExactTarget)? buildSearchItems(allEvents) : null;
   feedItems = searchRes? searchRes.items : buildFeedItems(allEvents);
@@ -1780,7 +1782,7 @@ function loadFeedImages(){
 
 /* ---------- イベント詳細シート（フィード内で開く） ---------- */
 var detailSheet=document.getElementById("detailSheet"), detailBackdrop=document.getElementById("detailBackdrop"), detailBody=document.getElementById("detailBody"), detailEv=null;
-function closeFeedDetail(){ detailSheet.classList.add("hidden"); detailBackdrop.classList.add("hidden"); detailEv=null; }
+function closeFeedDetail(){ detailSheet.classList.add("hidden"); detailBackdrop.classList.add("hidden"); detailEv=null; try{ if(/^#\/event\//.test(location.hash||"")) history.replaceState(null,"", location.pathname+location.search); }catch(e){} }
 /* 関連イベントIDの解釈： JSON配列でも、カンマ／読点／空白区切りでも受ける。
    数値ID以外は捨てる（誤データで無関係なイベントを結ばないため） */
 function parseRelatedIds(raw){
@@ -1813,6 +1815,7 @@ function relatedEventsOf(ev){
 }
 function openFeedDetail(ev){
   detailEv=ev;
+  if(/^\d+$/.test(String(ev.id))){ try{ history.replaceState(null,"", location.pathname+location.search+"#/event/"+ev.id); }catch(e){} }
   var id=String(ev.id);
   function actBtn(act, set, glyph, label){ var on=set.has(id); return '<button type="button" class="dt-act'+(on?' on':'')+'" data-dact="'+act+'">'+glyph+' '+label+'</button>'; }
   var links=[];

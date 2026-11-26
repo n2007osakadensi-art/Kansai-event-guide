@@ -1010,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v186';
+  window.__kgShell='v187';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3587,6 +3587,7 @@ function loadProfiles(){
     if(res[5]){ artistCats=res[5]; }
     artistCatCache={};
     profilesLoaded=true; profilesLoading=null;
+    if(!kgHashOpened) kgOpenHashTarget();
     artistProfCache={};
     allEvents.forEach(function(ev){ ev._hay=null; });
     if(allEvents.length) render();
@@ -3905,6 +3906,8 @@ function openDirDetail(kind, name){
   if(els.overlay.classList.contains("open")) closeModal();
   detailCtx={kind:kind, name:name}; teamFilter="すべて"; detailCal={ym:null, day:null};
   view = kind==="artist" ? "artistDetail" : kind==="venue" ? "venueDetail" : "organizerDetail";
+  if(kind==="artist") kgSetPageHash("#/artist/"+encodeURIComponent(name));
+  else if(kind==="venue") kgSetPageHash("#/venue/"+encodeURIComponent(name));
   render();
   window.scrollTo({top:0});
 }
@@ -4291,6 +4294,7 @@ function render(){
   try{ renderInner(); }catch(e){ kgRenderError('render', e); }
 }
 function renderInner(){
+  if(deepLinkDone && view!=="artistDetail" && view!=="venueDetail" && !(els.overlay && els.overlay.classList.contains("open")) && !(typeof profSheetState!=="undefined" && profSheetState.open)) kgClearPageHash();
   kgUiRestoreKick();
   renderChips(); renderOshiBar(); renderXmasChrome(); renderExpoChrome(); renderSignageChrome();
   if(!els.filterPanel.classList.contains("hidden")) renderFilterOpts(); else updateFilterBadge();
@@ -5064,6 +5068,7 @@ function openModal(ev){
     + '</div>';
   els.overlay.classList.add("open");
   document.body.style.overflow="hidden";
+  if(/^\d+$/.test(String(ev.id))) kgSetPageHash("#/event/"+ev.id);
   document.getElementById("modalClose").addEventListener("click", closeModal);
   var mbb=document.getElementById("modalBackBar"); if(mbb) mbb.addEventListener("click", closeModal);
   document.getElementById("modalFav").addEventListener("click", function(){ toggleFav(String(ev.id)); openModal(ev); render(); });
@@ -5191,6 +5196,7 @@ function openModal(ev){
 }
 function closeModal(){
   els.overlay.classList.remove("open");
+  if(!(typeof profSheetState!=="undefined" && profSheetState.open)) kgClearPageHash();
   els.overlay.classList.remove("tl-above");
   els.overlay.classList.remove("tl-full");
   els.overlay.classList.remove("prof-above");
@@ -6778,11 +6784,45 @@ function applyData(events, cachedSavedAt, cachedSlim, cachedLite){
    成否を返す。JSONP ハンドラ内では伝播すると settled 済みで握り潰され、
    読み込み画面のまま固まるため（コード監査 C1） */
 var deepLinkDone=false;
+var kgHashOpened=false;
+/* ページごとURL（スペース版と同形式、2026-11-26）: #/event/<id>、#/artist/<名前>、
+   #/venue/<名前>。詳細やプロフィールを開くとアドレスバーのURLがそのページのものに
+   更新され、閉じると一覧側のURLに戻る。そのURLを直接開くと対象ページが表示される。
+   存在しないID・名前では通常画面のまま。ボタンは追加しない（URLの取得は
+   アドレスバーと標準の共有／コピー操作で行う） */
+function kgSetPageHash(h){
+  try{
+    if((location.hash||"")===h) return;
+    history.replaceState(null,"", h? (location.pathname+location.search+h) : (location.pathname+location.search));
+  }catch(e){}
+}
+function kgPageHash(){
+  var m=(location.hash||"").match(/^#\/(event|artist|venue)\/(.+)$/);
+  if(!m) return null;
+  var v=m[2]; try{ v=decodeURIComponent(v); }catch(e){}
+  return {kind:m[1], value:v};
+}
+function kgClearPageHash(){ if(kgPageHash()) kgSetPageHash(""); }
+function kgOpenHashTarget(){
+  if(kgHashOpened) return;
+  if(els.overlay && els.overlay.classList.contains("open")) return;
+  if(typeof profSheetState!=="undefined" && profSheetState.open) return;
+  var t=kgPageHash(); if(!t) return;
+  if(t.kind==="event"){
+    var ev=allEvents.find(function(x){ return String(x.id)===String(t.value); });
+    if(ev){ kgHashOpened=true; openModal(ev); }
+  } else if(t.kind==="artist"){
+    if(artistProfileFor(t.value) || allEvents.some(function(ev){ return (ev._perfList||[]).indexOf(t.value)>=0; })){ kgHashOpened=true; openDirDetail("artist", t.value); }
+  } else if(t.kind==="venue"){
+    if(venueProfileFor(t.value) || allEvents.some(function(ev){ return (ev.venue||"")===t.value; })){ kgHashOpened=true; openDirDetail("venue", t.value); }
+  }
+}
+window.addEventListener("hashchange", function(){ kgOpenHashTarget(); });
 function tryDeepLink(){
   if(deepLinkDone) return; deepLinkDone=true;
   try{
     var p=new URLSearchParams(location.search); var id=p.get("event");
-    if(!id) return;
+    if(!id){ kgOpenHashTarget(); return; }
     var ev=allEvents.find(function(x){ return String(x.id)===String(id); });
     var u=new URL(location.href); u.searchParams.delete("event"); history.replaceState(null,"",u.href);
     if(ev) openModal(ev);
@@ -7937,7 +7977,7 @@ els.dirList.addEventListener("click", function(e){
 });
 document.getElementById("detailBack").addEventListener("click", function(){
   view = detailCtx && detailCtx.kind==="artist" ? "artists" : "venues";
-  detailCtx=null; render(); window.scrollTo({top:0});
+  detailCtx=null; kgClearPageHash(); render(); window.scrollTo({top:0});
 });
 
 document.getElementById("retryBtn").addEventListener("click", load);
@@ -8827,9 +8867,13 @@ function openProfSheet(kind, name){
   renderProfSheet();
   var sh=document.getElementById("profSheet"); if(sh) sh.classList.add("open");
   document.body.style.overflow="hidden";
+  if(kind==="artist") kgSetPageHash("#/artist/"+encodeURIComponent(name));
+  else if(kind==="venue") kgSetPageHash("#/venue/"+encodeURIComponent(name));
 }
 function closeProfSheet(){
   profSheetState.open=false;
+  if(els.overlay.classList.contains("open") && typeof currentEv!=="undefined" && currentEv && /^\d+$/.test(String(currentEv.id))) kgSetPageHash("#/event/"+currentEv.id);
+  else kgClearPageHash();
   var sh=document.getElementById("profSheet"); if(sh) sh.classList.remove("open");
   if(typeof tlState!=="undefined" && tlState.open){ document.body.style.overflow="hidden"; if(!els.overlay.classList.contains("open")) tlSchedule(); }
   else if(!els.overlay.classList.contains("open")) document.body.style.overflow="";
