@@ -1004,7 +1004,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v178';
+  window.__kgShell='v179';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4822,6 +4822,22 @@ function relatedEventsHTML(ev){
   function take(list){ var out=[]; list.forEach(function(e2){ var k=String(e2.id); if(!used[k]){ used[k]=1; out.push(e2); } }); return out; }
   var structured=relatedEventsOf(ev);
   if(structured.length) axes.push({label:"同時開催・関連イベント", list:take(structured), total:structured.length});
+  var bk=episodeBaseKey(ev.title);
+  /* 他の開催日（v179）：「次の日程」が伝わる並びにする。同日→今後（近い順）→
+     過去（近い順）。先頭が次回にあたる場合は行に「次回」と出す */
+  var series=allEvents.filter(function(e2){ return String(e2.id)!==selfId && episodeBaseKey(e2.title)===bk; }).sort(function(a,b){
+    var ga=a.date===ev.date?0:(a.date>ev.date?1:2), gb=b.date===ev.date?0:(b.date>ev.date?1:2);
+    if(ga!==gb) return ga-gb;
+    if(ga===2){ if(a.date!==b.date) return a.date>b.date?-1:1; }
+    else if(a.date!==b.date) return a.date<b.date?-1:1;
+    var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs;
+  });
+  if(series.length){
+    var st=take(series);
+    var snotes={};
+    if(st.length && st[0].date>=ev.date) snotes[String(st[0].id)]="次回";
+    if(st.length) axes.push({label:"他の開催日", list:st, total:series.length, notes:snotes});
+  }
   /* 同じ会場の他の開催（v178、Kota仕様）：会場キーの完全一致で自動生成する
      （relatedEventIdsとは別仕組み・登録不要）。同日（開始時刻順）を先頭に、
      続いて日付の近い順。最大10件。行には施設内スペース（vs）を出す */
@@ -4844,9 +4860,6 @@ function relatedEventsHTML(ev){
       if(svt.length) axes.push({label:"同じ会場の他の開催", list:svt, total:svAll.length, max:10, venueMode:true});
     }
   }
-  var bk=episodeBaseKey(ev.title);
-  var series=allEvents.filter(function(e2){ return String(e2.id)!==selfId && episodeBaseKey(e2.title)===bk; }).sort(byDateAsc);
-  if(series.length) axes.push({label:"他の開催日", list:take(series), total:series.length});
   var org=(ev.organizerName||"").trim();
   if(org && ev.date){
     var douji=allEvents.filter(function(e2){ return String(e2.id)!==selfId && (e2.organizerName||"").trim()===org && e2.date===ev.date; }).sort(byDateAsc);
