@@ -586,8 +586,30 @@ function normSearch(s){
     .replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); })
     .replace(/[ァ-ヶ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0x60); })
     .replace(/[ぁぃぅぇぉゃゅょっゎゕゖ]/g, function(c){ return "あいうえおやゆよつわかけ".charAt("ぁぃぅぇぉゃゅょっゎゕゖ".indexOf(c)); })
-    .replace(/[・･]/g, "");
+    .replace(/ぢ/g, "じ").replace(/づ/g, "ず")
+    .replace(/[ー〜~～]/g, "")
+    .replace(/\s/g, "")
+    .replace(/[^0-9a-zぁ-ゖァ-ヶ一-鿿㐀-䶿々]/g, "");
 }
+var feedPerfGroupCache=null, feedPerfGroupSrc=null;
+function feedPerfGroups(){
+  if(feedPerfGroupCache && feedPerfGroupSrc===allEvents) return feedPerfGroupCache;
+  var counts={}, byKey={};
+  allEvents.forEach(function(ev){ (ev._perfList||[]).forEach(function(p){ counts[p]=(counts[p]||0)+1; var k=normSearch(p); (byKey[k]||(byKey[k]=[])).push(p); }); });
+  var canonOf={};
+  Object.keys(byKey).forEach(function(k){
+    var spellings=[]; byKey[k].forEach(function(p){ if(spellings.indexOf(p)<0) spellings.push(p); });
+    var profPool=spellings.filter(function(p){ return !!feedArtistProfileFor(p); });
+    var pool=profPool.length?profPool:spellings;
+    pool.sort(function(a,b){ if(counts[b]!==counts[a]) return counts[b]-counts[a]; return a.localeCompare(b,"ja"); });
+    var canon=pool[0];
+    spellings.forEach(function(p){ canonOf[p]=canon; });
+  });
+  feedPerfGroupCache={canonOf:canonOf, counts:counts};
+  feedPerfGroupSrc=allEvents;
+  return feedPerfGroupCache;
+}
+function feedPerfCanonOf(p){ var g=feedPerfGroups(); return g.canonOf[p]||p; }
 var feedQuery="", feedDictByName={}, feedReadingByName={}, feedHayVer=0, feedDictStarted=false;
 var feedExactTarget=null;
 function dictWordsFeed(name){
@@ -938,6 +960,7 @@ if(t.kind==="event") return ev.title===t.value;
 if(t.kind==="eventTitle") return normSearch(ev.title).indexOf(normSearch(t.value))>=0;
 if(t.kind==="artist"){
 if(ev._perfList.indexOf(t.value)>=0) return true;
+if(ev._perfList.some(function(p){ return normSearch(p)===normSearch(t.value); })) return true;
 if(feedIsOskRelated(ev, t.value)) return true;
 var tp=feedArtistProfileFor(t.value);
 if(tp) return ev._perfList.some(function(p){ return feedArtistProfileFor(p)===tp;});
@@ -971,7 +994,7 @@ var hit = normSearch(p).indexOf(text)>=0
 || (feedReadingByName[p] && normSearch(feedReadingByName[p]).indexOf(text)>=0)
 || feedDictHit(p, text)
 || (function(){ var ap=feedArtistProfileFor(p); return!!(ap && ap.al && ap.al.some(function(a){ return normSearch(a).indexOf(text)>=0;}));})();
-if(hit){ seenA[p]=1; artists.push({kind:"artist", klabel:"アーティスト", color:"#e88bb0", label:p, value:p, score:score(p)});}
+if(hit){ var cnF=feedPerfCanonOf(p); if(!seenA[cnF]){ seenA[cnF]=1; artists.push({kind:"artist", klabel:"アーティスト", color:"#e88bb0", label:cnF, value:cnF, score:score(cnF)}); } }
 else {
 var mems=feedGroupMembers(p);
 for(var mi=0; mi<mems.length; mi++){
