@@ -473,6 +473,24 @@
   .plan-rename input{font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);max-width:180px;min-height:38px}
   .plan-pat.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
   .plan-pat.add{border-style:dashed;color:var(--muted)}
+  .plan-pick{margin:0 0 14px}
+  .plan-pick-h{font-size:15px;margin:0 0 8px}
+  .plan-pick-tabs{display:flex;gap:6px;margin:0 0 8px}
+  .plan-pick-ent{border:1px solid var(--line);border-radius:10px;margin:0 0 6px;background:var(--surface)}
+  .plan-pick-entbtn{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:10px 12px;font:inherit;cursor:pointer;text-align:left;color:var(--ink)}
+  .plan-pick-entbtn[disabled]{cursor:default;opacity:.55}
+  .plan-pick-name{font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .plan-pick-cnt{font-size:12px;color:var(--muted);white-space:nowrap}
+  .plan-pick-arrow{color:var(--muted)}
+  .plan-pick-evs{border-top:1px solid var(--line);padding:6px}
+  .plan-pick-ev{display:flex;gap:6px;margin:0 0 6px}
+  .plan-pick-open{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;text-align:left;cursor:pointer;color:var(--ink)}
+  .plan-pick-date{display:block;font-size:12px;color:var(--muted)}
+  .plan-pick-title{display:block;font-weight:700;margin-top:1px}
+  .plan-pick-sub{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+  .plan-pick-add{flex:none;border:1.5px solid var(--accent);color:var(--accent);background:none;border-radius:8px;padding:0 12px;font:inherit;font-weight:700;cursor:pointer}
+  .plan-pick-add.in{border-color:var(--line);color:var(--muted)}
+  .plan-pick-note{font-size:12.5px;color:var(--muted);margin:4px 0}
   .plan-pat.util{color:var(--muted)}
   .plan-cand{display:flex;align-items:stretch;gap:8px;margin-top:6px}
   .plan-cand-main{flex:1;display:flex;gap:10px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;color:inherit;min-width:0}
@@ -967,7 +985,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v174';
+  window.__kgShell='v175';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1323,10 +1341,11 @@
       <button class="btn-ghost" id="shioriBtn" type="button">しおり用テキストを作る</button>
     </div>
     <div id="planPatterns" class="plan-patterns"></div>
+    <div id="planPick" class="plan-pick"></div>
     <div id="planBody"></div>
     <div id="planEmpty" class="state" hidden="">
       <h2>プランに入れる予定がまだありません</h2>
-      <p>イベントの詳細で「＋ 回しプラン」を押した予定だけが、ここに並びます。お気に入りや推しは候補であって、プランには入りません。</p>
+      <p>イベントの詳細で「＋ 回しプラン」を押した予定だけが、ここに並びます。お気に入りや推しは候補であって、プランには入りません。上の「フォローから探す」からも追加できます。</p>
       <p><button class="btn-ghost" id="planFindBtn" type="button">現在地・出発地から「回せる現場」を探す</button></p>
     </div>
   </section>
@@ -4374,8 +4393,54 @@ function buildPlanSlots(){
   slots.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
   return slots;
 }
+/* フォローから探す（v175）：推し・会場フォロー・主催者フォローから、その相手の
+   今後のイベントをプラン画面の中で直接探して追加できるピッカー。
+   追加は既存の data-plan-add（togglePlan）と同じ経路 */
+var planPickTab="artist", planPickOpen="";
+function planPickEntities(){
+  if(planPickTab==="venue") return follows.venues.slice();
+  if(planPickTab==="organizer") return follows.organizers.slice();
+  return Array.from(favPerfs);
+}
+function planPickEvents(name){
+  var t=todayStr();
+  var list=allEvents.filter(function(ev){
+    if(((ev.dateEnd||ev.date)||"") < t) return false;
+    if(planPickTab==="venue") return sameVenueFacility(ev.venue||"", name);
+    if(planPickTab==="organizer") return (ev.organizerName||"")===name;
+    return (ev.performers||[]).indexOf(name)>=0;
+  });
+  list.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
+  return list;
+}
+function renderPlanPick(){
+  var box=document.getElementById("planPick"); if(!box) return;
+  var tabs=[["artist","推し"],["venue","会場"],["organizer","主催者"]];
+  var h='<h3 class="plan-pick-h">フォローから探す</h3><div class="plan-pick-tabs">'
+    + tabs.map(function(tb){ return '<button type="button" class="plan-pat'+(planPickTab===tb[0]?" on":"")+'" data-pick-tab="'+tb[0]+'">'+tb[1]+'</button>'; }).join("") + '</div>';
+  var ents=planPickEntities();
+  if(!ents.length){
+    h+='<p class="plan-pick-note">'+(planPickTab==="artist"? "推しはまだ登録されていません。アーティストのページやイベント詳細から登録できます。": planPickTab==="venue"? "フォロー中の会場はまだありません。会場のページからフォローできます。":"フォロー中の主催者はまだありません。主催者のページからフォローできます。")+'</p>';
+    box.innerHTML=h; return;
+  }
+  h+=ents.map(function(name){
+    var evs=planPickEvents(name);
+    var open = planPickOpen===name;
+    var row='<div class="plan-pick-ent"><button type="button" class="plan-pick-entbtn" data-pick-ent="'+esc(name)+'"'+(evs.length?"":" disabled")+'><span class="plan-pick-name">'+esc(name)+'</span><span class="plan-pick-cnt">'+(evs.length? "今後のイベント "+evs.length+" 件" : "今後のイベントなし")+'</span><span class="plan-pick-arrow">'+(evs.length? (open?"▾":"▸") : "")+'</span></button>';
+    if(open && evs.length){
+      row+='<div class="plan-pick-evs">'+evs.slice(0,20).map(function(ev){
+        var inPlan=planIds.has(String(ev.id));
+        return '<div class="plan-pick-ev"><button type="button" class="plan-pick-open" data-open="'+esc(String(ev.id))+'"><span class="plan-pick-date">'+esc(fmtDateFull(ev.date))+(ev.timeLabel? "　"+esc(ev.timeLabel):"")+'</span><span class="plan-pick-title">'+esc(ev.title)+'</span><span class="plan-pick-sub">'+esc(ev.venue||"")+'</span></button>'
+          +'<button type="button" class="plan-pick-add'+(inPlan?" in":"")+'" data-plan-add="'+esc(String(ev.id))+'">'+(inPlan? "✓ プラン内":"＋ 追加")+'</button></div>';
+      }).join("")+(evs.length>20? '<p class="plan-pick-note">ほか '+(evs.length-20)+' 件あります</p>':"")+'</div>';
+    }
+    return row+'</div>';
+  }).join("");
+  box.innerHTML=h;
+}
 function renderPlan(){
   renderPlanPatterns();
+  renderPlanPick();
   var slots=buildPlanSlots();
   els.planEmpty.hidden = slots.length>0;
   document.getElementById("copyPlanBtn").disabled = slots.length===0;
@@ -6446,6 +6511,10 @@ els.planBody.addEventListener("click", function(e){
   }
   var ad=e.target.closest("[data-plan-add]");
   if(ad){ togglePlan(ad.getAttribute("data-plan-add")); render(); return; }
+  var pt=e.target.closest("[data-pick-tab]");
+  if(pt){ planPickTab=pt.getAttribute("data-pick-tab"); planPickOpen=""; renderPlanPick(); return; }
+  var pe=e.target.closest("[data-pick-ent]");
+  if(pe){ var pnm=pe.getAttribute("data-pick-ent"); planPickOpen=(planPickOpen===pnm? "" : pnm); renderPlanPick(); return; }
   var b=e.target.closest("[data-open]"); if(!b) return;
   var ev=allEvents.find(function(x){ return String(x.id)===b.getAttribute("data-open"); }); if(ev) openModal(ev);
 });
