@@ -496,6 +496,20 @@
   .plan-pick-add{flex:none;border:1.5px solid var(--accent);color:var(--accent);background:none;border-radius:8px;padding:0 12px;font:inherit;font-weight:700;cursor:pointer}
   .plan-pick-add.in{border-color:var(--line);color:var(--muted)}
   .plan-pick-note{font-size:12.5px;color:var(--muted);margin:4px 0}
+  .pday-wrap{margin:0 0 10px}
+  .pday-bar{position:relative;height:16px;background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .pday-block{position:absolute;top:2px;bottom:2px;background:var(--accent);border-radius:3px;opacity:.85}
+  .pday-ticks{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px}
+  .pday-gaps{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .pday-gap{font-size:11.5px;font-weight:700;color:#b7791f;border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+  .plan-gap{border:1.5px dashed var(--line);border-radius:10px;padding:8px;margin:6px 0}
+  .plan-gap-h{font-size:12.5px;font-weight:800;color:var(--muted);margin:0 0 6px}
+  .plan-cand{display:flex;gap:6px;margin:0 0 6px}
+  .plan-cand:last-child{margin-bottom:0}
+  .plan-cand-open{flex:1;min-width:0;display:flex;gap:8px;align-items:baseline;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;text-align:left;cursor:pointer;color:var(--ink)}
+  .plan-cand-time{font-size:12px;color:var(--muted);white-space:nowrap}
+  .plan-cand-main{font-weight:700;min-width:0}
+  .plan-cand-sub{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:1px}
   .plan-pat.util{color:var(--muted)}
   .plan-cand{display:flex;align-items:stretch;gap:8px;margin-top:6px}
   .plan-cand-main{flex:1;display:flex;gap:10px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;color:inherit;min-width:0}
@@ -990,7 +1004,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v176';
+  window.__kgShell='v177';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1344,6 +1358,7 @@
       <button class="btn-accent" id="copyPlanBtn" type="button">プランをテキストでコピー</button>
       <button class="btn-ghost" id="icsBtn" type="button">カレンダー（.ics）をダウンロード</button>
       <button class="btn-ghost" id="shioriBtn" type="button">しおり用テキストを作る</button>
+      <button class="btn-ghost" id="planRouteBtn" type="button">回せる現場を探す</button>
     </div>
     <div id="planPatterns" class="plan-patterns"></div>
     <div id="planPick" class="plan-pick"></div>
@@ -4453,6 +4468,56 @@ function renderPlanPick(){
   }).join("");
   box.innerHTML=h;
 }
+/* 1日のタイムスケジュール（v177）：その日のプランを時間軸バーで一目で見る。
+   空き時間のチップつき */
+function planDayBarHTML(g){
+  var DAY0=360, DAY1=1440;
+  var items=g.items.filter(function(s){ return s.startMin!=null; });
+  if(!items.length) return "";
+  var blocks=items.map(function(s){
+    var st=Math.max(DAY0, Math.min(DAY1-15, s.startMin));
+    var en=(s.ev&&s.ev.endMin!=null)? s.ev.endMin : s.startMin+60;
+    en=Math.max(st+18, Math.min(DAY1, en));
+    var l=((st-DAY0)/(DAY1-DAY0)*100).toFixed(1), w=((en-st)/(DAY1-DAY0)*100).toFixed(1);
+    return '<span class="pday-block" style="left:'+l+'%;width:'+w+'%"></span>';
+  }).join("");
+  var gaps=[];
+  var sorted=items.slice().sort(function(a,b){ return a.startMin-b.startMin; });
+  for(var i=1;i<sorted.length;i++){
+    var pe=(sorted[i-1].ev&&sorted[i-1].ev.endMin!=null)? sorted[i-1].ev.endMin : sorted[i-1].startMin+120;
+    var gap=sorted[i].startMin-pe;
+    if(gap>=45) gaps.push("空き "+minToTime(pe)+"〜"+minToTime(sorted[i].startMin)+"（"+(gap>=60? Math.floor(gap/60)+"時間"+(gap%60? (gap%60)+"分":"") : gap+"分")+"）");
+  }
+  return '<div class="pday-wrap"><div class="pday-bar">'+blocks+'</div><div class="pday-ticks"><span>6時</span><span>12時</span><span>18時</span><span>24時</span></div>'
+    +(gaps.length? '<div class="pday-gaps">'+gaps.map(function(x){ return '<span class="pday-gap">'+esc(x)+'</span>'; }).join("")+'</div>' : "")+'</div>';
+}
+/* プランの空き・続きの候補（v177）：全日付対応。移動込みで「その空きに収まる」
+   候補だけを静かに出す（回せる現場ビューは今日専用のため、未来日はない） */
+function planCandRow(c){
+  var ev=c.ev;
+  return '<div class="plan-cand"><button type="button" class="plan-cand-open" data-open="'+esc(String(ev.id))+'"><span class="plan-cand-time">'+esc(ev.timeLabel||minToTime(ev.startMin)||"")+'</span><span class="plan-cand-main">'+esc(ev.title)+'<span class="plan-cand-sub">'+esc(ev.venue||"")+' ・ '+esc(c.note)+'</span></span></button><button type="button" class="plan-pick-add" data-plan-add="'+esc(String(ev.id))+'">＋ 追加</button></div>';
+}
+function planGapHTML(prev, next){
+  if(!prev || !next || !prev.ev || !next.ev || next.startMin==null) return "";
+  var prevEnd=(prev.ev.endMin!=null)? prev.ev.endMin : (prev.startMin!=null? prev.startMin+120 : null);
+  if(prevEnd==null || next.startMin-prevEnd<60) return "";
+  var cands=hopCandidates(prev.ev, prevEnd, 8).filter(function(c){
+    if(c.startMin==null || planIds.has(String(c.ev.id))) return false;
+    var cEnd=(c.ev.endMin!=null)? c.ev.endMin : c.startMin+120;
+    var back=hopTravelMin(c.ev, next.ev);
+    return back!=null && cEnd+back<=next.startMin;
+  }).slice(0,2);
+  if(!cands.length) return "";
+  return '<div class="plan-gap"><div class="plan-gap-h">この空き時間で回せる候補</div>'+cands.map(planCandRow).join("")+'</div>';
+}
+function planTailHTML(last){
+  if(!last || !last.ev) return "";
+  var baseEnd=(last.ev.endMin!=null)? last.ev.endMin : (last.startMin!=null? last.startMin+120 : null);
+  if(baseEnd==null) return "";
+  var cands=hopCandidates(last.ev, baseEnd, 8).filter(function(c){ return !planIds.has(String(c.ev.id)); }).slice(0,3);
+  if(!cands.length) return "";
+  return '<div class="plan-gap"><div class="plan-gap-h">最後の予定のあとに回せる候補</div>'+cands.map(planCandRow).join("")+'</div>';
+}
 function renderPlan(){
   renderPlanPatterns();
   renderPlanPick();
@@ -4464,8 +4529,8 @@ function renderPlan(){
   els.planBody.innerHTML = groupSlots(slots).map(function(g){
     var conf={}; g.items.forEach(function(a,ai){ var as=a.startMin, ae=(a.ev&&a.ev.endMin!=null)?a.ev.endMin:(as!=null?as+120:null); if(as==null||ae==null) return; g.items.forEach(function(b,bi){ if(ai===bi) return; var bs=b.startMin, be=(b.ev&&b.ev.endMin!=null)?b.ev.endMin:(bs!=null?bs+120:null); if(bs==null||be==null) return; if(as<be && bs<ae){ conf[ai]=1; conf[bi]=1; } }); });
     var gpsBtn = (g.date===todayStr() && g.items.length)? '<p style="margin:0 0 8px"><button type="button" class="btn-ghost" data-plan-gps="'+esc(String(g.items[0].id))+'">現在地（GPS）から最初の現場への経路</button></p>' : "";
-    var dayHtml = '<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>' + gpsBtn + g.items.map(function(s, si){
-      return (si>0? planLegHTML(g.items[si-1], s) : "") + '<button class="slot" type="button" data-open="'+esc(s.id)+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue)+vsChipHTML(s):"")+'</span></span><span class="tag '+(s.kind==="fav"||s.kind==="plan"?"tag-fav":"tag-oshi")+'">'+(s.kind==="plan"?"✓ プラン":(s.kind==="fav"?"♥ お気に入り":"★ 推し"))+'</span>'+(conf[si]? '<span class="tag tag-conf">⚠ 時間が重なっています</span>' : '')+'</button>';
+    var dayHtml = '<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>' + gpsBtn + planDayBarHTML(g) + g.items.map(function(s, si){
+      return (si>0? planLegHTML(g.items[si-1], s) + planGapHTML(g.items[si-1], s) : "") + '<button class="slot" type="button" data-open="'+esc(s.id)+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue)+vsChipHTML(s):"")+'</span></span><span class="tag '+(s.kind==="fav"||s.kind==="plan"?"tag-fav":"tag-oshi")+'">'+(s.kind==="plan"?"✓ プラン":(s.kind==="fav"?"♥ お気に入り":"★ 推し"))+'</span>'+(conf[si]? '<span class="tag tag-conf">⚠ 時間が重なっています</span>' : '')+'</button>';
     }).join("");
     /* その日の最後の予定から、移動込みで回せる候補を静かに出す（v76）。
        知らない・見落としている公演の発見と、そのままプランへの追加のため */
@@ -4474,6 +4539,7 @@ function renderPlan(){
       var baseEnd=(last.ev.endMin!=null)? last.ev.endMin : (last.startMin!=null? last.startMin+120 : null);
       /* その日のプランを起点に、候補を全部見る入口（v104）。上の候補は抜粋で、
          こちらは回せる現場ビューの判定（次の予定への帰着・時刻表つき）で開く */
+      dayHtml += planTailHTML(last);
       if(g.date===todayStr()){
         dayHtml += '<p style="margin-top:8px"><button type="button" class="btn-ghost" data-route-from="'+esc(String(last.ev.id))+'">この日のプランから回せる現場を全部見る</button></p>';
       }
@@ -6563,6 +6629,7 @@ els.planBody.addEventListener("click", function(e){
   var ev=allEvents.find(function(x){ return String(x.id)===b.getAttribute("data-open"); }); if(ev) openModal(ev);
 });
 document.getElementById("planFindBtn").addEventListener("click", function(){ view="routefit"; render(); window.scrollTo(0,0); });
+document.getElementById("planRouteBtn").addEventListener("click", function(){ view="routefit"; render(); window.scrollTo(0,0); });
 document.getElementById("planPatterns").addEventListener("click", function(e){
   var sw=e.target.closest("[data-plan-pat]");
   if(sw){ var pid=sw.getAttribute("data-plan-pat"); if(pid!==planActiveId){ savePlans(); planActiveId=pid; var apx=activePattern(); planIds=new Set(apx? apx.ids : []); savePlans(); render(); } return; }
