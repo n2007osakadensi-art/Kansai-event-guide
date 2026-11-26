@@ -1010,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v181';
+  window.__kgShell='v182';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4372,6 +4372,7 @@ function buildSlots(){
         if(!time && !act) continue;
         var matchOshi = myOshi.some(function(p){ return act.indexOf(p)>=0; });
         if(!isFav && !matchOshi) continue;
+        if(isFav && !matchOshi && isNonPerfAct(act)) continue; /* 調整・開場などは代表行にしない */
         var key=ev.id+"|slot"; if(seen[key]) break; seen[key]=1;
         slots.push({date:ev.date, time:time, startMin:(timeToMin(time)!=null?timeToMin(time):ev.startMin), act:act||ev.title, title:ev.title, venue:ev.venue, vs:ev.vs||"", id:ev.id, kind:(isFav?"fav":"oshi"), ev:ev});
         added=true;
@@ -4409,7 +4410,7 @@ function buildPlanSlots(){
         var rp0=descRowParts(desc.rows[ri]);
         var a0=(rp0.label&&rp0.text)?(rp0.label+" "+rp0.text):(rp0.text||rp0.label);
         if(!rp0.time && !a0) continue;
-        if(firstOk<0) firstOk=ri;
+        if(firstOk<0 && !isNonPerfAct(a0)) firstOk=ri;
         if(a0 && favPerfs && favPerfs.size){ var hit=false; favPerfs.forEach(function(nm){ if(nm && a0.indexOf(nm)>=0) hit=true; }); if(hit){ oshiRi=ri; break; } }
       }
       var useRi = oshiRi>=0? oshiRi : firstOk;
@@ -6998,14 +6999,14 @@ function load(force){
       var conn=navigator.connection||{};
       var et=conn.effectiveType||"";
       var dataSaver=!!conn.saveData || et==="slow-2g" || et==="2g";
-      /* 速度制限・低速回線への対策：更新は頻繁でないため、再取得は半日（12時間）
-         に1回で足りる（Kota指示 2026-11-23）。それまでは再ダウンロードせず
-         保存データを表示する。データセーバー有効時・2G相当の低速回線では
-         裏での再取得も行わず、回線が安定した環境に戻ってから更新する。
-         ただし「再読み込み」ボタンの手動操作（force）では常に最新を取得する
-         （2026-11-23修正：ボタンでも12時間ルールに止められ、登録・修正が
-         反映されない問題への対処。自動取得の12時間ルールは従来どおり） */
-      if(force || cached.lite || (ageMin>=720 && !dataSaver)) startNetworkLoad(true);
+      /* 再取得の間隔（v182で12時間→60分に短縮）：2026-11-23時点の前提
+         （更新は頻繁でない）は崩れ、現在はシートが日に何度も書き直されるため、
+         12時間ルールでは登録・修正が半日近く反映されなかった（Kota指摘
+         2026-11-26）。保存データが60分以上古ければ裏で最新を取得する。
+         データセーバー有効時・2G相当の低速回線では裏での再取得を行わず、
+         回線が安定した環境に戻ってから更新する。「再読み込み」ボタンの
+         手動操作（force）では常に最新を取得する */
+      if(force || cached.lite || (ageMin>=60 && !dataSaver)) startNetworkLoad(true);
     }else{
       startNetworkLoad(false);
     }
@@ -7391,6 +7392,16 @@ function rfTimesOf(text){
   while((m=re.exec(String(text||""))) && out.length<3) out.push((+m[1])*60+(+m[2]));
   return out;
 }
+
+/* 非出演行の判定（v182）：タイムテーブルの「時間調整・調整・開場・物販」などの
+   行は出演者ではない。出演者の表示は events の出演者欄だけを根拠にし、
+   タイムテーブル行から出番や代表行を導出するときはこの行を必ず除外する
+   （Kota指摘 2026-11-26：「時間調整」が出演者として表示された） */
+function isNonPerfAct(act){
+  var a=String(act||"").trim();
+  if(!a) return true;
+  return /^(時間調整|調整時間|調整|開場|開演|終演|閉場|物販|特典会|受付|入場|リハーサル|サウンドチェック|休憩|準備)/.test(a);
+}
 function rfSlotScan(ev, baseMin, travel){
   var desc=parseDesc(ev.description); if(!desc || !desc.rows) return null;
   var arrival=baseMin+travel, bestEnd=null, bestStart=null;
@@ -7398,7 +7409,7 @@ function rfSlotScan(ev, baseMin, travel){
     var rp=descRowParts(row);
     var ts=rfTimesOf(rp.time); if(!ts.length) return;
     var act=((rp.label&&rp.text)?(rp.label+" "+rp.text):(rp.text||rp.label)).trim(); if(!act) return;
-    if(/^(開場|開演|終演)$/.test(act)) return; /* 式次第の行は出番として扱わない */
+    if(isNonPerfAct(act)) return; /* 調整・開場・物販などの非出演行は出番として扱わない */
     if(ts.length>1){ if(ts[1]>baseMin && arrival<=ts[1] && (!bestEnd || ts[1]>bestEnd.e)) bestEnd={act:act, time:rp.time, s:ts[0], e:ts[1]}; }
     else if(arrival<=ts[0] && ts[0]>=baseMin && (!bestStart || ts[0]<bestStart.s)) bestStart={act:act, time:rp.time, s:ts[0]};
   });
