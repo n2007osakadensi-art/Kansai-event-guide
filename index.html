@@ -831,7 +831,22 @@
   .notice-item h3{margin:3px 0 5px;font-size:15px}
   .notice-item p{margin:0 0 6px;font-size:13.5px;line-height:1.65;white-space:pre-wrap}
   .notice-item a{font-size:13.5px;font-weight:700}
-  .ni-embed{margin:8px 0 4px}
+  .ni-embed{margin:8px 0 4px}.tag-list{display:flex;flex-wrap:wrap;gap:6px}
+.tag-chip{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--border);border-radius:999px;padding:3px 6px 3px 10px;background:var(--surface2);font-size:13px}
+.tag-chip.official{border-color:var(--gold)}
+.tag-chip.pend{opacity:.65;border-style:dashed}
+.tag-name{border:0;background:transparent;color:var(--accent);font-weight:700;font-size:13px;padding:2px 0;cursor:pointer}
+.tag-off{font-size:10px;font-weight:700;color:var(--gold);border:1px solid var(--gold);border-radius:4px;padding:0 3px}
+.tag-cnt{font-size:11px;color:var(--muted)}
+.tag-x{border:0;background:transparent;color:var(--muted);font-size:14px;line-height:1;padding:2px 4px;cursor:pointer}
+.tag-none{color:var(--muted);font-size:13px}
+.tag-add{display:flex;gap:8px;margin-top:10px}
+.tag-add input{flex:1;min-height:44px;border:1.5px solid var(--border);border-radius:10px;padding:8px 10px;font-size:14px;background:var(--surface);color:var(--ink)}
+.tag-add-btn{min-height:44px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;padding:8px 16px;cursor:pointer}
+.tag-note{font-size:12px;color:var(--muted);margin-top:6px}
+#tagBar{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1.5px solid var(--accent);color:var(--accent);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px;cursor:pointer;background:var(--surface)}
+#tagBar.hidden{display:none}
+.tagbar-x{font-weight:700;font-size:13px}
   .ni-embed iframe{width:100%;border:0;border-radius:10px;background:#fff}
   .ni-embed .ni-x{height:560px}
   .ni-embed .ni-ig{height:500px}
@@ -1015,7 +1030,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v194';
+  window.__kgShell='v195';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2735,6 +2750,7 @@ function searchHay(ev){
     /* グループならメンバー名でも探せるようにする */
     var mems=groupMembers(p); if(mems.length) parts.push(mems.join(" "));
   });
+  tagsOf(ev).forEach(function(t){ parts.push(t.tag); });
   var tdw=dictWords(ev.title); if(tdw.length) parts.push(tdw.join(" "));
   var vdw=dictWords(ev.venue); if(vdw.length) parts.push(vdw.join(" "));
   venueVariants(ev.venue).forEach(function(vv){ if(vv!==ev.venue) parts.push(vv); });
@@ -2882,6 +2898,7 @@ function filtered(){
     else { var al0=activeList(); listSet=al0?listEventIdSet(al0):new Set(); }
   }
   var passWith=function(ev, opts){
+    if(tagFilter && !tagsOf(ev).some(function(t){ return t.tag===tagFilter; })) return false;
     if(listSet && !listSet.has(String(ev.id))) return false;
     if(view==="fav" && !favEvents.has(String(ev.id))) return false;
     if(view==="oshi" && !hasOshi(ev)) return false;
@@ -4322,7 +4339,7 @@ function render(){
 function renderInner(){
   if(deepLinkDone && view!=="artistDetail" && view!=="venueDetail" && !(els.overlay && els.overlay.classList.contains("open")) && !(typeof profSheetState!=="undefined" && profSheetState.open)) kgClearPageHash();
   kgUiRestoreKick();
-  renderChips(); renderOshiBar(); renderXmasChrome(); renderExpoChrome(); renderSignageChrome();
+  renderChips(); renderOshiBar(); renderTagBar(); renderXmasChrome(); renderExpoChrome(); renderSignageChrome();
   if(!els.filterPanel.classList.contains("hidden")) renderFilterOpts(); else updateFilterBadge();
   renderCountsOnly();
   var isPlan = view==="plan";
@@ -5121,6 +5138,7 @@ function openModal(ev){
     + '<button class="mini-btn'+(isPlan?" on":"")+'" type="button" id="modalPlan">'+(isPlan?"✓ 回しプラン":"＋ 回しプラン")+(planPatterns.length>1 && activePattern()? "："+esc(activePattern().name) : "")+'</button>'
     + ((ev.date===todayStr() && !isEnded(ev) && !/^【中止】/.test(ev.title||""))? '<button class="mini-btn" type="button" id="modalRoute">このイベントの後で回せる現場</button>' : '')
     + '</div>'
+    + tagSectionHTML(ev)
     + relatedEventsHTML(ev)
     + '<div class="modal-edit-row"><button class="modal-edit-btn" type="button" id="modalEdit">このイベントの修正を送る</button></div>'
     + '</div>';
@@ -6710,6 +6728,7 @@ els.searchInput.addEventListener("focus", renderSuggest);
 var searchRenderTimer=null;
 els.searchInput.addEventListener("input", function(){
   exactTarget=null; /* 手入力に戻ったら候補の完全一致は解除し、入力した語だけで検索する */
+  tagFilter="";
   query=els.searchInput.value; els.clearSearch.style.display = query? "block":"none"; renderSuggest();
   clearTimeout(searchRenderTimer); searchRenderTimer=setTimeout(render, 110);
 });
@@ -6737,6 +6756,7 @@ document.querySelectorAll(".view-tab").forEach(function(t){
     /* タブを手で切り替えたら、保持中のタイムラインは破棄する */
     if(typeof tlState!=="undefined" && tlState.suspended) tlState.suspended=false;
     var nv=t.getAttribute("data-view");
+    tagFilter="";
     /* DBタブを切り替えたらDB検索の入力は残さない（アーティスト⇔会場でも、他の表示から戻ったときも） */
     if(nv!==view && (nv==="artists"||nv==="venues"||view==="artists"||view==="venues")){ dirQuery=""; if(els.dirSearch) els.dirSearch.value=""; }
     view=nv;
@@ -7348,6 +7368,162 @@ function noticeEmbedHTML(u){
   }
   return "";
 }
+
+/* ===== shared tags (v195) ===== */
+var tagsByEvent={}, tagsStarted=false, tagFilter="";
+var LS_PEND_TAGS="kg_trial_pending_tags_v1", LS_MY_TAGS="kg_trial_my_tags_v1";
+function loadPendTags(){ try{ return JSON.parse(localStorage.getItem(LS_PEND_TAGS)||"{}"); }catch(e){ return {}; } }
+function savePendTags(o){ try{ localStorage.setItem(LS_PEND_TAGS, JSON.stringify(o)); }catch(e){} }
+function loadMyTags(){ try{ return JSON.parse(localStorage.getItem(LS_MY_TAGS)||"{}"); }catch(e){ return {}; } }
+function saveMyTags(o){ try{ localStorage.setItem(LS_MY_TAGS, JSON.stringify(o)); }catch(e){} }
+function tagsOf(ev){ return tagsByEvent[String(ev.id)]||[]; }
+function tagLoggedIn(){
+  try{ if(localStorage.getItem("kg_admin_mode_v1")==="1") return "admin"; }catch(e){}
+  try{ var s=JSON.parse(localStorage.getItem("kg_member_session_v2")||"null"); if(s && s.acct) return "member:"+String(s.acct).slice(0,12); }catch(e){}
+  return "";
+}
+function tagNorm(raw){
+  var t=String(raw||"").replace(/^#+/,"").replace(/[\s　]+/g,"").trim();
+  return t.slice(0,20);
+}
+function prunePendTags(){
+  var p=loadPendTags(), now=Date.now(), changed=false;
+  Object.keys(p).forEach(function(eid){
+    var have={}; (tagsByEvent[eid]||[]).forEach(function(t){ have[t.tag]=1; });
+    var before=p[eid].length;
+    p[eid]=p[eid].filter(function(pt){ return !have[pt.tag] && (now-(pt.ts||0))<48*3600*1000; });
+    if(p[eid].length!==before) changed=true;
+    if(!p[eid].length) delete p[eid];
+  });
+  if(changed) savePendTags(p);
+}
+function loadTags(){
+  if(tagsStarted) return; tagsStarted=true;
+  var cbName="__kgTagsCb"+(++loadSeq);
+  var settled=false;
+  var script=document.createElement("script");
+  var timer=setTimeout(function(){ finish(); }, 30000);
+  function finish(){ if(settled) return; settled=true; clearTimeout(timer); try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); }
+  window[cbName]=function(resp){
+    try{
+      var rows=(resp && resp.table && resp.table.rows)||[];
+      var out={};
+      rows.forEach(function(r, ri){
+        if(ri===0 || !r || !r.c) return;
+        function cv(i){ var c=r.c[i]; if(!c) return ""; if(c.v!=null) return c.v; return ""; }
+        var eid=String(cv(0)||"").trim(), tag=String(cv(1)||"").trim();
+        if(!eid || !tag) return;
+        (out[eid]=out[eid]||[]).push({ tag:tag, count:parseInt(cv(2),10)||1, locked:String(cv(3)||"").trim()==="1", official:String(cv(4)||"").trim()==="1" });
+      });
+      Object.keys(out).forEach(function(k){ out[k].sort(function(a,b){ return (b.official-a.official)||(b.count-a.count)||(a.tag<b.tag?-1:1); }); });
+      tagsByEvent=out;
+      if(typeof allEvents!=="undefined" && allEvents) allEvents.forEach(function(ev){ ev._hay=null; });
+      prunePendTags();
+    }catch(e){}
+    finish();
+  };
+  script.onerror=function(){ finish(); };
+  script.async=true;
+  script.src=sheetJsonpBase("タグ")+cbName+"&_="+Date.now();
+  document.head.appendChild(script);
+}
+function tagSectionHTML(ev){
+var id=String(ev.id);
+var list=tagsOf(ev);
+var pend=(loadPendTags()[id]||[]);
+var mine=loadMyTags()[id]||[];
+var chips=list.map(function(t){
+var own=mine.indexOf(t.tag)>=0;
+return '<span class="tag-chip'+(t.official?" official":"")+'"><button type="button" class="tag-name" data-tag-open="'+esc(t.tag)+'">#'+esc(t.tag)+'</button>'+(t.official?'<span class="tag-off">公式</span>':"")+'<span class="tag-cnt">'+t.count+'</span>'+(own &&!t.locked? '<button type="button" class="tag-x" data-tag-remove="'+esc(t.tag)+'" aria-label="自分のタグを取り消す">×</button>':"")+'</span>';
+}).join("");
+var pendChips=pend.map(function(pt){ return '<span class="tag-chip pend"><span class="tag-name">#'+esc(pt.tag)+'</span><span class="tag-cnt">反映待ち</span><button type="button" class="tag-x" data-tag-pend-cancel="'+esc(pt.tag)+'" aria-label="送信を取り消す">×</button></span>';}).join("");
+var logged=tagLoggedIn();
+var form=logged? '<div class="tag-add"><input id="tagInput" type="text" placeholder="タグを追加（例: コラボカフェ）" maxlength="30" aria-label="追加するタグ"><button type="button" class="tag-add-btn" id="tagAddBtn">追加</button></div><p class="tag-note" id="tagNote">タグは全員に共有されます。送信後、確認を経て反映されます（通常30分以内）。</p>'
+: '<p class="tag-note">タグの追加にはログインが必要です（会員コード／管理者）。</p>';
+return '<h3 style="margin:20px 0 8px;font-size:15px">みんなのタグ</h3><div class="tag-list">'+chips+pendChips+((!list.length &&!pend.length)? '<span class="tag-none">まだタグがありません</span>': "")+'</div>'+form;
+}
+async function tagSendPayload(payload){
+var cfg=window.KG_EDITOR_CONFIG||{}; if(!cfg.formAction) return false;
+var body=new URLSearchParams();
+body.set(cfg.formSubjectEntry, payload._subject||"");
+body.set(cfg.formPayloadEntry, JSON.stringify(payload));
+var ctl=("AbortController" in window)? new AbortController():null;
+var timer=ctl? setTimeout(function(){ ctl.abort();},25000):null;
+try{ await fetch(cfg.formAction,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:body.toString(),signal:ctl?ctl.signal:undefined}); return true;}
+catch(e){ return false;}
+finally{ if(timer) clearTimeout(timer);}
+}
+function openTagView(tag){
+tagFilter=tag;
+closeModal();
+view="all";
+render();
+window.scrollTo({top:0,behavior:"smooth"});
+}
+function renderTagBar(){
+var bar=document.getElementById("tagBar");
+if(!tagFilter){ if(bar) bar.classList.add("hidden"); return;}
+if(!bar){
+bar=document.createElement("div");
+bar.id="tagBar";
+bar.addEventListener("click", function(){ tagFilter=""; render();});
+if(els.grid && els.grid.parentNode) els.grid.parentNode.insertBefore(bar, els.grid);
+}
+bar.innerHTML='<span>タグ: <strong>#'+esc(tagFilter)+'</strong> のイベント</span><span class="tagbar-x">✕ 解除</span>';
+bar.classList.remove("hidden");
+}
+async function tagAddFlow(ev){
+var input=document.getElementById("tagInput");
+var note=document.getElementById("tagNote");
+var t=tagNorm(input? input.value: "");
+if(!t){ if(note) note.textContent="タグを入力してください。"; return;}
+var submitter=tagLoggedIn();
+if(!submitter){ if(note) note.textContent="ログインが必要です。"; return;}
+var id=String(ev.id);
+var pend=loadPendTags();
+if((pend[id]||[]).some(function(x){ return x.tag===t;})){ if(note) note.textContent="そのタグは送信済み（反映待ち）です。"; return;}
+var exists=tagsOf(ev).some(function(x){ return x.tag===t;});
+var btn=document.getElementById("tagAddBtn");
+if(btn){ btn.disabled=true; btn.textContent="送信中…";}
+var ok=await tagSendPayload({ kind:"tag-add", eventId:ev.id, eventTitle:ev.title, tags:[t], submitter:submitter, _subject:""+ev.title});
+if(btn){ btn.disabled=false; btn.textContent="追加";}
+if(!ok){ if(note) note.textContent="送信に失敗しました。通信環境の良い場所で再度お試しください。"; return;}
+var mine=loadMyTags(); (mine[id]=mine[id]||[]); if(mine[id].indexOf(t)<0) mine[id].push(t); saveMyTags(mine);
+if(exists){ if(note) note.textContent="賛同を送りました（件数に反映されます）。"; if(input) input.value=""; return;}
+pend=loadPendTags(); (pend[id]=pend[id]||[]).push({tag:t, ts:Date.now()}); savePendTags(pend);
+openModal(ev);
+}
+async function tagRemoveFlow(ev, tag){
+var submitter=tagLoggedIn(); if(!submitter) return;
+var ok=await tagSendPayload({ kind:"tag-remove", eventId:ev.id, eventTitle:ev.title, tags:[tag], submitter:submitter, _subject:""+ev.title});
+if(!ok) return;
+var mine=loadMyTags(); var id=String(ev.id);
+if(mine[id]){ mine[id]=mine[id].filter(function(x){ return x!==tag;}); saveMyTags(mine);}
+openModal(ev);
+}
+async function tagPendCancel(ev, tag){
+var pend=loadPendTags(); var id=String(ev.id);
+if(pend[id]){ pend[id]=pend[id].filter(function(x){ return x.tag!==tag;}); if(!pend[id].length) delete pend[id]; savePendTags(pend);}
+var mine=loadMyTags();
+if(mine[id]){ mine[id]=mine[id].filter(function(x){ return x!==tag;}); saveMyTags(mine);}
+var submitter=tagLoggedIn();
+if(submitter) tagSendPayload({ kind:"tag-remove", eventId:ev.id, eventTitle:ev.title, tags:[tag], submitter:submitter, _subject:""+ev.title});
+openModal(ev);
+}
+document.addEventListener("click", function(e){
+var open=e.target.closest("[data-tag-open]");
+if(open){ openTagView(open.getAttribute("data-tag-open")); return;}
+var rem=e.target.closest("[data-tag-remove]");
+if(rem && typeof currentEv!=="undefined" && currentEv){ tagRemoveFlow(currentEv, rem.getAttribute("data-tag-remove")); return;}
+var pc=e.target.closest("[data-tag-pend-cancel]");
+if(pc && typeof currentEv!=="undefined" && currentEv){ tagPendCancel(currentEv, pc.getAttribute("data-tag-pend-cancel")); return;}
+var add=e.target.closest("#tagAddBtn");
+if(add && typeof currentEv!=="undefined" && currentEv){ tagAddFlow(currentEv); return;}
+});
+document.addEventListener("keydown", function(e){
+if(e.key==="Enter" && e.target && e.target.id==="tagInput" && typeof currentEv!=="undefined" && currentEv){ e.preventDefault(); tagAddFlow(currentEv);}
+});
+
 function loadNotices(force){
   var wire=!window.__kgNoticeWired; window.__kgNoticeWired=true;
   if(noticesStarted && !force) return; noticesStarted=true;
@@ -7386,6 +7562,7 @@ function loadNotices(force){
 }
 function refreshNotices(){ loadNotices(true); }
 loadNotices();
+loadTags();
 /* プロフィールの自動反映（v92）: シートの artists / venues / readings タブを読み、
    同梱データへマージする。ガイドへ追加・修正してシート同期されれば、再pushなしで反映される。
    マージ方針はデータを失わない側: シートの非空値が勝ち、シートに無い項目（アイコン等）は同梱を保持。 */

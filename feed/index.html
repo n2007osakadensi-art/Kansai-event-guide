@@ -142,6 +142,12 @@
   .muni-strip-stats{font-size:12px;opacity:.75;margin:2px 0 0;line-height:1.5}
   .muni-strip-link{font-size:12.5px;font-weight:700;white-space:nowrap}
   .dt-rel-sub{display:block;font-size:12px;font-weight:400;opacity:.75;margin-top:1px}
+.ftag-list{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 6px}
+.ftag-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 10px;font-size:13px;color:#fff}
+.ftag-chip.official{border-color:#e8c268;color:#e8c268}
+.ftag-off{font-size:10px;font-weight:700;border:1px solid currentColor;border-radius:4px;padding:0 3px}
+.ftag-cnt{font-size:11px;opacity:.7}
+
   .dt-text{font-size:14px;line-height:1.65}
   .dt-text.pre{white-space:pre-wrap;word-break:break-word}
   .dt-links{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
@@ -1875,6 +1881,7 @@ function openFeedDetail(ev){
     + (ev.price? '<div class="dt-row">'+esc(ev.price)+'</div>' : '')
     + (perfs.length? '<div class="dt-sec">出演者</div><div>'+perfs.map(function(p){ return '<button type="button" class="dt-prof" data-fprof="artist" data-fname="'+esc(p)+'">'+esc(p)+'</button>'; }).join("")+'</div>' : (ev.performersNone? '<div class="dt-sec">出演者</div><div>出演者なし</div>' : ''))
     + (ev.organizerName? '<div class="dt-sec">主催</div><div><button type="button" class="dt-prof" data-fprof="organizer" data-fname="'+esc(ev.organizerName)+'">'+esc(ev.organizerName)+'</button></div>' : '')
+    + feedTagSectionHTML(ev)
     + (relFeed.length? '<div class="dt-sec">同時開催・関連イベント</div><div>'+relFeed.map(function(e2){ return '<button type="button" class="dt-rel" data-frel="'+esc(String(e2.id))+'">'+esc(e2.title)+'<span class="dt-rel-sub">'+esc(fmtDate(e2.date))+(e2.venue? '　'+esc(e2.venue) : '')+'</span></button>'; }).join("")+'</div>' : '')
     + (svFeed.length? '<div class="dt-sec">同じ会場の他の開催</div><div>'+svFeed.map(function(e2){ return '<button type="button" class="dt-rel" data-frel="'+esc(String(e2.id))+'">'+esc(e2.title)+'<span class="dt-rel-sub">'+esc(fmtDate(e2.date))+(e2.startMin!=null? ' '+esc(fmin(e2.startMin)) : '')+(feedVsOf(e2)? '　'+esc(feedVsOf(e2)) : '')+'</span></button>'; }).join("")+'</div>' : '')
     + (ev.description? '<div class="dt-sec">詳細</div><div class="dt-text pre">'+esc(ev.description)+'</div>' : '')
@@ -2366,7 +2373,45 @@ if("serviceWorker" in navigator){
 }
 loadFeedDict();
 loadFeedProfiles();
+
+var feedTagsByEvent={}, feedTagsStarted=false;
+function feedTagsOf(ev){ return feedTagsByEvent[String(ev.id)]||[]; }
+function loadFeedTags(){
+  if(feedTagsStarted) return; feedTagsStarted=true;
+  var cbName="__kgFeedTagsCb"+(++loadSeq);
+  var settled=false;
+  var script=document.createElement("script");
+  var timer=setTimeout(function(){ finish(); }, 30000);
+  function finish(){ if(settled) return; settled=true; clearTimeout(timer); try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); }
+  window[cbName]=function(resp){
+    try{
+      var rows=(resp && resp.table && resp.table.rows)||[];
+      var out={};
+      rows.forEach(function(r, ri){
+        if(ri===0 || !r || !r.c) return;
+        function cv(i){ var c=r.c[i]; if(!c) return ""; if(c.v!=null) return c.v; return ""; }
+        var eid=String(cv(0)||"").trim(), tag=String(cv(1)||"").trim();
+        if(!eid || !tag) return;
+        (out[eid]=out[eid]||[]).push({ tag:tag, count:parseInt(cv(2),10)||1, official:String(cv(4)||"").trim()==="1" });
+      });
+      Object.keys(out).forEach(function(k){ out[k].sort(function(a,b){ return (b.official-a.official)||(b.count-a.count); }); });
+      feedTagsByEvent=out;
+    }catch(e){}
+    finish();
+  };
+  script.onerror=function(){ finish(); };
+  script.async=true;
+  script.src=sheetJsonpBase("タグ")+cbName+"&_="+Date.now();
+  document.head.appendChild(script);
+}
+function feedTagSectionHTML(ev){
+  var list=feedTagsOf(ev);
+  if(!list.length) return "";
+  return '<div class="dt-sec">みんなのタグ</div><div class="ftag-list">'+list.map(function(t){ return '<span class="ftag-chip'+(t.official?" official":"")+'">#'+esc(t.tag)+(t.official?'<span class="ftag-off">公式</span>':"")+'<span class="ftag-cnt">'+t.count+'</span></span>'; }).join("")+'</div>';
+}
+
 loadFeedNotices();
+loadFeedTags();
 start();
 })();
 </script>
