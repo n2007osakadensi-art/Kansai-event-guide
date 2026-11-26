@@ -1010,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v188';
+  window.__kgShell='v189';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1371,7 +1371,7 @@
     <div id="planBody"></div>
     <div id="planEmpty" class="state" hidden="">
       <h2>プランに入れる予定がまだありません</h2>
-      <p>イベントの詳細で「＋ 回しプラン」を押した予定だけが、ここに並びます。お気に入りや推しは候補であって、プランには入りません。上の「フォローから探す」からも追加できます。</p>
+      <p>イベントの詳細で「＋ 回しプラン」を押した予定だけが、ここに並びます。お気に入り・推し・行きたい・気になるは候補であって、プランには入りません。上の「フォローから探す」から追加できます。</p>
       <p><button class="btn-ghost" id="planFindBtn" type="button">現在地・出発地から「回せる現場」を探す</button></p>
     </div>
   </section>
@@ -4497,11 +4497,28 @@ function planPickEvents(name){
   list.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
   return list;
 }
+function planPickRowHTML(ev){
+  var inPlan=planIds.has(String(ev.id));
+  return '<div class="plan-pick-ev"><button type="button" class="plan-pick-open" data-open="'+esc(String(ev.id))+'"><span class="plan-pick-date">'+esc(fmtDateFull(ev.date))+(ev.timeLabel? "　"+esc(ev.timeLabel):"")+'</span><span class="plan-pick-title">'+esc(ev.title)+'</span><span class="plan-pick-sub">'+esc(ev.venue||"")+'</span></button>'
+    +'<button type="button" class="plan-pick-add'+(inPlan?" in":"")+'" data-plan-add="'+esc(String(ev.id))+'">'+(inPlan? "✓ プラン内":"＋ 追加")+'</button></div>';
+}
 function renderPlanPick(){
   var box=document.getElementById("planPick"); if(!box) return;
-  var tabs=[["artist","推し"],["venue","会場"],["organizer","主催者"]];
+  var tabs=[["artist","推し"],["venue","会場"],["organizer","主催者"],["want","行きたい"],["int","気になる"]];
   var h='<h3 class="plan-pick-h">フォローから探す</h3><div class="plan-pick-tabs">'
     + tabs.map(function(tb){ return '<button type="button" class="plan-pat'+(planPickTab===tb[0]?" on":"")+'" data-pick-tab="'+tb[0]+'">'+tb[1]+'</button>'; }).join("") + '</div>';
+  if(planPickTab==="want" || planPickTab==="int"){
+    var mset = planPickTab==="want"? wantEvents : intEvents;
+    var mtoday = todayStr();
+    var mlist = allEvents.filter(function(ev){ return mset.has(String(ev.id)) && !isEnded(ev) && (ev.dateEnd||ev.date)>=mtoday; });
+    mlist.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
+    if(!mlist.length){
+      h+='<p class="plan-pick-note">'+(planPickTab==="want"? "「行きたい」を付けた今後のイベントはまだありません。イベントの詳細から付けられます。":"「気になる」を付けた今後のイベントはまだありません。イベントの詳細から付けられます。")+'</p>';
+    } else {
+      h+='<div class="plan-pick-evs">'+mlist.slice(0,20).map(planPickRowHTML).join("")+'</div>'+(mlist.length>20? '<p class="plan-pick-note">ほか '+(mlist.length-20)+' 件あります</p>':"");
+    }
+    box.innerHTML=h; return;
+  }
   var ents=planPickEntities();
   if(!ents.length){
     h+='<p class="plan-pick-note">'+(planPickTab==="artist"? "推しはまだ登録されていません。アーティストのページやイベント詳細から登録できます。": planPickTab==="venue"? "フォロー中の会場はまだありません。会場のページからフォローできます。":"フォロー中の主催者はまだありません。主催者のページからフォローできます。")+'</p>';
@@ -4510,13 +4527,9 @@ function renderPlanPick(){
   h+=ents.map(function(name){
     var evs=planPickEvents(name);
     var open = planPickOpen===name;
-    var row='<div class="plan-pick-ent"><button type="button" class="plan-pick-entbtn" data-pick-ent="'+esc(name)+'"><span class="plan-pick-name">'+esc(name)+'</span><span class="plan-pick-cnt">'+(evs.length? "今後のイベント "+evs.length+" 件" : "今後のイベントなし")+'</span><span class="plan-pick-arrow">'+(evs.length? (open?"▾":"▸") : "")+'</span></button>';
+    var row='<div class="plan-pick-ent"><button type="button" class="plan-pick-entbtn" data-pick-ent="'+esc(name)+'"><span class="plan-pick-name">'+esc(name)+'</span><span class="plan-pick-cnt">'+(evs.length? "今後のイベント "+evs.length+" 件" : (detailsState==="pending"? "読み込み中…" : "今後のイベントなし"))+'</span><span class="plan-pick-arrow">'+(evs.length? (open?"▾":"▸") : "")+'</span></button>';
     if(open && evs.length){
-      row+='<div class="plan-pick-evs">'+evs.slice(0,20).map(function(ev){
-        var inPlan=planIds.has(String(ev.id));
-        return '<div class="plan-pick-ev"><button type="button" class="plan-pick-open" data-open="'+esc(String(ev.id))+'"><span class="plan-pick-date">'+esc(fmtDateFull(ev.date))+(ev.timeLabel? "　"+esc(ev.timeLabel):"")+'</span><span class="plan-pick-title">'+esc(ev.title)+'</span><span class="plan-pick-sub">'+esc(ev.venue||"")+'</span></button>'
-          +'<button type="button" class="plan-pick-add'+(inPlan?" in":"")+'" data-plan-add="'+esc(String(ev.id))+'">'+(inPlan? "✓ プラン内":"＋ 追加")+'</button></div>';
-      }).join("")+(evs.length>20? '<p class="plan-pick-note">ほか '+(evs.length-20)+' 件あります</p>':"")+'</div>';
+      row+='<div class="plan-pick-evs">'+evs.slice(0,20).map(planPickRowHTML).join("")+(evs.length>20? '<p class="plan-pick-note">ほか '+(evs.length-20)+' 件あります</p>':"")+'</div>';
     }
     return row+'</div>';
   }).join("");
@@ -4551,6 +4564,20 @@ function planCandRow(c){
   var ev=c.ev;
   return '<div class="plan-cand"><button type="button" class="plan-cand-open" data-open="'+esc(String(ev.id))+'"><span class="plan-cand-time">'+esc(ev.timeLabel||minToTime(ev.startMin)||"")+'</span><span class="plan-cand-main">'+esc(ev.title)+'<span class="plan-cand-sub">'+esc(ev.venue||"")+' ・ '+esc(c.note)+'</span></span></button><button type="button" class="plan-pick-add" data-plan-add="'+esc(String(ev.id))+'">＋ 追加</button></div>';
 }
+function planMarkRank(ev){ var id=String(ev.id); return wantEvents.has(id)?0 : intEvents.has(id)?1 : favEvents.has(id)?2 : 3; }
+function planDayMarksHTML(g){
+  var slotIds={}; g.items.forEach(function(s){ slotIds[String(s.id)]=1; });
+  var list=allEvents.filter(function(ev){
+    if(planIds.has(String(ev.id)) || slotIds[String(ev.id)]) return false;
+    if(!wantEvents.has(String(ev.id)) && !intEvents.has(String(ev.id))) return false;
+    return ev.date<=g.date && (ev.dateEnd||ev.date)>=g.date;
+  });
+  if(!list.length) return "";
+  list.sort(function(a,b){ var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
+  return '<div class="plan-gap"><div class="plan-gap-h">この日の行きたい・気になる（候補）</div>'+list.slice(0,6).map(function(ev){
+    return planCandRow({ev:ev, note: wantEvents.has(String(ev.id))? "行きたい" : "気になる"});
+  }).join("")+'</div>';
+}
 function planGapHTML(prev, next){
   if(!prev || !next || !prev.ev || !next.ev || next.startMin==null) return "";
   var prevEnd=(prev.ev.endMin!=null)? prev.ev.endMin : (prev.startMin!=null? prev.startMin+120 : null);
@@ -4560,7 +4587,9 @@ function planGapHTML(prev, next){
     var cEnd=(c.ev.endMin!=null)? c.ev.endMin : c.startMin+120;
     var back=hopTravelMin(c.ev, next.ev);
     return back!=null && cEnd+back<=next.startMin;
-  }).slice(0,2);
+  });
+  cands.sort(function(a,b){ return planMarkRank(a.ev)-planMarkRank(b.ev); });
+  cands=cands.slice(0,2);
   if(!cands.length) return "";
   return '<div class="plan-gap"><div class="plan-gap-h">この空き時間で回せる候補</div>'+cands.map(planCandRow).join("")+'</div>';
 }
@@ -4568,7 +4597,9 @@ function planTailHTML(last){
   if(!last || !last.ev) return "";
   var baseEnd=(last.ev.endMin!=null)? last.ev.endMin : (last.startMin!=null? last.startMin+120 : null);
   if(baseEnd==null) return "";
-  var cands=hopCandidates(last.ev, baseEnd, 8).filter(function(c){ return !planIds.has(String(c.ev.id)); }).slice(0,3);
+  var cands=hopCandidates(last.ev, baseEnd, 8).filter(function(c){ return !planIds.has(String(c.ev.id)); });
+  cands.sort(function(a,b){ return planMarkRank(a.ev)-planMarkRank(b.ev); });
+  cands=cands.slice(0,3);
   if(!cands.length) return "";
   return '<div class="plan-gap"><div class="plan-gap-h">最後の予定のあとに回せる候補</div>'+cands.map(planCandRow).join("")+'</div>';
 }
@@ -4586,6 +4617,7 @@ function renderPlan(){
     var dayHtml = '<div class="plan-day"><h3>'+esc(fmtDateFull(g.date))+'</h3>' + gpsBtn + planDayBarHTML(g) + g.items.map(function(s, si){
       return (si>0? planLegHTML(g.items[si-1], s) + planGapHTML(g.items[si-1], s) : "") + '<button class="slot" type="button" data-open="'+esc(s.id)+'"><span class="slot-time">'+esc(s.time||"時間未定")+'</span><span class="slot-main"><span class="slot-act">'+esc(s.act)+'</span><span class="slot-sub" style="display:block">'+esc(s.title)+(s.venue?" ・ "+esc(s.venue)+vsChipHTML(s):"")+'</span></span><span class="tag '+(s.kind==="fav"||s.kind==="plan"?"tag-fav":"tag-oshi")+'">'+(s.kind==="plan"?"✓ プラン":(s.kind==="fav"?"♥ お気に入り":"★ 推し"))+'</span>'+(conf[si]? '<span class="tag tag-conf">⚠ 時間が重なっています</span>' : '')+'</button>';
     }).join("");
+    dayHtml += planDayMarksHTML(g);
     /* その日の最後の予定から、移動込みで回せる候補を静かに出す（v76）。
        知らない・見落としている公演の発見と、そのままプランへの追加のため */
     var last=g.items[g.items.length-1];
@@ -6710,7 +6742,7 @@ els.oshiList.addEventListener("click", function(e){
   var b=e.target.closest("[data-unoshi]"); if(!b) return;
   favPerfs.delete(b.getAttribute("data-unoshi")); saveSet(LS_OSHI, favPerfs); toast("推しから外しました"); render();
 });
-els.planBody.addEventListener("click", function(e){
+els.planView.addEventListener("click", function(e){
   var rf=e.target.closest("[data-route-from]");
   if(rf){
     var evR=allEvents.find(function(x){ return String(x.id)===rf.getAttribute("data-route-from"); });
@@ -8771,6 +8803,7 @@ function renderTlScope(){
     + ["fav","want","int","oshi","plan"].map(function(p){ return '<button type="button" data-tlscope="p:'+p+'" class="'+(tlScopePreset===p?"on":"")+'">'+esc(presetLabel(p))+'</button>'; }).join("")
     + '<button type="button" data-tlscope="p:follow" class="'+(tlScopePreset==="follow"?"on":"")+'">フォロー中</button>'
     + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("")
+    + ((tlScopePreset==="want"||tlScopePreset==="int")? '<button type="button" data-tl-go-plan="'+tlScopePreset+'">回しプランで開く</button>' : '')
     + (tlScopeArtist? '<button type="button" data-tlscope-artist="1" class="on">推し：'+esc(tlScopeArtist)+' ✕</button>' : '');
   renderTlSort();
 }
@@ -9143,6 +9176,8 @@ function refreshTlLogin(){
   if(scopeEl) scopeEl.addEventListener("click", function(e){
     var ac=e.target.closest("[data-tlscope-artist]");
     if(ac){ tlResetQuery(); tlScopeArtist=null; tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode(); return; }
+    var gp=e.target.closest("[data-tl-go-plan]");
+    if(gp){ var ptab=gp.getAttribute("data-tl-go-plan"); closeTimeline(); view="plan"; planPickTab=ptab; planPickOpen=""; render(); setTimeout(function(){ var pk=document.getElementById("planPick"); if(pk) pk.scrollIntoView({behavior:"smooth", block:"start"}); }, 60); return; }
     var b=e.target.closest("[data-tlscope]"); if(!b) return;
     var v=b.getAttribute("data-tlscope");
     tlResetQuery();
