@@ -1010,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v185';
+  window.__kgShell='v186';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2492,7 +2492,8 @@ function normSearch(s){
     .replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); })
     .replace(/[ァ-ヶ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0x60); })
     .replace(/[ぁぃぅぇぉゃゅょっゎゕゖ]/g, function(c){ return "あいうえおやゆよつわかけ".charAt("ぁぃぅぇぉゃゅょっゎゕゖ".indexOf(c)); })
-    .replace(/ぢ/g, "じ").replace(/づ/g, "ず")
+    .replace(/[がぎぐげござぜぞだでどばびぶべぼぱぴぷぺぽ]/g, function(c){ return "かきくけこさせそたてとはひふへほはひふへほ".charAt("がぎぐげござぜぞだでどばびぶべぼぱぴぷぺぽ".indexOf(c)); })
+    .replace(/[じぢ]/g, "ち").replace(/[ずづ]/g, "つ").replace(/ゔ/g, "う")
     .replace(/[ー〜~～]/g, "")
     .replace(/\s/g, "")
     .replace(/[^0-9a-zぁ-ゖァ-ヶ一-鿿㐀-䶿々]/g, "");
