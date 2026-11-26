@@ -1010,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v187';
+  window.__kgShell='v188';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -6803,11 +6803,11 @@ function kgPageHash(){
   return {kind:m[1], value:v};
 }
 function kgClearPageHash(){ if(kgPageHash()) kgSetPageHash(""); }
-function kgOpenHashTarget(){
-  if(kgHashOpened) return;
+function kgOpenHashTarget(forceT){
+  if(kgHashOpened && !forceT) return;
   if(els.overlay && els.overlay.classList.contains("open")) return;
   if(typeof profSheetState!=="undefined" && profSheetState.open) return;
-  var t=kgPageHash(); if(!t) return;
+  var t=forceT||kgPageHash(); if(!t) return;
   if(t.kind==="event"){
     var ev=allEvents.find(function(x){ return String(x.id)===String(t.value); });
     if(ev){ kgHashOpened=true; openModal(ev); }
@@ -6817,7 +6817,13 @@ function kgOpenHashTarget(){
     if(venueProfileFor(t.value) || allEvents.some(function(ev){ return (ev.venue||"")===t.value; })){ kgHashOpened=true; openDirDetail("venue", t.value); }
   }
 }
-window.addEventListener("hashchange", function(){ kgOpenHashTarget(); });
+window.addEventListener("hashchange", function(){
+  var t=kgPageHash(); if(!t) return;
+  if(els.overlay && els.overlay.classList.contains("open")) closeModal();
+  if(typeof profSheetState!=="undefined" && profSheetState.open) closeProfSheet();
+  kgSetPageHash("#/"+t.kind+"/"+encodeURIComponent(t.value));
+  kgOpenHashTarget(t);
+});
 function tryDeepLink(){
   if(deepLinkDone) return; deepLinkDone=true;
   try{
