@@ -1030,7 +1030,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v196';
+  window.__kgShell='v197';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3547,6 +3547,7 @@ function refreshEventImages(){
     }, function(){});
   }catch(e){}
   try{ refreshNotices(); }catch(e){}
+  try{ refreshTags(); }catch(e){}
 }
 document.addEventListener("visibilitychange", function(){ if(!document.hidden) refreshEventImages(); });
 window.addEventListener("pageshow", function(){ refreshEventImages(); });
@@ -7377,6 +7378,47 @@ function savePendTags(o){ try{ localStorage.setItem(LS_PEND_TAGS, JSON.stringify
 function loadMyTags(){ try{ return JSON.parse(localStorage.getItem(LS_MY_TAGS)||"{}"); }catch(e){ return {}; } }
 function saveMyTags(o){ try{ localStorage.setItem(LS_MY_TAGS, JSON.stringify(o)); }catch(e){} }
 function tagsOf(ev){ return tagsByEvent[String(ev.id)]||[]; }
+var tagsRawByEvent={}, tagNgWords=[], tagNgStarted=false;
+function tagNgNorm(w){ return String(w||"").replace(/^#+/,"").replace(/[\s\u3000]+/g,"").trim().toLowerCase(); }
+function tagIsNg(tag){ var t=tagNgNorm(tag); if(!t) return false; for(var i=0;i<tagNgWords.length;i++){ if(tagNgWords[i] && t.indexOf(tagNgWords[i])>=0) return true; } return false; }
+function applyTagNg(){
+  var openBefore=null;
+  if(typeof currentEv!=="undefined" && currentEv && typeof els!=="undefined" && els.overlay && els.overlay.classList.contains("open")) openBefore=JSON.stringify(tagsOf(currentEv));
+  var out={};
+  Object.keys(tagsRawByEvent).forEach(function(eid){ var l=tagsRawByEvent[eid].filter(function(t){ return !tagIsNg(t.tag); }); if(l.length) out[eid]=l; });
+  tagsByEvent=out;
+  if(typeof allEvents!=="undefined" && allEvents) allEvents.forEach(function(ev){ ev._hay=null; });
+  prunePendTags();
+  if(openBefore!==null && JSON.stringify(tagsOf(currentEv))!==openBefore) openModal(currentEv);
+}
+function loadTagNg(){
+  if(tagNgStarted) return; tagNgStarted=true;
+  var cbName="__kgTagNgCb"+(++loadSeq);
+  var settled=false;
+  var script=document.createElement("script");
+  var timer=setTimeout(function(){ finish(); }, 30000);
+  function finish(){ if(settled) return; settled=true; clearTimeout(timer); try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); }
+  window[cbName]=function(resp){
+    try{
+      var rows=(resp && resp.table && resp.table.rows)||[];
+      var words=[];
+      rows.forEach(function(r){
+        if(!r || !r.c) return;
+        var c=r.c[0]; var w=String((c && c.v!=null)? c.v : "").trim();
+        if(!w || w==="\u30ef\u30fc\u30c9") return;
+        var n=tagNgNorm(w); if(n && words.indexOf(n)<0) words.push(n);
+      });
+      tagNgWords=words;
+      applyTagNg();
+    }catch(e){}
+    finish();
+  };
+  script.onerror=function(){ finish(); };
+  script.async=true;
+  script.src=sheetJsonpBase("\u30bf\u30b0NG")+cbName+"&_="+Date.now();
+  document.head.appendChild(script);
+}
+function refreshTags(){ tagsStarted=false; loadTags(); tagNgStarted=false; loadTagNg(); }
 function tagLoggedIn(){
   try{ if(localStorage.getItem("kg_admin_mode_v1")==="1") return "admin"; }catch(e){}
   try{ var s=JSON.parse(localStorage.getItem("kg_member_session_v2")||"null"); if(s && s.acct) return "member:"+String(s.acct).slice(0,12); }catch(e){}
@@ -7391,7 +7433,7 @@ function prunePendTags(){
   Object.keys(p).forEach(function(eid){
     var have={}; (tagsByEvent[eid]||[]).forEach(function(t){ have[t.tag]=1; });
     var before=p[eid].length;
-    p[eid]=p[eid].filter(function(pt){ return !have[pt.tag] && (now-(pt.ts||0))<48*3600*1000; });
+    p[eid]=p[eid].filter(function(pt){ return !tagIsNg(pt.tag) && !have[pt.tag] && (now-(pt.ts||0))<48*3600*1000; });
     if(p[eid].length!==before) changed=true;
     if(!p[eid].length) delete p[eid];
   });
@@ -7417,9 +7459,8 @@ function loadTags(){
         (out[eid]=out[eid]||[]).push({ tag:tag, count:parseInt(cv(2),10)||1, locked:String(cv(3)||"").trim()==="1", official:String(cv(4)||"").trim()==="1" });
       });
       Object.keys(out).forEach(function(k){ out[k].sort(function(a,b){ return (b.official-a.official)||(b.count-a.count)||(a.tag<b.tag?-1:1); }); });
-      tagsByEvent=out;
-      if(typeof allEvents!=="undefined" && allEvents) allEvents.forEach(function(ev){ ev._hay=null; });
-      prunePendTags();
+      tagsRawByEvent=out;
+      applyTagNg();
     }catch(e){}
     finish();
   };
@@ -7483,6 +7524,7 @@ if(!submitter){ if(note) note.textContent="ログインが必要です。"; retu
 var id=String(ev.id);
 var pend=loadPendTags();
 if((pend[id]||[]).some(function(x){ return x.tag===t;})){ if(note) note.textContent="そのタグは送信済み（反映待ち）です。"; return;}
+if(tagIsNg(t)){ if(note) note.textContent="\u305d\u306e\u30bf\u30b0\u306f\u4f7f\u3048\u307e\u305b\u3093\u3002"; return;}
 var exists=tagsOf(ev).some(function(x){ return x.tag===t;});
 var btn=document.getElementById("tagAddBtn");
 if(btn){ btn.disabled=true; btn.textContent="送信中…";}
@@ -7564,6 +7606,7 @@ function loadNotices(force){
 function refreshNotices(){ loadNotices(true); }
 loadNotices();
 loadTags();
+loadTagNg();
 /* プロフィールの自動反映（v92）: シートの artists / venues / readings タブを読み、
    同梱データへマージする。ガイドへ追加・修正してシート同期されれば、再pushなしで反映される。
    マージ方針はデータを失わない側: シートの非空値が勝ち、シートに無い項目（アイコン等）は同梱を保持。 */

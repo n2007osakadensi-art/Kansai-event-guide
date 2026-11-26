@@ -2376,6 +2376,41 @@ loadFeedProfiles();
 
 var feedTagsByEvent={}, feedTagsStarted=false;
 function feedTagsOf(ev){ return feedTagsByEvent[String(ev.id)]||[]; }
+var feedTagsRawByEvent={}, feedTagNgWords=[], feedTagNgStarted=false;
+function feedTagNgNorm(w){ return String(w||"").replace(/^#+/,"").replace(/[\s\u3000]+/g,"").trim().toLowerCase(); }
+function feedTagIsNg(tag){ var t=feedTagNgNorm(tag); if(!t) return false; for(var i=0;i<feedTagNgWords.length;i++){ if(feedTagNgWords[i] && t.indexOf(feedTagNgWords[i])>=0) return true; } return false; }
+function applyFeedTagNg(){
+  var out={};
+  Object.keys(feedTagsRawByEvent).forEach(function(eid){ var l=feedTagsRawByEvent[eid].filter(function(t){ return !feedTagIsNg(t.tag); }); if(l.length) out[eid]=l; });
+  feedTagsByEvent=out;
+}
+function loadFeedTagNg(){
+  if(feedTagNgStarted) return; feedTagNgStarted=true;
+  var cbName="__kgFeedTagNgCb"+(++loadSeq);
+  var settled=false;
+  var script=document.createElement("script");
+  var timer=setTimeout(function(){ finish(); }, 30000);
+  function finish(){ if(settled) return; settled=true; clearTimeout(timer); try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); }
+  window[cbName]=function(resp){
+    try{
+      var rows=(resp && resp.table && resp.table.rows)||[];
+      var words=[];
+      rows.forEach(function(r){
+        if(!r || !r.c) return;
+        var c=r.c[0]; var w=String((c && c.v!=null)? c.v : "").trim();
+        if(!w || w==="\u30ef\u30fc\u30c9") return;
+        var n=feedTagNgNorm(w); if(n && words.indexOf(n)<0) words.push(n);
+      });
+      feedTagNgWords=words;
+      applyFeedTagNg();
+    }catch(e){}
+    finish();
+  };
+  script.onerror=function(){ finish(); };
+  script.async=true;
+  script.src=sheetJsonpBase("\u30bf\u30b0NG")+cbName+"&_="+Date.now();
+  document.head.appendChild(script);
+}
 function loadFeedTags(){
   if(feedTagsStarted) return; feedTagsStarted=true;
   var cbName="__kgFeedTagsCb"+(++loadSeq);
@@ -2396,7 +2431,8 @@ function loadFeedTags(){
         (out[eid]=out[eid]||[]).push({ tag:tag, count:parseInt(cv(2),10)||1, official:String(cv(4)||"").trim()==="1" });
       });
       Object.keys(out).forEach(function(k){ out[k].sort(function(a,b){ return (b.official-a.official)||(b.count-a.count); }); });
-      feedTagsByEvent=out;
+      feedTagsRawByEvent=out;
+      applyFeedTagNg();
     }catch(e){}
     finish();
   };
@@ -2413,6 +2449,7 @@ function feedTagSectionHTML(ev){
 
 loadFeedNotices();
 loadFeedTags();
+loadFeedTagNg();
 start();
 })();
 </script>
