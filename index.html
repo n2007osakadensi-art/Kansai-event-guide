@@ -1030,7 +1030,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v195';
+  window.__kgShell='v196';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -7409,9 +7409,10 @@ function loadTags(){
       var rows=(resp && resp.table && resp.table.rows)||[];
       var out={};
       rows.forEach(function(r, ri){
-        if(ri===0 || !r || !r.c) return;
+        if(!r || !r.c) return;
         function cv(i){ var c=r.c[i]; if(!c) return ""; if(c.v!=null) return c.v; return ""; }
         var eid=String(cv(0)||"").trim(), tag=String(cv(1)||"").trim();
+        if(eid==="eventId" || tag==="\u30bf\u30b0") return;
         if(!eid || !tag) return;
         (out[eid]=out[eid]||[]).push({ tag:tag, count:parseInt(cv(2),10)||1, locked:String(cv(3)||"").trim()==="1", official:String(cv(4)||"").trim()==="1" });
       });
