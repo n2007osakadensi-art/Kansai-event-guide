@@ -1010,7 +1010,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v189';
+  window.__kgShell='v190';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4527,7 +4527,7 @@ function renderPlanPick(){
   h+=ents.map(function(name){
     var evs=planPickEvents(name);
     var open = planPickOpen===name;
-    var row='<div class="plan-pick-ent"><button type="button" class="plan-pick-entbtn" data-pick-ent="'+esc(name)+'"><span class="plan-pick-name">'+esc(name)+'</span><span class="plan-pick-cnt">'+(evs.length? "今後のイベント "+evs.length+" 件" : (detailsState==="pending"? "読み込み中…" : "今後のイベントなし"))+'</span><span class="plan-pick-arrow">'+(evs.length? (open?"▾":"▸") : "")+'</span></button>';
+    var row='<div class="plan-pick-ent"><button type="button" class="plan-pick-entbtn" data-pick-ent="'+esc(name)+'"><span class="plan-pick-name">'+esc(name)+'</span><span class="plan-pick-cnt">'+(evs.length? "今後のイベント "+evs.length+" 件" : ((detailsState==="pending"||detailsState==="none")? "読み込み中…" : "今後のイベントなし"))+'</span><span class="plan-pick-arrow">'+(evs.length? (open?"▾":"▸") : "")+'</span></button>';
     if(open && evs.length){
       row+='<div class="plan-pick-evs">'+evs.slice(0,20).map(planPickRowHTML).join("")+(evs.length>20? '<p class="plan-pick-note">ほか '+(evs.length-20)+' 件あります</p>':"")+'</div>';
     }
