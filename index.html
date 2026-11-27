@@ -1137,7 +1137,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v257';
+  window.__kgShell='v258';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1896,15 +1896,15 @@ var intEvents = loadSet(LS_INT);
 /* 熱量（気持ちの段階、v257）: 「気になる」と「行きたい」を1つの段階に統合。
    正本は heatMap（{id:1..5}）。既存の絞り込み・タブ条件・固定スコープは
    want/int 集合を見ているため、段階から集合を導出して互換を保つ:
-   段階3以上→want、段階1〜2→interest、未設定→どちらにも入れない */
+   段階2以上→want、段階1→interest、未設定→どちらにも入れない */
 var LS_HEAT="kg_trial_heat_v1";
-var HEAT_LEVELS=[null,{e:"👀",label:"気になる"},{e:"🌱",label:"行けたら行く"},{e:"🔥",label:"行きたい"},{e:"🏃",label:"参戦"},{e:"💯",label:"絶対行く"}];
+var HEAT_LEVELS=[null,{e:"👀",label:"気になる"},{e:"🔥",label:"行きたい"},{e:"🌱",label:"行けたら行く"},{e:"🏃",label:"参戦"},{e:"💯",label:"絶対行く"}];
 var heatMap=(function(){ try{ var o=JSON.parse(localStorage.getItem(LS_HEAT)||"{}"); return (o && typeof o==="object" && !Array.isArray(o))? o : {}; }catch(e){ return {}; } })();
 function heatOf(id){ var v=heatMap[String(id)]; return (v>=1 && v<=5)? Math.floor(v) : 0; }
 function heatSave(){ try{ localStorage.setItem(LS_HEAT, JSON.stringify(heatMap)); }catch(e){} }
 function heatDeriveOne(id){
   var lv=heatOf(id);
-  if(lv>=3){ wantEvents.add(id); intEvents.delete(id); }
+  if(lv>=2){ wantEvents.add(id); intEvents.delete(id); }
   else if(lv>=1){ intEvents.add(id); wantEvents.delete(id); }
   else { wantEvents.delete(id); intEvents.delete(id); }
 }
@@ -1915,18 +1915,25 @@ function setHeat(id, lv){
   heatDeriveOne(id);
   saveSet(LS_WANT, wantEvents); saveSet(LS_INT, intEvents);
   var fev=allEvents.find(function(x){ return String(x.id)===id; });
-  if(fev && lv>=3) learnFromEvent(fev, 2); else if(fev && lv>=1) learnFromEvent(fev, 1);
+  if(fev && lv>=2) learnFromEvent(fev, 2); else if(fev && lv>=1) learnFromEvent(fev, 1);
   if(lv>=1) toast(HEAT_LEVELS[lv].e+" 「"+HEAT_LEVELS[lv].label+"」にしました");
 }
 /* 移行＋整合: heat 未設定の旧データは interest→段階1、want→段階3（want優先）。
    他端末から来た heat と集合の食い違いも、起動時の導出でここで回復する */
 (function(){
   var dirty=false;
+  /* v258: 段階の順序入れ替え（行きたい=2、行けたら行く=3。Kotaの意味づけ:
+     行きたい=数ある中から選ぶ候補の気持ち、行けたら行く=何もなければ行く段取り）。
+     v257 で書かれた heat は 2 と 3 の意味が逆なので、一度だけ入れ替える */
+  if(!localStorage.getItem("kg_trial_heat_swap_v258")){
+    Object.keys(heatMap).forEach(function(id){ if(heatMap[id]===2){ heatMap[id]=3; dirty=true; } else if(heatMap[id]===3){ heatMap[id]=2; dirty=true; } });
+    try{ localStorage.setItem("kg_trial_heat_swap_v258","1"); }catch(e){}
+  }
   intEvents.forEach(function(id){ if(!heatMap[id]){ heatMap[id]=1; dirty=true; } });
-  wantEvents.forEach(function(id){ if(!heatMap[id] || heatMap[id]<3){ heatMap[id]=3; dirty=true; } });
+  wantEvents.forEach(function(id){ if(!heatMap[id] || heatMap[id]<2){ heatMap[id]=2; dirty=true; } });
   Object.keys(heatMap).forEach(function(id){
     var lv=heatMap[id];
-    if(lv>=3){ if(!wantEvents.has(id) || intEvents.has(id)){ wantEvents.add(id); intEvents.delete(id); dirty=true; } }
+    if(lv>=2){ if(!wantEvents.has(id) || intEvents.has(id)){ wantEvents.add(id); intEvents.delete(id); dirty=true; } }
     else if(lv>=1){ if(!intEvents.has(id) || wantEvents.has(id)){ intEvents.add(id); wantEvents.delete(id); dirty=true; } }
   });
   if(dirty){ heatSave(); saveSet(LS_WANT, wantEvents); saveSet(LS_INT, intEvents); }
@@ -7184,7 +7191,7 @@ function kgHasLocalSession(){ try{ return !!(localStorage.getItem("kg_member_ses
 function rankScore(ev){
   var id=String(ev.id), s=0, why=[];
   var hlv=heatOf(id);
-  if(hlv){ s+=[0,10,18,30,45,60][hlv]; why.push(HEAT_LEVELS[hlv].e+" "+HEAT_LEVELS[hlv].label); }
+  if(hlv){ s+=[0,10,30,38,45,60][hlv]; why.push(HEAT_LEVELS[hlv].e+" "+HEAT_LEVELS[hlv].label); }
   else { if(wantEvents.has(id)){ s+=30; why.push("行きたい"); } if(intEvents.has(id)){ s+=10; why.push("気になる"); } }
   if(favEvents.has(id)){ s+=20; why.push("お気に入り"); }
   if(hasOshi(ev)){ s+=15; why.push("推し出演"); }
