@@ -21,7 +21,7 @@
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%;overflow-x:clip}
-  body{margin:0;overflow-x:clip;background:var(--bg);color:var(--ink);font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;line-height:1.55}
+  body{margin:0;overflow-x:clip;padding-bottom:calc(58px + env(safe-area-inset-bottom));background:var(--bg);color:var(--ink);font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;line-height:1.55}
   button,input{font:inherit}
   button{min-height:40px;cursor:pointer}
   a{color:inherit}
@@ -766,7 +766,11 @@
   .more-btn{border:2px solid var(--accent);background:var(--surface);color:var(--accent);border-radius:999px;padding:12px 38px;font-size:15px;font-weight:800;min-height:52px;min-width:min(320px,84vw)}
   .more-btn:active{background:var(--accent);color:#fff}
   .more-info{font-size:13px;color:var(--muted);margin:10px 0 0}
-  .top-btn{position:fixed;right:14px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:80;width:50px;height:50px;min-height:50px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);font-size:19px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;padding:0}
+  .top-btn{position:fixed;right:14px;bottom:calc(80px + env(safe-area-inset-bottom));z-index:80;width:50px;height:50px;min-height:50px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);font-size:19px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;padding:0}
+  .bnav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:1180px;z-index:60;display:flex;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -4px 18px rgba(0,0,0,.07)}
+  .bnav button{flex:1 1 0;border:0;background:transparent;color:var(--muted);font-size:11px;font-weight:700;padding:7px 2px 8px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;font-family:inherit}
+  .bnav button svg{width:21px;height:21px;display:block}
+  .bnav button.on{color:var(--accent)}
   .top-btn.show{display:flex}
   #loadHint{font-size:13px}
   .site-footer{margin-top:40px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 18px;box-shadow:var(--shadow)}
@@ -1104,7 +1108,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v217';
+  window.__kgShell='v218';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1767,6 +1771,13 @@
   </div>
 </div>
 
+<nav class="bnav" id="bnav" aria-label="メインナビゲーション">
+  <button type="button" data-bnav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.8V21h14V9.8"/><path d="M9.5 21v-6h5v6"/></svg>トップ</button>
+  <button type="button" data-bnav="all"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1.5a2.5 2.5 0 0 0 0 5V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.5a2.5 2.5 0 0 0 0-5z"/><path d="M13.5 7v2M13.5 11v2M13.5 15v2"/></svg>イベント</button>
+  <button type="button" data-bnav="timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.3v7.4L16.5 12z" fill="currentColor" stroke="none"/></svg>タイムライン</button>
+  <button type="button" data-bnav="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>カレンダー</button>
+  <button type="button" data-bnav="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H15a3 3 0 0 0 0-6h-6a3 3 0 0 1 0-6h.6"/></svg>回しプラン</button>
+</nav>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -4849,6 +4860,7 @@ function renderInner(){
   if(els.searchHint) els.searchHint.classList.toggle("hidden", isDir);
   var tabView = isRoute ? "all" : (isDetail ? (view==="artistDetail" ? "artists" : view==="venueDetail" ? "venues" : "all") : view);
   document.querySelectorAll(".view-tab").forEach(function(t){ var on=t.getAttribute("data-view")===tabView; t.setAttribute("aria-selected", on ? "true":"false"); if(on && tabView!==render._lastTabView){ render._lastTabView=tabView; try{ t.scrollIntoView({block:"nearest", inline:"nearest"}); }catch(e){} } });
+  if(typeof syncBnav==="function") syncBnav(tabView);
   if(isPlan){ renderPlan(); return; }
   if(isCal){ renderCalendar(); return; }
   if(isDir){ renderDir(); return; }
@@ -7252,6 +7264,26 @@ document.getElementById("emptyState").addEventListener("click", function(e){
   els.dateFrom.value=d; els.dateTo.value=d;
   render();
 });
+/* 下部ナビ（v218）: どこからでもトップ／タイムラインへ1タップで戻れる */
+function syncBnav(tv){
+  var bn=document.getElementById("bnav"); if(!bn) return;
+  var cur=tv||view;
+  var key=(cur==="home")?"home":(cur==="calendar")?"calendar":(cur==="plan"||cur==="routefit")?"plan":(cur==="all")?"all":"";
+  bn.querySelectorAll("button[data-bnav]").forEach(function(b){
+    var k=b.getAttribute("data-bnav");
+    b.classList.toggle("on", k==="timeline" ? (typeof tlState!=="undefined" && !!tlState.open) : (!!key && k===key));
+  });
+}
+(function(){
+  var bn=document.getElementById("bnav"); if(!bn) return;
+  bn.addEventListener("click", function(e){
+    var b=e.target.closest("button[data-bnav]"); if(!b) return;
+    var k=b.getAttribute("data-bnav");
+    if(k==="timeline"){ openTimeline(); return; }
+    var t=document.querySelector('.view-tab[data-view="'+k+'"]');
+    if(t) t.click();
+  });
+})();
 document.querySelectorAll(".view-tab").forEach(function(t){
   t.addEventListener("click", function(){
     /* タブを手で切り替えたら、保持中のタイムラインは破棄する */
@@ -9798,6 +9830,7 @@ function openTimeline(){
   ov.classList.add("open");
   tlState.open=true;
   document.body.style.overflow="hidden";
+  if(typeof syncBnav==="function") syncBnav();
   tlBuildTicker();
   tlUpdateClock();
   if(tlState.clockTimer) clearInterval(tlState.clockTimer);
@@ -9811,6 +9844,7 @@ function openTimeline(){
 }
 function closeTimeline(){
   tlState.open=false;
+  if(typeof syncBnav==="function") syncBnav();
   if(tlState.timer) clearTimeout(tlState.timer);
   if(tlState.clockTimer) clearInterval(tlState.clockTimer);
   var ov=tlEl("tlOverlay"); if(ov) ov.classList.remove("open");
@@ -9848,6 +9882,7 @@ function tlResume(){
   ov.classList.add("open");
   tlState.open=true;
   document.body.style.overflow="hidden";
+  if(typeof syncBnav==="function") syncBnav();
   tlBuildTicker(); tlUpdateClock();
   if(tlState.clockTimer) clearInterval(tlState.clockTimer);
   tlState.clockTimer=setInterval(tlUpdateClock, 1000);
