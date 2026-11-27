@@ -704,7 +704,7 @@
         cals[i].artists=udUnion(cals[i].artists,row.artists);
         cals[i].venues=udUnion(cals[i].venues,row.venues);
         cals[i].organizers=udUnion(cals[i].organizers,row.organizers);
-        ['fav','want','int','plan'].forEach(function(k){ cals[i][k]=!!(cals[i][k]||row[k])? 1:0; });
+        ['fav','want','int','plan','oshiAll','intAll'].forEach(function(k){ cals[i][k]=!!(cals[i][k]||row[k])? 1:0; });
         if(!cals[i].name && row.name) cals[i].name=row.name;
       }
       else cals.push(udClone(row));
