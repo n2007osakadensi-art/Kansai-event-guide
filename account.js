@@ -18,7 +18,7 @@
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 id="kg-account-title" style="font-size:19px;margin:0">ログイン・同期</h2><button id="kg-account-close" type="button" aria-label="閉じる" style="min-width:44px">✕</button></div>' +
     '<p id="kg-account-status" role="status" aria-live="polite"></p>' +
     '<div id="kg-webview-warn" hidden style="border:1px solid #c0392b;border-radius:10px;padding:10px 12px;margin:8px 0"><p style="margin:0 0 6px;font-weight:700">アプリ内ブラウザではログインできません</p><p style="font-size:13px;margin:0 0 8px">Xなどのアプリの中で開いたページでは、Google本人確認が使えません。ログインしても、いつものブラウザに情報は引き継がれません。通常のブラウザ（Safari／Chrome）で開き直してください。</p><p style="margin:0"><button id="kg-webview-copy" type="button">このページのURLをコピー</button> <a id="kg-webview-open" href="#" hidden>ブラウザで開く（Android）</a></p></div>' +
-    '<div id="kg-sync-panel" hidden><p id="kg-sync-last" style="font-size:13px;margin:4px 0"></p><p id="kg-sync-cloud" style="font-size:13px;margin:4px 0"></p><p style="font-size:13px;margin:4px 0">同期は自動でも行われます（変更時・約45秒ごと・アプリを離れる時）。確実に反映したいときは、このボタンで今すぐ同期できます。</p><button id="kg-sync-now" type="button">今すぐ同期する</button></div>' +
+    '<div id="kg-sync-panel" hidden><p id="kg-sync-last" style="font-size:13px;margin:4px 0"></p><p id="kg-sync-cloud" style="font-size:13px;margin:4px 0"></p><p id="kg-sync-err" style="font-size:13px;margin:4px 0;color:#b03a2e"></p><p style="font-size:13px;margin:4px 0">同期は自動でも行われます（変更時・約45秒ごと・アプリを離れる時）。確実に反映したいときは、このボタンで今すぐ同期できます。</p><button id="kg-sync-now" type="button">今すぐ同期する</button></div>' +
     '<div id="kg-account-off" hidden><p>ログインの接続設定はまだ完了していません。現在の推し・お気に入りはこの端末だけに保存されます。</p></div>' +
     '<div id="kg-login-form" hidden><p>Googleアカウントでログインします（ログインすると、推し・お気に入りの同期も始まります）。</p><button id="kg-google-login" type="button">Googleでログイン</button></div>' +
     '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推し・お気に入り・マイリスト・行きたい／気になる・フォロー・好みなどをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button><span id="kg-signout-confirm" hidden> <span style="font-size:13px">ログアウトすると、この端末内のデータをすべて消去します。アカウントのデータは残ります。</span> <button id="kg-signout-yes" type="button">ログアウトする</button> <button id="kg-signout-no" type="button">やめる</button></span></div>' +
@@ -39,7 +39,7 @@
   function text(s) { $('kg-account-status').textContent = s; }
   function fmtSyncTime(t){ var d=new Date(t); function p2(n){ return (n<10?'0':'')+n; } return (d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }
   function markSynced(){ try{ localStorage.setItem('kg_last_sync_v1', String(Date.now())); }catch(e){} syncPanelRender(); }
-  function syncPanelRender(){ var p=$('kg-sync-panel'); if(!p) return; p.hidden=!(member||user); var el=$('kg-sync-last'); if(el){ var t=0; try{ t=Number(localStorage.getItem('kg_last_sync_v1')||0);  syncCloudRender(); }catch(e){} el.textContent = t? ('最終同期：'+fmtSyncTime(t)) : '最終同期：まだ同期されていません'; } }
+  function syncPanelRender(){ var p=$('kg-sync-panel'); if(!p) return; p.hidden=!(member||user); var el=$('kg-sync-last'); if(el){ var t=0; try{ t=Number(localStorage.getItem('kg_last_sync_v1')||0);  syncCloudRender(); }catch(e){} el.textContent = t? ('最終同期：'+fmtSyncTime(t)) : '最終同期：まだ同期されていません'; } var ee=$('kg-sync-err'); if(ee){ var le=null; try{ le=JSON.parse(localStorage.getItem('kg_last_cloud_err_v1')||'null'); }catch(_){} ee.textContent = (le && le.m)? ('直近の同期エラー：'+le.m+'（'+fmtSyncTime(le.t)+'）') : ''; } }
   var syncCloudBusy=false;
   async function syncCloudRender(){
     var el=$('kg-sync-cloud'); if(!el) return;
@@ -105,8 +105,8 @@
   var cloudFails=0, cloudDownUntil=0;
   try{ cloudDownUntil=+sessionStorage.getItem('kg_cloud_down_until')||0; }catch(e){}
   function cloudBlocked(){ return Date.now()<cloudDownUntil; }
-  function noteCloudFail(){ cloudFails++; if(cloudFails>=4){ cloudDownUntil=Date.now()+10*60*1000; try{ sessionStorage.setItem('kg_cloud_down_until', String(cloudDownUntil)); }catch(e){} } }
-  function noteCloudOk(){ cloudFails=0; if(cloudDownUntil){ cloudDownUntil=0; try{ sessionStorage.removeItem('kg_cloud_down_until'); }catch(e){} } }
+  function noteCloudFail(err){ cloudFails++; if(err && (err.message||err.code)){ try{ localStorage.setItem('kg_last_cloud_err_v1', JSON.stringify({m:String(err.message||err.code).slice(0,120), t:Date.now()})); }catch(_){} } if(cloudFails>=4){ cloudDownUntil=Date.now()+10*60*1000; try{ sessionStorage.setItem('kg_cloud_down_until', String(cloudDownUntil)); }catch(e){} } }
+  function noteCloudOk(){ cloudFails=0; try{ localStorage.removeItem('kg_last_cloud_err_v1'); }catch(_){} if(cloudDownUntil){ cloudDownUntil=0; try{ sessionStorage.removeItem('kg_cloud_down_until'); }catch(e){} } }
   /* ================= 保険側: Firestore ================= */
   async function fsApplyOps(uid, readFn, writeFn) {
     var q=readFn(uid);
@@ -213,7 +213,7 @@
         }
       }
       return sameUser(uid,g) && !queueRead(uid).length;
-    } catch(e) { noteCloudFail(); text('同期できていません。端末内には保存済みです。通信を確認して「クラウドから再読み込み」を押してください。'); return false; }
+    } catch(e) { noteCloudFail(e); text('同期できていません。端末内には保存済みです。通信を確認して「クラウドから再読み込み」を押してください。'); return false; }
     finally { running=false; }
   }
   async function pull(uid) {
@@ -365,7 +365,7 @@
       if(!await flush(uid,g)) return;
       fsDrain(uid);
       try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; text('同期済み。'); udPullMerge(); }
-      catch(e) { noteCloudFail(); text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
+      catch(e) { noteCloudFail(e); text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
     } else {
       /* 初回ログインは自動で統合して同期を始める（v151）。選択待ちのまま
          同期が始まらない状態をなくす。統合は和集合で端末データを消さない。
@@ -388,7 +388,7 @@
       if(!sameUser(uid,g)) return;
       bridge.replace(cloud); localStorage.setItem(currentMarker,uid); initialized=true;
       parts(false,false,true,false); text('同期済み。'); udPullMerge();
-    } catch(e) { noteCloudFail(); text('同期に失敗しました。端末内データは保持されています。もう一度お試しください。'); }
+    } catch(e) { noteCloudFail(e); text('同期に失敗しました。端末内データは保持されています。もう一度お試しください。'); }
   }
   $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
   $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
@@ -416,7 +416,7 @@
       } else {
         text('ログインが完了してから同期できます。');
       }
-    }catch(e){ noteCloudFail(); text('同期に失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。時間をおいてもう一度お試しください。'); }
+    }catch(e){ noteCloudFail(e); text('同期に失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。時間をおいてもう一度お試しください。'); }
     finally{ btn.disabled=false; syncPanelRender(); }
   };
   $('kg-signout').onclick=function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} $('kg-signout-confirm').hidden=false; };
@@ -573,7 +573,7 @@
       if(member && memberReady){ await memberSetMeta(member.acct, {userdata:data, udUpdatedAt:Date.now()}); udLastSig=sig; noteCloudOk(); markSynced(); }
       else if(user && initialized){ await udGoogleSet(user.id, data); udLastSig=sig; noteCloudOk(); markSynced(); }
       return true;
-    }catch(e){ noteCloudFail(); /* 失敗しても端末内データは無事。12秒後に1回自動で再送し、それでも駄目なら次回の定期チェックで再送する */
+    }catch(e){ noteCloudFail(e); /* 失敗しても端末内データは無事。12秒後に1回自動で再送し、それでも駄目なら次回の定期チェックで再送する */
       if(!udPushNow.retryT){ udPushNow.retryT=setTimeout(function(){ udPushNow.retryT=null; udPushNow(true); }, 12000); }
       return false; }
     finally{ udBusy=false; }
@@ -613,7 +613,7 @@
         sessionStorage.setItem('kg_ud_reloaded','1');
         location.reload();
       }
-    }catch(e){ noteCloudFail(); /* 読めなくても端末内データで継続する。詰まりで失敗した場合は少し待って1回だけ自動でやり直す（v154） */ if(!udPullMerge.retried){ udPullMerge.retried=true; setTimeout(function(){ udPullMerge(); }, 30000); } }
+    }catch(e){ noteCloudFail(e); /* 読めなくても端末内データで継続する。詰まりで失敗した場合は少し待って1回だけ自動でやり直す（v154） */ if(!udPullMerge.retried){ udPullMerge.retried=true; setTimeout(function(){ udPullMerge(); }, 30000); } }
   }
   async function activateMember(acct, code, fromRestore){
     var d = await memberDoc(acct);
