@@ -1040,7 +1040,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v203';
+  window.__kgShell='v204';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1207,7 +1207,8 @@
     </div>
     <p class="search-hint" id="searchHint">検索は入力した文字列そのままで探します。期間・料金・曜日などの条件は「絞り込む」から選んでください。</p>
     <div class="view-tabs" role="tablist" aria-label="表示切り替え">
-      <button class="view-tab" role="tab" data-view="all" aria-selected="true" type="button">イベント</button>
+      <button class="view-tab" role="tab" data-view="home" aria-selected="true" type="button">トップ</button>
+      <button class="view-tab" role="tab" data-view="all" aria-selected="false" type="button">イベント</button>
       <button class="view-tab" role="tab" data-view="christmas" aria-selected="false" type="button">クリスマス特集<span class="cnt" id="xmasCnt">(351)</span></button>
       <button class="view-tab" role="tab" data-view="expo" aria-selected="false" type="button">アフター万博特集<span class="cnt" id="expoCnt"></span></button>
       <button class="view-tab" role="tab" data-view="calendar" aria-selected="false" type="button">カレンダー</button>
@@ -2390,7 +2391,7 @@ function currentTicketUrlQuery(){
 }
 
 /* ---------- app state ---------- */
-var allEvents=[], view="all", activeCat="すべて", query="";
+var allEvents=[], view="home", activeCat="すべて", query="";
 var exactTarget=null; /* 候補から選んだ条件 {kind:"event"|"artist"|"venue", value}。この条件のみで判定する */
 var endedRescue=false; /* 検索ヒットが終了分だけのとき、終了分を表示した救済が効いているか（v103） */
 var showEnded=false, periodPreset="all", dateFrom="", dateTo="", sortMode="dateAsc", hideLong=false;
@@ -4368,7 +4369,7 @@ function renderCountsOnly(){
 function renderXmasChrome(){
   var base=xmasBaseList();
   if(els.xmasBanner){
-    els.xmasBanner.classList.toggle("hidden", !(view==="all" && base.length>0 && !prefs.featOff));
+    els.xmasBanner.classList.toggle("hidden", !(view==="home" && base.length>0 && !prefs.featOff));
     if(els.xmasBannerText) els.xmasBannerText.textContent="イルミネーション・クリスマスマーケット・クリスマスのライブなど "+base.length.toLocaleString()+"件を掲載中";
   }
   if(els.xmasHero) els.xmasHero.classList.toggle("hidden", view!=="christmas");
@@ -4399,7 +4400,7 @@ function renderXmasChrome(){
 function renderExpoChrome(){
   var base=expoBaseList();
   if(els.expoBanner){
-    els.expoBanner.classList.toggle("hidden", !(view==="all" && base.length>0 && !prefs.featOff));
+    els.expoBanner.classList.toggle("hidden", !(view==="home" && base.length>0 && !prefs.featOff));
     if(els.expoBannerText) els.expoBannerText.textContent="パビリオン再展示・レガシーイベント・ミャクミャク参加など "+base.length.toLocaleString()+"件を掲載中";
   }
   if(els.expoCnt) els.expoCnt.textContent="("+base.length.toLocaleString()+")";
@@ -4620,7 +4621,7 @@ function renderInner(){
           + "</div>";
       }
     }
-    if(empty && view==="all"){
+    if(empty && (view==="all" || view==="home")){
       var zg=zeroHitGuideHTML();
       if(zg) dsEl.innerHTML+=zg;
     }
@@ -6570,7 +6571,7 @@ function rankRowHTML(ev, no, why){
 function renderHomeExtras(){
   /* 検索中は検索結果だけを表示する（Kota指示 2026-11-23）：
      キーワードが入っている間は おすすめ棚・ジャンル提案・アンケートCTA を出さない */
-  var isHome = view==="all" && !(query||"").trim();
+  var isHome = view==="home" && !(query||"").trim();
   /* 検索中は3つの棚を必ず隠す（Kota指示 2026-11-26、スペース版と挙動を揃える）：
      検索語が入っている／候補で選択中のあいだは、おすすめ・関心ランキング・
      おすすめフォローを他の条件に関わらず出さない。クリアすれば元の表示に戻る */
@@ -8612,7 +8613,7 @@ function sgEl(id){ return document.getElementById(id); }
 function sgReducedMotion(){ try{ return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; } }
 function renderSignageChrome(){
   var b=sgEl("sgBanner"); if(!b) return;
-  var show = view==="all" && allEvents.length>0;
+  var show = view==="home" && allEvents.length>0;
   b.classList.toggle("hidden", !show);
   if(show){
     var t=sgEl("sgBannerText");
@@ -8833,7 +8834,7 @@ function sgBuildTicker(d){
 var homeTickerSig="";
 function buildHomeTicker(){
   var wrap=sgEl("homeTicker"); if(!wrap) return;
-  var show = view==="all" && allEvents.length>0;
+  var show = view==="home" && allEvents.length>0;
   wrap.classList.toggle("hidden", !show);
   if(!show) return;
   var track=sgEl("homeTickerTrack"); if(!track) return;
