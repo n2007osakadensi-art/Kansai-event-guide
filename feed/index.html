@@ -1262,6 +1262,8 @@ var el=document.getElementById("feedSuggest");
 if(el){ el.classList.add("hidden"); el.innerHTML="";}
 }
 function feedApplySuggest(v, kind){
+/* アーティスト／会場の候補はプロフィールを直接開く（本体の検索と同じ、v202） */
+if(kind==="artist" || kind==="venue"){ hideFeedSuggest(); openFeedProfile(kind, v); return; }
 var inp=document.getElementById("feedSearchInput");
 if(inp) inp.value=v;
 feedQuery=v; feedExactTarget={kind:kind||"event", value:v};

@@ -1040,7 +1040,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v200';
+  window.__kgShell='v202';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -6891,15 +6891,25 @@ function renderSuggest(){
   }).join("");
   els.suggest.classList.add("show");
 }
-els.suggest.addEventListener("click", function(e){
-  var b=e.target.closest("[data-suggest]"); if(!b) return;
-  /* 候補を選んだら、その候補の条件だけで表示する（キーワード検索には戻さない） */
-  exactTarget={kind:b.getAttribute("data-suggest-kind")||"event", value:b.getAttribute("data-suggest")};
+/* 候補の選択: アーティスト／会場はそのページを直接開く（検索からデータベースへ飛べるように、v202）。
+   イベント候補は従来どおり「その候補の条件だけ」で表示する（キーワード検索には戻さない） */
+function applySuggestPick(kind, value){
+  if(kind==="artist" || kind==="venue"){
+    els.suggest.classList.remove("show");
+    els.searchInput.blur();
+    openDirDetail(kind, value);
+    return;
+  }
+  exactTarget={kind:kind||"event", value:value};
   els.searchInput.value=exactTarget.value; query=exactTarget.value;
   els.clearSearch.style.display="block";
   els.suggest.classList.remove("show");
   view="all";
   render();
+}
+els.suggest.addEventListener("click", function(e){
+  var b=e.target.closest("[data-suggest]"); if(!b) return;
+  applySuggestPick(b.getAttribute("data-suggest-kind")||"event", b.getAttribute("data-suggest"));
 });
 document.addEventListener("click", function(e){
   if(!e.target.closest(".search-wrap")) els.suggest.classList.remove("show");
@@ -6924,14 +6934,7 @@ document.getElementById("emptyState").addEventListener("click", function(e){
   var rb=e.target.closest("[data-rel-id]");
   if(rb){ var t=allEvents.find(function(ev){ return String(ev.id)===rb.getAttribute("data-rel-id"); }); if(t) openModal(t); return; }
   var sb=e.target.closest("[data-suggest]");
-  if(sb){
-    exactTarget={kind:sb.getAttribute("data-suggest-kind")||"event", value:sb.getAttribute("data-suggest")};
-    els.searchInput.value=exactTarget.value; query=exactTarget.value;
-    els.clearSearch.style.display="block";
-    view="all";
-    render();
-    return;
-  }
+  if(sb){ applySuggestPick(sb.getAttribute("data-suggest-kind")||"event", sb.getAttribute("data-suggest")); return; }
   var b=e.target.closest("[data-date-suggest]"); if(!b) return;
   var d=b.getAttribute("data-date-suggest"); if(!d) return;
   periodPreset="all"; dateFrom=d; dateTo=d;
@@ -9718,6 +9721,9 @@ function refreshTlLogin(){
     tlSug.classList.add("show");
   }
   function tlApplySuggest(v, kind){
+    /* アーティスト／会場の候補はその場にプロフィールを開く（本体の検索と同じ、v202。
+       openDirDetail はタイムライン表示中はプロフィールシートへ振り分ける） */
+    if(kind==="artist" || kind==="venue"){ tlHideSuggest(); openDirDetail(kind, v); return; }
     if(tsi) tsi.value=v;
     tlQuery=v; tlExactTarget={kind:kind||"event", value:v};
     tlHideSuggest(); tlApplyQuery(true);
