@@ -149,10 +149,25 @@
      呼び出しは1件ずつ順番に送る（v153）。自分のリクエスト同士が
      入口で競合して制限時間を超える失敗を防ぐ */
   var kvChain=Promise.resolve();
-  async function kvCall(body){
+  function kvChainRun(body){
     var run=kvChain.then(function(){ return kvCallInner(body); });
     kvChain=run.then(function(){}, function(){});
     return run;
+  }
+  async function kvCall(body){
+    try {
+      return await kvChainRun(body);
+    } catch(e) {
+      /* 入口が invalid token を返したら、トークンを強制更新して1回だけ
+         やり直す（v244）。端末側のキャッシュ失効や時計ずれで古いトークン
+         を掴んだ場合、セッション自体は生きているのに同期エラーになって
+         いた。更新しても駄目なら本物の認証エラーとしてそのまま返す */
+      if(e && e.message==='invalid token' && body && body.token){
+        var nt=await idToken(true);
+        if(nt){ body.token=nt; return await kvChainRun(body); }
+      }
+      throw e;
+    }
   }
   async function kvCallInner(body) {
     if(!SYNC_URL){ var e0=new Error('同期の接続先が未設定です'); e0.code='kg-no-endpoint'; throw e0; }
@@ -190,8 +205,9 @@
   function docCachePut(key, v){ docCache[key]={value:v, at:Date.now()}; }
   function docCacheMerge(key, fields){ var c=docCache[key]; if(c && c.value && typeof c.value==='object'){ Object.keys(fields).forEach(function(k){ c.value[k]=fields[k]; }); c.at=Date.now(); } }
   function docCacheDrop(key){ delete docCache[key]; }
-  async function idToken(){
+  async function idToken(force){
     if(!fbUser) return null;
+    if(force){ try{ var tf=await fbUser.getIdToken(true); if(tf) return tf; }catch(_){} }
     try{ var t=await fbUser.getIdToken(); if(t) return t; }catch(_){}
     /* キャッシュ側のトークンが失効・破損していても、更新トークンが生きて
        いれば強制更新で取り直せる（v241、Kota指摘「トークン失ってる」対策）。
