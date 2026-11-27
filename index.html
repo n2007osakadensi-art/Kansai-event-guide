@@ -641,6 +641,7 @@
   .cal-refl-row{margin:0 0 8px}
   .cal-refl-cals{display:flex;flex-wrap:wrap;gap:6px}
   .cal-refl-cals:empty{display:none}
+  .cal-panel-close{display:block;width:100%;margin-top:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:10px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer;font-family:inherit}
   .cal-plan-link{display:inline-block;margin:0 0 10px;border:1.5px solid var(--accent);color:var(--accent);background:transparent;border-radius:999px;padding:8px 14px;font-weight:800;font-size:13.5px;min-height:40px;cursor:pointer;font-family:inherit}
   .cal-overlap{margin:6px 0 0;border-radius:8px;background:#fef3c7;color:#92400e;padding:6px 10px;font-size:12.5px;font-weight:700}
   .cal-day.hasmine{box-shadow:inset 0 0 0 2px var(--gold)}
@@ -1103,7 +1104,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v216';
+  window.__kgShell='v217';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1427,6 +1428,7 @@
       </div>
       <div class="cal-refl-cals" id="calReflCals"></div>
     </div>
+    <button type="button" class="cal-panel-close" id="calCtlClose">閉じる</button>
     </div>
     <div class="cal-mgr" id="calMgr" hidden>
       <div class="cal-mgr-head"><strong>マイカレンダーの管理</strong><button type="button" class="cal-chip" id="calMgrClose">閉じる</button></div>
@@ -1450,6 +1452,7 @@
         <button type="button" class="btn" id="calMgrSave" style="flex:1">この内容で保存</button>
         <button type="button" class="cal-chip" id="calMgrNew">新規（入力を空に）</button>
       </div>
+      <button type="button" class="cal-panel-close" id="calMgrCloseB">閉じる</button>
       <p class="cal-mgr-note">選んだ対象のイベントだけが、このカレンダーに集まります。端末に保存され、ログイン中はアカウントにも同期されます。</p>
     </div>
     <div id="calCondRow" class="cal-cond" hidden><span>検索・絞り込みの条件に合う件数で表示中です</span><button type="button" id="calCondClear">条件を外す</button></div>
@@ -8778,6 +8781,8 @@ if(els.calScopeFollow) els.calScopeFollow.addEventListener("click", function(){ 
   if(openBtn && mgr) openBtn.addEventListener("click", function(){ mgr.hidden=false; calMgrRender(); mgr.scrollIntoView({block:"nearest"}); });
   var closeBtn=document.getElementById("calMgrClose");
   if(closeBtn && mgr) closeBtn.addEventListener("click", function(){ mgr.hidden=true; });
+  var closeBtnB=document.getElementById("calMgrCloseB");
+  if(closeBtnB && mgr) closeBtnB.addEventListener("click", function(){ mgr.hidden=true; });
   if(mgr) mgr.addEventListener("click", function(e){
     var ed=e.target.closest("[data-cal-edit]"), del=e.target.closest("[data-cal-del]");
     if(ed){ calEditId=ed.getAttribute("data-cal-edit"); calMgrRender(); return; }
@@ -8796,6 +8801,11 @@ if(els.calScopeFollow) els.calScopeFollow.addEventListener("click", function(){ 
     var open=ctlP.hidden; ctlP.hidden=!open;
     ctlT.setAttribute("aria-expanded", open?"true":"false");
     var car=ctlT.querySelector(".cal-ctl-caret"); if(car) car.textContent=open? "▴ 閉じる":"▾ 開く";
+  });
+  var ctlClose=document.getElementById("calCtlClose");
+  if(ctlClose && ctlT && ctlP) ctlClose.addEventListener("click", function(){
+    ctlP.hidden=true; ctlT.setAttribute("aria-expanded","false");
+    var car2=ctlT.querySelector(".cal-ctl-caret"); if(car2) car2.textContent="▾ 開く";
   });
   var newBtn=document.getElementById("calMgrNew");
   if(newBtn) newBtn.addEventListener("click", function(){ calEditId=""; calMgrRender(); });
