@@ -755,7 +755,10 @@
   function guestOn(){ try{ return localStorage.getItem(GUEST_FLAG)==='1'; }catch(_){ return false; } }
   var bootChoicePending=false;
   function stateLabel(){
-    if(adminOn()) return '管理者モード';
+    if(adminOn()){
+      if(user||member) return bootChoicePending? '管理者モード（同期は選択待ち）' : '管理者モード（同期ON）';
+      return '管理者モード（未同期）';
+    }
     if(user) return bootChoicePending? 'ログイン中（同期は選択待ち）' : 'ログイン中（同期ON）';
     if(member) return bootChoicePending? 'ログイン中（会員コード・同期は選択待ち）' : 'ログイン中（会員コード）';
     if(guestOn()) return 'ゲスト利用中';
@@ -981,7 +984,7 @@
     }catch(_){}
     return false;
   }
-  function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）。ログインは不要です。'); if(on && !roleAdminLoaded) renderRoleAdmin(); renderState(); }
+  function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）です。管理者モードだけでは情報は同期されません。他の端末と共有するには、会員コードでログインしてください（管理者モードと両立できます）。'); if(on && !roleAdminLoaded) renderRoleAdmin(); renderState(); }
   /* パスフレーズはダイアログ内の通常 input で扱う（v53）。prompt() は
      ダイアログ抑制環境で無言で null を返し、管理者フロー全体が死ぬため使わない。
      ハッシュ保存形式（kg-admin: 前置＋ kg_admin_hash_v1 / kg_admin_mode_v1）は従来互換 */
