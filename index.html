@@ -1113,7 +1113,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v244';
+  window.__kgShell='v245';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1713,6 +1713,7 @@
       <button type="button" class="fopt" id="hideLongBtn" aria-pressed="false">長期開催（7日以上）を隠す</button>
       <button type="button" class="fopt" id="endedBtn" aria-pressed="false">終了したイベントも表示（OFF）</button>
       <button type="button" class="fopt" id="ongoingOnlyBtn" aria-pressed="false">開催中のみ</button>
+      <button type="button" class="fopt" id="cancelOnlyBtn" aria-pressed="false">中止・変更のみ</button>
       <button type="button" class="fopt" id="imgOnlyBtn" aria-pressed="false">画像ありのみ</button>
       <button type="button" class="fopt" id="ticketOnlyBtn" aria-pressed="false">チケットリンクありのみ</button>
       <button type="button" class="fopt" id="favOnlyBtn" aria-pressed="false">♥ お気に入りのみ</button>
@@ -2549,7 +2550,7 @@ var selPrefs=new Set(), selAreas=new Set(), selPrices=new Set(), selThemes=new S
 var selDows=new Set(), selTimeBands=new Set(), selDurations=new Set(), selOrganizers=new Set();
 var selCats=new Set(), selVenueGenres=new Set(), maxPrice=null;
 var xmasSub="all";
-var imgOnly=false, ticketOnly=false, ongoingOnly=false;
+var imgOnly=false, ticketOnly=false, ongoingOnly=false, cancelOnly=false;
 var webOnly=false, xOnly=false, igOnly=false, descOnly=false, favOnly=false, oshiOnly=false, wantOnly=false, intOnly=false;
 var calCursor=null, calSel="", calScope="all", calAnchor="";
 var dirQuery="", detailCtx=null, teamFilter="すべて";
@@ -2558,7 +2559,7 @@ var dirCatFilter="すべて", dirEventsOnly=false;
 var venueGenres=new Set(), venueGenreSubs=new Set(), venueGenreGroups=new Set(), venueGenreClosed={}, venueSugDismissed="";
 try{ showEnded = localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
 var els={};
-["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calScopeMix","calScopeFollow","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope","rankShelf","rankList","followShelf","followList","tlSort","searchRow","searchHint"].forEach(function(id){ els[id]=document.getElementById(id); });
+["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calScopeMix","calScopeFollow","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","cancelOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope","rankShelf","rankList","followShelf","followList","tlSort","searchRow","searchHint"].forEach(function(id){ els[id]=document.getElementById(id); });
 
 var toastTimer=null;
 function toast(msg){
@@ -3132,6 +3133,20 @@ function exactMatch(ev, t){
   }
   return false;
 }
+/* 中止・変更の実施記録があるか（v245、スペース版と共通仕様
+   cancel-change-filter-spec-20261127）。データ側の印だけを見る:
+   タイトル接頭辞【中止】【延期】、備考・説明内の角括弧の実施記録
+   （〜中止】／開催中止／〜延期】／〜順延】／内容変更】／会場変更】／
+   時間変更】／出演変更】／出演者変更】）。「雨天決行・荒天中止」のような
+   条件文は角括弧の記録形になっていないため対象にならない */
+var CANCEL_BODY_MARKS=["中止】","開催中止","延期】","順延】","内容変更】","会場変更】","時間変更】","出演変更】","出演者変更】"];
+function hasCancelChange(ev){
+  var t=String(ev.title||"");
+  if(t.indexOf("【中止】")===0 || t.indexOf("【延期】")===0) return true;
+  var b=String(ev.notes||"")+"\n"+String(ev.description||"");
+  for(var i=0;i<CANCEL_BODY_MARKS.length;i++){ if(b.indexOf(CANCEL_BODY_MARKS[i])>=0) return true; }
+  return false;
+}
 function contentPass(ev, opts){
   opts=opts||{};
   /* タイムライン内検索もこの関数と filtered() をそのまま使う（v139で
@@ -3161,6 +3176,7 @@ function contentPass(ev, opts){
   if(imgOnly && !ev.imageUrl) return false;
   if(ticketOnly && !ev.linkTicket) return false;
   if(ongoingOnly && !isOngoing(ev)) return false;
+  if(cancelOnly && !hasCancelChange(ev)) return false;
   if(webOnly && !ev.linkWeb) return false;
   if(xOnly && !ev.linkX) return false;
   if(igOnly && !ev.linkInstagram) return false;
@@ -3352,6 +3368,7 @@ function activeFilterCount(){
   if(imgOnly) n++;
   if(ticketOnly) n++;
   if(ongoingOnly) n++;
+  if(cancelOnly) n++;
   if(webOnly) n++;
   if(xOnly) n++;
   if(igOnly) n++;
@@ -3475,6 +3492,8 @@ function renderFilterOpts(){
   els.ongoingOnlyBtn.textContent="開催中のみ"+(ongoingOnly?"（ON）":"");
   els.imgOnlyBtn.setAttribute("aria-pressed", imgOnly?"true":"false");
   els.imgOnlyBtn.textContent="画像ありのみ"+(imgOnly?"（ON）":"");
+  els.cancelOnlyBtn.setAttribute("aria-pressed", cancelOnly?"true":"false");
+  els.cancelOnlyBtn.textContent="中止・変更のみ"+(cancelOnly?"（ON）":"");
   els.ticketOnlyBtn.setAttribute("aria-pressed", ticketOnly?"true":"false");
   els.ticketOnlyBtn.textContent="チケットリンクありのみ"+(ticketOnly?"（ON）":"");
   els.webOnlyBtn.setAttribute("aria-pressed", webOnly?"true":"false");
@@ -3791,7 +3810,7 @@ function calClearConditions(){
   exactTarget=null; tagFilter=""; activeCat="すべて";
   periodPreset="all"; dateFrom=""; dateTo=""; if(els.dateFrom) els.dateFrom.value=""; if(els.dateTo) els.dateTo.value="";
   selPrefs.clear(); selAreas.clear(); selPrices.clear(); selThemes.clear(); selVenues.clear(); selPerfs.clear(); if(els.venueSearch) els.venueSearch.value=""; if(els.perfSearch) els.perfSearch.value=""; hideLong=false;
-  selDows.clear(); selTimeBands.clear(); selDurations.clear(); selOrganizers.clear(); if(els.organizerSearch) els.organizerSearch.value=""; imgOnly=false; ticketOnly=false; ongoingOnly=false;
+  selDows.clear(); selTimeBands.clear(); selDurations.clear(); selOrganizers.clear(); if(els.organizerSearch) els.organizerSearch.value=""; imgOnly=false; ticketOnly=false; ongoingOnly=false; cancelOnly=false;
   selCats.clear(); selVenueGenres.clear(); maxPrice=null; webOnly=false; xOnly=false; igOnly=false; descOnly=false; favOnly=false; wantOnly=false; intOnly=false; oshiOnly=false;
   render();
 }
@@ -3838,7 +3857,7 @@ function contentFiltersActiveForVenue(){
   if(selPrefs.size||selAreas.size||selPrices.size||selThemes.size||selVenues.size||selPerfs.size) return true;
   if(selDows.size||selTimeBands.size||selDurations.size||selOrganizers.size) return true;
   if(selCats.size||selVenueGenres.size||maxPrice!=null) return true;
-  if(imgOnly||ticketOnly||ongoingOnly||webOnly||xOnly||igOnly||descOnly||favOnly||wantOnly||intOnly||oshiOnly) return true;
+  if(imgOnly||ticketOnly||ongoingOnly||cancelOnly||webOnly||xOnly||igOnly||descOnly||favOnly||wantOnly||intOnly||oshiOnly) return true;
   if(hideLong) return true;
   if(String(query||"").trim()) return true;
   return false;
@@ -4883,6 +4902,7 @@ function renderActiveFilters(){
   if(maxPrice!=null) chips.push({key:"maxprice", label:"料金上限："+maxPrice.toLocaleString()+"円以下"});
   if(hideLong) chips.push({key:"hideLong", label:"長期開催を隠す"});
   if(ongoingOnly) chips.push({key:"ongoingOnly", label:"開催中のみ"});
+  if(cancelOnly) chips.push({key:"cancelOnly", label:"中止・変更のみ"});
   if(imgOnly) chips.push({key:"imgOnly", label:"画像ありのみ"});
   if(ticketOnly) chips.push({key:"ticketOnly", label:"チケットリンクありのみ"});
   if(webOnly) chips.push({key:"webOnly", label:"公式サイトありのみ"});
@@ -8962,7 +8982,7 @@ document.getElementById("closeFilterBtn").addEventListener("click", function(){
 document.getElementById("clearFilterBtn").addEventListener("click", function(){
   periodPreset="all"; dateFrom=""; dateTo=""; els.dateFrom.value=""; els.dateTo.value="";
   selPrefs.clear(); selAreas.clear(); selPrices.clear(); selThemes.clear(); selVenues.clear(); selPerfs.clear(); els.venueSearch.value=""; els.perfSearch.value=""; hideLong=false;
-  selDows.clear(); selTimeBands.clear(); selDurations.clear(); selOrganizers.clear(); els.organizerSearch.value=""; imgOnly=false; ticketOnly=false; ongoingOnly=false;
+  selDows.clear(); selTimeBands.clear(); selDurations.clear(); selOrganizers.clear(); els.organizerSearch.value=""; imgOnly=false; ticketOnly=false; ongoingOnly=false; cancelOnly=false;
   selCats.clear(); selVenueGenres.clear(); maxPrice=null; webOnly=false; xOnly=false; igOnly=false; descOnly=false; favOnly=false; wantOnly=false; intOnly=false; oshiOnly=false; render();
 });
 document.getElementById("periodOpts").addEventListener("click", function(e){
@@ -9007,6 +9027,7 @@ els.endedBtn.addEventListener("click", function(){ showEnded=!showEnded; syncEnd
 els.hideLongBtn.addEventListener("click", function(){ hideLong=!hideLong; render(); });
 els.ongoingOnlyBtn.addEventListener("click", function(){ ongoingOnly=!ongoingOnly; render(); });
 els.imgOnlyBtn.addEventListener("click", function(){ imgOnly=!imgOnly; render(); });
+els.cancelOnlyBtn.addEventListener("click", function(){ cancelOnly=!cancelOnly; render(); });
 els.ticketOnlyBtn.addEventListener("click", function(){ ticketOnly=!ticketOnly; render(); });
 els.webOnlyBtn.addEventListener("click", function(){ webOnly=!webOnly; render(); });
 els.xOnlyBtn.addEventListener("click", function(){ xOnly=!xOnly; render(); });
@@ -9183,7 +9204,7 @@ els.activeFilters.addEventListener("click", function(e){
     exactTarget=null; query=""; els.searchInput.value=""; els.clearSearch.style.display="none";
     activeCat="すべて"; periodPreset="all"; dateFrom=""; dateTo=""; els.dateFrom.value=""; els.dateTo.value="";
     selPrefs.clear(); selAreas.clear(); selPrices.clear(); selThemes.clear(); selVenues.clear(); selPerfs.clear(); hideLong=false;
-    selDows.clear(); selTimeBands.clear(); selDurations.clear(); selOrganizers.clear(); imgOnly=false; ticketOnly=false; ongoingOnly=false;
+    selDows.clear(); selTimeBands.clear(); selDurations.clear(); selOrganizers.clear(); imgOnly=false; ticketOnly=false; ongoingOnly=false; cancelOnly=false;
     selCats.clear(); selVenueGenres.clear(); maxPrice=null; webOnly=false; xOnly=false; igOnly=false; descOnly=false; favOnly=false; wantOnly=false; intOnly=false; oshiOnly=false;
   } else if(key==="exact"){ exactTarget=null; query=""; els.searchInput.value=""; els.clearSearch.style.display="none"; }
   else if(key==="cat"){ activeCat="すべて"; }
@@ -9191,6 +9212,7 @@ els.activeFilters.addEventListener("click", function(e){
   else if(key==="dates"){ dateFrom=""; dateTo=""; els.dateFrom.value=""; els.dateTo.value=""; }
   else if(key==="hideLong"){ hideLong=false; }
   else if(key==="ongoingOnly"){ ongoingOnly=false; }
+  else if(key==="cancelOnly"){ cancelOnly=false; }
   else if(key==="imgOnly"){ imgOnly=false; }
   else if(key==="ticketOnly"){ ticketOnly=false; }
   else if(key==="maxprice"){ maxPrice=null; }
