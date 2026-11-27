@@ -1113,7 +1113,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v236';
+  window.__kgShell='v237';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -4797,6 +4797,8 @@ function kgFixAspectBoxes(scope){
   try{
     scope.querySelectorAll(".card-media").forEach(function(el){ if(el.clientWidth) el.style.height=Math.round(el.clientWidth*3/4)+"px"; });
     scope.querySelectorAll(".modal-media").forEach(function(el){ if(el.clientWidth) el.style.height=Math.round(el.clientWidth*9/16)+"px"; });
+    scope.querySelectorAll(".tl-fcard .tl-media").forEach(function(el){ if(el.clientWidth) el.style.height=Math.round(el.clientWidth*9/16)+"px"; });
+    scope.querySelectorAll(".sg-card-media").forEach(function(el){ if(el.clientWidth) el.style.height=Math.round(el.clientWidth*9/16)+"px"; });
   }catch(e){}
 }
 function wireCardImages(root){
@@ -9511,6 +9513,7 @@ function sgShow(i){
   if(!sgState.slides.length) return;
   sgState.idx=((i%sgState.slides.length)+sgState.slides.length)%sgState.slides.length;
   sgEl("sgStage").innerHTML='<section class="sg-slide" aria-label="スライド '+(sgState.idx+1)+'">'+sgState.slides[sgState.idx].html+'</section>';
+  kgFixAspectBoxes(sgEl("sgStage"));
   sgEl("sgDots").innerHTML=sgState.slides.map(function(s,j){ return '<span class="sg-dot'+(j===sgState.idx?" on":"")+'"></span>'; }).join("");
   sgEl("sgCount").textContent=(sgState.idx+1)+" / "+sgState.slides.length;
   var prog=sgEl("sgProg");
@@ -9818,6 +9821,7 @@ function tlRenderFeed(){
   + '<div class="tl-feed-end"><p>ここまでがタイムラインです（推し・お気に入り・好みから選んでいます）</p>'
   + '<button type="button" class="tl-post" data-tl-post="1">＋ 投稿する（新規登録・修正）</button></div>';
   if(keepMe) feed.insertBefore(keepMe, feed.firstChild);
+  kgFixAspectBoxes(feed);
 }
 /* マイページ（v106）: 推し・お気に入り・回しプラン・リスト・フォローを、
    SNSの自分のプロフィールの形でタイムライン上部に束ねる。全て端末内データで、
