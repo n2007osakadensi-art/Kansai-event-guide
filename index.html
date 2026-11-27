@@ -1141,7 +1141,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v261';
+  window.__kgShell='v262';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1920,6 +1920,7 @@ function setHeat(id, lv){
   saveSet(LS_WANT, wantEvents); saveSet(LS_INT, intEvents);
   var fev=allEvents.find(function(x){ return String(x.id)===id; });
   if(fev && lv>=2) learnFromEvent(fev, 2); else if(fev && lv>=1) learnFromEvent(fev, 1);
+  sigPush("heat", id, lv);
   if(lv>=1) toast(HEAT_LEVELS[lv].e+" 「"+HEAT_LEVELS[lv].label+"」にしました");
   else toast("気持ちの度合いを外しました");
 }
@@ -1933,8 +1934,26 @@ function saveMemo(id, text){
   id=String(id); text=String(text||"").trim();
   if(text) memos[id]={t:text, at:Date.now()}; else delete memos[id];
   try{ localStorage.setItem(LS_MEMOS, JSON.stringify(memos)); }catch(e){}
+  sigPush("memo", id, text? 1:0);
   try{ window.dispatchEvent(new CustomEvent("kg:favorites-change",{detail:{key:LS_MEMOS}})); }catch(e){}
 }
+/* シグナル履歴（v262）: 前向きな信号の変化を時刻つきで残す（直近400件）。
+   推し変・趣味の変化の分析と、アンケートのブラッシュアップの材料。
+   マイナス評価の軸は作らない（区分自体が評価に見えるため） */
+var LS_SIGLOG="kg_trial_siglog_v1";
+var siglog=(function(){ try{ var a=JSON.parse(localStorage.getItem(LS_SIGLOG)||"[]"); return Array.isArray(a)? a : []; }catch(e){ return []; } })();
+function sigPush(k, id, v){
+  siglog.push({k:k, id:String(id), v:v, at:Date.now()});
+  if(siglog.length>400) siglog=siglog.slice(siglog.length-400);
+  try{ localStorage.setItem(LS_SIGLOG, JSON.stringify(siglog)); }catch(e){}
+  try{ window.dispatchEvent(new CustomEvent("kg:favorites-change",{detail:{key:LS_SIGLOG}})); }catch(e){}
+}
+window.addEventListener("kg:favorites-change", function(e){
+  var d=(e && e.detail)||{}; if(d.key!==LS_FAV && d.key!==LS_OSHI) return;
+  var before=new Set((d.before||[]).map(String)), after=new Set((d.after||[]).map(String)), kind=(d.key===LS_FAV? "fav":"oshi");
+  after.forEach(function(x){ if(!before.has(x)) sigPush(kind, x, 1); });
+  before.forEach(function(x){ if(!after.has(x)) sigPush(kind, x, 0); });
+});
 /* 移行＋整合: heat 未設定の旧データは interest→段階1、want→段階3（want優先）。
    他端末から来た heat と集合の食い違いも、起動時の導出でここで回復する */
 (function(){

@@ -525,7 +525,7 @@
   function udCounts(o){
     o=o||{}; var f=o.follows||{}; var pc=0;
     if(o.plans && Array.isArray(o.plans.patterns)) o.plans.patterns.forEach(function(p){ pc+=((p&&p.ids)||[]).length; });
-    return [ (o.want||[]).length, (o.interest||[]).length, ((f.venues||[]).length)+((f.organizers||[]).length), (o.lists||[]).length, pc, (o.cals||[]).length, (o.words||[]).length, Object.keys(o.heat||{}).length, Object.keys(o.memos||{}).length ];
+    return [ (o.want||[]).length, (o.interest||[]).length, ((f.venues||[]).length)+((f.organizers||[]).length), (o.lists||[]).length, pc, (o.cals||[]).length, (o.words||[]).length, Object.keys(o.heat||{}).length, Object.keys(o.memos||{}).length, (o.siglog||[]).length ];
   }
   async function manualWrite(){
     if(!(member||user)){ text('ログインしてから実行できます。'); return; }
@@ -644,7 +644,7 @@
      Google=主軸はシートの g:{uidハッシュ} 行、保険は users/{uid}/userdata/main。
      取り込みは原則「統合」（和集合）で、端末のデータを勝手に消さない。
      反映は localStorage へ書いて1回だけ再読込 */
-  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended',plans:'kg_trial_plans_v1',plan:'kg_trial_plan_v1',cals:'kg_trial_calendars_v1',words:'kg_trial_saved_words_v1',heat:'kg_trial_heat_v1',memos:'kg_trial_memos_v1'};
+  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended',plans:'kg_trial_plans_v1',plan:'kg_trial_plan_v1',cals:'kg_trial_calendars_v1',words:'kg_trial_saved_words_v1',heat:'kg_trial_heat_v1',memos:'kg_trial_memos_v1',siglog:'kg_trial_siglog_v1'};
   function udArr(v){ return Array.isArray(v)? v : []; }
   function udParse(k, fb){ try{ var v=localStorage.getItem(k); return v==null? fb : JSON.parse(v); }catch(e){ return fb; } }
   function udReadLocal(){
@@ -661,7 +661,8 @@
       cals:udArr(udParse(UD_KEYS.cals,[])),
       words:udArr(udParse(UD_KEYS.words,[])),
       heat:udParse(UD_KEYS.heat,{}),
-      memos:udParse(UD_KEYS.memos,{})
+      memos:udParse(UD_KEYS.memos,{}),
+      siglog:udArr(udParse(UD_KEYS.siglog,[]))
     };
   }
   function udSig(){ try{ return JSON.stringify(udReadLocal()); }catch(e){ return ''; } }
@@ -734,6 +735,11 @@
     var memos={};
     [cloud.memos, local.memos].forEach(function(mm){ if(mm && typeof mm==='object'){ Object.keys(mm).forEach(function(k){ var v=mm[k]; if(!v || typeof v.t!=='string') return; if(!memos[k] || (v.at||0)>=(memos[k].at||0)) memos[k]={t:v.t, at:v.at||0}; }); } });
     out.memos=memos;
+    /* シグナル履歴（v262）: (種別・対象・時刻) で union し、時刻順・直近400件 */
+    var slSeen={}, sl=[];
+    [local.siglog, cloud.siglog].forEach(function(arr){ (arr||[]).forEach(function(e){ if(!e || !e.k) return; var key=e.k+"|"+e.id+"|"+e.at; if(slSeen[key]) return; slSeen[key]=1; sl.push({k:e.k, id:String(e.id), v:e.v, at:e.at||0}); }); });
+    sl.sort(function(a,b){ return a.at-b.at; });
+    out.siglog=sl.slice(-400);
     return out;
   }
   function udWriteLocal(d){
@@ -755,6 +761,7 @@
       if(Array.isArray(d.words)) localStorage.setItem(UD_KEYS.words, JSON.stringify(d.words));
       if(d.heat && typeof d.heat==='object') localStorage.setItem(UD_KEYS.heat, JSON.stringify(d.heat));
       if(d.memos && typeof d.memos==='object') localStorage.setItem(UD_KEYS.memos, JSON.stringify(d.memos));
+      if(Array.isArray(d.siglog)) localStorage.setItem(UD_KEYS.siglog, JSON.stringify(d.siglog));
     }catch(e){}
   }
   var udBusy=false, udLastSig='';
