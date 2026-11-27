@@ -139,6 +139,14 @@
   .fopt[aria-pressed="true"] .cat-ico{color:inherit}
   .ph-cat{display:flex;align-items:center;justify-content:center;gap:8px}
   .fav-note{font-size:12px;color:var(--heart);font-weight:700}
+  .heat-note{font-size:12px;color:var(--accent);font-weight:700}
+  .heat-box{margin:18px 0 2px}
+  .heat-title{font-size:13px;font-weight:800;color:var(--muted);margin:0 0 8px}
+  .heat-row{display:flex;gap:6px}
+  .heat-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 2px;min-height:56px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);cursor:pointer;font-family:inherit}
+  .heat-btn .heat-emoji{font-size:19px;line-height:1.15}
+  .heat-btn .heat-name{font-size:10.5px;font-weight:700}
+  .heat-btn.on{border-color:var(--accent);background:var(--accent);color:#fff}
 
   /* Christmas feature （クリスマス特集） */
   .xmas-banner{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;background:var(--surface);border:1.5px solid var(--gold);border-radius:12px;padding:12px 14px;margin:0 0 14px;box-shadow:var(--shadow)}
@@ -1129,7 +1137,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v256';
+  window.__kgShell='v257';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1478,7 +1486,7 @@
     <button type="button" class="cal-panel-close" id="calCtlClose">閉じる</button>
     </div>
     <div class="cal-mgr" id="calMgr" hidden>
-      <div class="cal-mgr-head"><strong>タブ・カレンダーの管理</strong><button type="button" class="cal-chip" id="calMgrClose">閉じる</button></div>
+      <div class="cal-mgr-head"><strong>マイタブ・カレンダーの管理</strong><button type="button" class="cal-chip" id="calMgrClose">閉じる</button></div>
       <div id="calMgrList"></div>
       <label class="name-row" for="calMgrName">カレンダーの名前</label>
       <input type="text" id="calMgrName" placeholder="例：推しだけ／近所の会場／週末プラン">
@@ -1504,10 +1512,10 @@
         <button type="button" class="btn" id="calMgrSave" style="flex:1">この内容で保存</button>
         <button type="button" class="cal-chip" id="calMgrNew">新規（入力を空に）</button>
       </div>
-      <div class="cal-mgr-sec">タブストア（管理者が公開したタブ）</div>
+      <div class="cal-mgr-sec">マイタブストア（管理者が公開したタブ）</div>
       <div id="calMgrStore"><p style="font-size:12.5px;color:var(--muted);margin:4px 0">読み込み中…</p></div>
       <button type="button" class="cal-panel-close" id="calMgrCloseB">閉じる</button>
-      <p class="cal-mgr-note">選んだ対象のイベントだけが集まります。この設定はカレンダーとタイムラインのタブで共通です（タイムラインの「タブを追加・編集」からも、タイムラインを離れずに開けます）。端末に保存され、ログイン中はアカウントにも同期されます。</p>
+      <p class="cal-mgr-note">選んだ対象のイベントだけが集まります。この設定はカレンダーとタイムラインのマイタブで共通です（タイムラインの「マイタブを追加・編集」からも、タイムラインを離れずに開けます）。端末に保存され、ログイン中はアカウントにも同期されます。</p>
     </div>
     <div id="calCondRow" class="cal-cond" hidden><span>検索・絞り込みの条件に合う件数で表示中です</span><button type="button" id="calCondClear">条件を外す</button></div>
     <div class="cal-legend" id="calLegend" hidden>
@@ -1885,6 +1893,44 @@ var favEvents = loadSet(LS_FAV);
 var favPerfs = loadSet(LS_OSHI);
 var wantEvents = loadSet(LS_WANT);
 var intEvents = loadSet(LS_INT);
+/* 熱量（気持ちの段階、v257）: 「気になる」と「行きたい」を1つの段階に統合。
+   正本は heatMap（{id:1..5}）。既存の絞り込み・タブ条件・固定スコープは
+   want/int 集合を見ているため、段階から集合を導出して互換を保つ:
+   段階3以上→want、段階1〜2→interest、未設定→どちらにも入れない */
+var LS_HEAT="kg_trial_heat_v1";
+var HEAT_LEVELS=[null,{e:"👀",label:"気になる"},{e:"🌱",label:"行けたら行く"},{e:"🔥",label:"行きたい"},{e:"🏃",label:"参戦"},{e:"💯",label:"絶対行く"}];
+var heatMap=(function(){ try{ var o=JSON.parse(localStorage.getItem(LS_HEAT)||"{}"); return (o && typeof o==="object" && !Array.isArray(o))? o : {}; }catch(e){ return {}; } })();
+function heatOf(id){ var v=heatMap[String(id)]; return (v>=1 && v<=5)? Math.floor(v) : 0; }
+function heatSave(){ try{ localStorage.setItem(LS_HEAT, JSON.stringify(heatMap)); }catch(e){} }
+function heatDeriveOne(id){
+  var lv=heatOf(id);
+  if(lv>=3){ wantEvents.add(id); intEvents.delete(id); }
+  else if(lv>=1){ intEvents.add(id); wantEvents.delete(id); }
+  else { wantEvents.delete(id); intEvents.delete(id); }
+}
+function setHeat(id, lv){
+  id=String(id);
+  if(lv>=1 && lv<=5) heatMap[id]=lv; else delete heatMap[id];
+  heatSave();
+  heatDeriveOne(id);
+  saveSet(LS_WANT, wantEvents); saveSet(LS_INT, intEvents);
+  var fev=allEvents.find(function(x){ return String(x.id)===id; });
+  if(fev && lv>=3) learnFromEvent(fev, 2); else if(fev && lv>=1) learnFromEvent(fev, 1);
+  if(lv>=1) toast(HEAT_LEVELS[lv].e+" 「"+HEAT_LEVELS[lv].label+"」にしました");
+}
+/* 移行＋整合: heat 未設定の旧データは interest→段階1、want→段階3（want優先）。
+   他端末から来た heat と集合の食い違いも、起動時の導出でここで回復する */
+(function(){
+  var dirty=false;
+  intEvents.forEach(function(id){ if(!heatMap[id]){ heatMap[id]=1; dirty=true; } });
+  wantEvents.forEach(function(id){ if(!heatMap[id] || heatMap[id]<3){ heatMap[id]=3; dirty=true; } });
+  Object.keys(heatMap).forEach(function(id){
+    var lv=heatMap[id];
+    if(lv>=3){ if(!wantEvents.has(id) || intEvents.has(id)){ wantEvents.add(id); intEvents.delete(id); dirty=true; } }
+    else if(lv>=1){ if(!intEvents.has(id) || wantEvents.has(id)){ intEvents.add(id); wantEvents.delete(id); dirty=true; } }
+  });
+  if(dirty){ heatSave(); saveSet(LS_WANT, wantEvents); saveSet(LS_INT, intEvents); }
+})();
 var LS_PLANS="kg_trial_plans_v1";
 var planPatterns=[], planActiveId=null, planRenaming=false;
 var planIds=new Set();
@@ -2678,6 +2724,7 @@ function cardHTML(ev){
     + (view==="expo" && expoGroupOf(ev)==="Dc" ? '<span class="badge-long" style="border-color:#e03a31;color:#e03a31">ミャクミャク参加</span>' : "")
     + guideBadgeFor(ev)
     + (isFav?'<span class="fav-note">♥ お気に入り</span>':"")
+    + (heatOf(ev.id)? '<span class="heat-note">'+HEAT_LEVELS[heatOf(ev.id)].e+' '+HEAT_LEVELS[heatOf(ev.id)].label+'</span>' : "")
     + (oshi?'<span style="font-size:12px;color:var(--oshi);font-weight:700">★ '+esc(oshiIn(ev).join("、"))+'</span>':"")
     + '</div></div></article>';
 }
@@ -3711,7 +3758,7 @@ async function calStoreRender(){
   var tabs=await calStoreLoad(false);
   if(!tabs){ box.innerHTML='<p style="font-size:12.5px;color:var(--muted);margin:4px 0">ストアを読み込めませんでした。通信を確認して、開き直してください。</p>'; return; }
   document.querySelectorAll("[data-cal-pub]").forEach(function(b){ var cid=b.getAttribute("data-cal-pub"); b.textContent=calStorePublishedSrc[cid]? "公開中（取り消す）" : "ストアに公開"; });
-  if(!tabs.length){ box.innerHTML='<p style="font-size:12.5px;color:var(--muted);margin:4px 0">まだ公開されたタブがありません。</p>'; return; }
+  if(!tabs.length){ box.innerHTML='<p style="font-size:12.5px;color:var(--muted);margin:4px 0">まだ公開されたマイタブがありません。</p>'; return; }
   box.innerHTML=tabs.map(function(t){
     var saved=myCalendars.some(function(c){ return c.fromStore && c.fromStore===t.id; });
     var bits=[];
@@ -3733,7 +3780,7 @@ function calStoreSave(storeId){
   var t=null; (calStoreCache||[]).forEach(function(x){ if(x.id===storeId) t=x; });
   if(!t) return;
   if(myCalendars.some(function(c){ return c.fromStore===storeId; })){ toast("すでに保存済みです"); return; }
-  var data={ id:"cal"+Date.now().toString(36), name:t.name||"ストアのタブ", artists:(t.artists||[]).slice(), venues:(t.venues||[]).slice(), organizers:(t.organizers||[]).slice(), fromStore:storeId };
+  var data={ id:"cal"+Date.now().toString(36), name:t.name||"マイタブストアのタブ", artists:(t.artists||[]).slice(), venues:(t.venues||[]).slice(), organizers:(t.organizers||[]).slice(), fromStore:storeId };
   ["fav","want","int","plan","oshiAll","intAll"].forEach(function(k){ data[k]=t[k]? 1:0; });
   myCalendars.push(data);
   saveMyCalendars();
@@ -3741,7 +3788,7 @@ function calStoreSave(storeId){
      （名前はここで自分の付けたい名前に変えられる） */
   calEditId=data.id; calDraft=null;
   calMgrRender(); renderCalendar(); tlRefreshIfOpen();
-  toast("タブ「"+data.name+"」を保存しました。名前はそのまま変更できます");
+  toast("マイタブ「"+data.name+"」を保存しました。名前はそのまま変更できます");
 }
 async function calStoreTogglePublish(calId){
   if(!window.kgTabStore){ toast("ストアに接続できませんでした"); return; }
@@ -3762,7 +3809,7 @@ async function calStoreTogglePublish(calId){
     calStoreCache=next; calStoreCacheAt=Date.now();
     calStorePublishedSrc={}; next.forEach(function(t){ if(t.srcId) calStorePublishedSrc[t.srcId]=t.id; });
     calMgrRender();
-    toast(isPub? "ストアへの公開を取り消しました" : "タブ「"+(cal.name||"")+"」をストアに公開しました");
+    toast(isPub? "ストアへの公開を取り消しました" : "マイタブ「"+(cal.name||"")+"」をストアに公開しました");
   }catch(e){ toast("公開に失敗しました（"+((e&&e.message)||"エラー")+"）。管理者でログインしているか確認してください"); }
 }
 function calModeNow(){ return (typeof prefs!=="undefined" && ["month","week","2week"].indexOf(prefs.calMode)>=0) ? prefs.calMode : "month"; }
@@ -5886,10 +5933,11 @@ function openModal(ev){
         + ev._perfList.map(function(p){ var on=favPerfs.has(p); return '<button class="perf'+(on?" on":"")+'" type="button" data-perf="'+esc(p)+'" aria-pressed="'+on+'">'+esc(p)+'</button>'; }).join("")
         + '</div><p class="perf-hint">出演者名をタップすると、その出演者のプロフィールが開きます（推しの登録もできます）。</p>' : (ev.performersNone? '<h3 style="margin:20px 0 8px;font-size:15px">出演者</h3><p>出演者なし</p>' : ""))
     + '<h3 style="margin:20px 0 8px;font-size:15px">詳細・タイムテーブル</h3>'+descHTML
+    + '<div class="heat-box"><div class="heat-title">気持ちの度合い（もう一度押すと解除）</div><div class="heat-row" role="group" aria-label="気持ちの度合い">'
+    + [1,2,3,4,5].map(function(lv){ var H=HEAT_LEVELS[lv]; var on=heatOf(ev.id)===lv; return '<button type="button" class="heat-btn'+(on?" on":"")+'" data-heat="'+lv+'" aria-pressed="'+on+'"><span class="heat-emoji">'+H.e+'</span><span class="heat-name">'+H.label+'</span></button>'; }).join("")
+    + '</div></div>'
     + '<div class="mini-acts-row">'
     + '<button class="mini-btn'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
-    + '<button class="mini-btn want'+(isWant?" on":"")+'" type="button" id="modalWant">'+(isWant?"✓ 行きたい":"行きたい")+'</button>'
-    + '<button class="mini-btn interest'+(isInt?" on":"")+'" type="button" id="modalInt">'+(isInt?"✓ 気になる":"気になる")+'</button>'
     + '<button class="mini-btn" type="button" id="modalShare">共有</button>'
     + '<button class="mini-btn" type="button" id="modalList">'+(inListsCount? "✓ リスト（"+inListsCount+"）" : "＋ リスト")+'</button>'
     + '<button class="mini-btn'+(isPlan?" on":"")+'" type="button" id="modalPlan">'+(isPlan?"✓ 回しプラン":"＋ 回しプラン")+(planPatterns.length>1 && activePattern()? "："+esc(activePattern().name) : "")+'</button>'
@@ -5905,8 +5953,7 @@ function openModal(ev){
   document.getElementById("modalClose").addEventListener("click", closeModal);
   var mbb=document.getElementById("modalBackBar"); if(mbb) mbb.addEventListener("click", closeModal);
   document.getElementById("modalFav").addEventListener("click", function(){ toggleFav(String(ev.id)); openModal(ev); render(); });
-  document.getElementById("modalWant").addEventListener("click", function(){ toggleWant(String(ev.id)); openModal(ev); render(); });
-  document.getElementById("modalInt").addEventListener("click", function(){ toggleInt(String(ev.id)); openModal(ev); render(); });
+  els.modal.querySelectorAll("[data-heat]").forEach(function(b){ b.addEventListener("click", function(){ var lv=Number(b.getAttribute("data-heat")); setHeat(ev.id, heatOf(ev.id)===lv? 0 : lv); openModal(ev); render(); }); });
   /* 共有は開くたびに必ず同じ場所に出す（v53）。Web Share が無い環境では
      タイトルと日時をコピーする */
   document.getElementById("modalShare").addEventListener("click", function(){
@@ -7136,9 +7183,10 @@ function kgHasLocalSession(){ try{ return !!(localStorage.getItem("kg_member_ses
    数は使わない（Kota方針：おすすめ・人気は利用者自身の利用から作る） */
 function rankScore(ev){
   var id=String(ev.id), s=0, why=[];
-  if(wantEvents.has(id)){ s+=30; why.push("行きたい"); }
+  var hlv=heatOf(id);
+  if(hlv){ s+=[0,10,18,30,45,60][hlv]; why.push(HEAT_LEVELS[hlv].e+" "+HEAT_LEVELS[hlv].label); }
+  else { if(wantEvents.has(id)){ s+=30; why.push("行きたい"); } if(intEvents.has(id)){ s+=10; why.push("気になる"); } }
   if(favEvents.has(id)){ s+=20; why.push("お気に入り"); }
-  if(intEvents.has(id)){ s+=10; why.push("気になる"); }
   if(hasOshi(ev)){ s+=15; why.push("推し出演"); }
   if(ev._views){ var v=Math.min(ev._views,20); if(v>0){ s+=v; why.push("よく見られている"); } }
   if(ev._wantCloud){ s+=Math.min(ev._wantCloud*3,30); }
@@ -10270,7 +10318,7 @@ function renderTlScope(){
     + '<button type="button" data-tlscope="p:follow" class="'+(tlScopePreset==="follow"?"on":"")+'">フォロー中</button>'
     + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("")
     + myCalendars.map(function(c){ return '<button type="button" data-tlcal="'+esc(c.id)+'" class="'+(tlCalId===c.id?"on":"")+'">'+esc(c.name)+'</button>'; }).join("")
-    + '<button type="button" data-tlcal-mgr="1">タブを追加・編集</button>'
+    + '<button type="button" data-tlcal-mgr="1">マイタブを追加・編集</button>'
     + ((tlScopePreset==="want"||tlScopePreset==="int")? '<button type="button" data-tl-go-plan="'+tlScopePreset+'">回しプランで開く</button>' : '')
     + (tlScopeArtist? '<button type="button" data-tlscope-artist="1" class="on">フォロー：'+esc(tlScopeArtist)+' ✕</button>' : '');
   renderTlSort();
@@ -10671,7 +10719,7 @@ function refreshTlLogin(){
     var cm=e.target.closest("[data-tlcal-mgr]");
     if(cm){ openCalMgrInTimeline(); return; }
     var cb2=e.target.closest("[data-tlcal]");
-    if(cb2){ tlResetQuery(); tlScopeArtist=null; tlScopePreset=null; tlScopeListId=null; tlCalId=cb2.getAttribute("data-tlcal"); tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode(); if(!tlState.items.length) toast("このタブには表示できるイベントがありません"); return; }
+    if(cb2){ tlResetQuery(); tlScopeArtist=null; tlScopePreset=null; tlScopeListId=null; tlCalId=cb2.getAttribute("data-tlcal"); tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode(); if(!tlState.items.length) toast("このマイタブには表示できるイベントがありません"); return; }
     var b=e.target.closest("[data-tlscope]"); if(!b) return;
     var v=b.getAttribute("data-tlscope");
     tlResetQuery();

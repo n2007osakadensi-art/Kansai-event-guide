@@ -525,7 +525,7 @@
   function udCounts(o){
     o=o||{}; var f=o.follows||{}; var pc=0;
     if(o.plans && Array.isArray(o.plans.patterns)) o.plans.patterns.forEach(function(p){ pc+=((p&&p.ids)||[]).length; });
-    return [ (o.want||[]).length, (o.interest||[]).length, ((f.venues||[]).length)+((f.organizers||[]).length), (o.lists||[]).length, pc, (o.cals||[]).length, (o.words||[]).length ];
+    return [ (o.want||[]).length, (o.interest||[]).length, ((f.venues||[]).length)+((f.organizers||[]).length), (o.lists||[]).length, pc, (o.cals||[]).length, (o.words||[]).length, Object.keys(o.heat||{}).length ];
   }
   async function manualWrite(){
     if(!(member||user)){ text('ログインしてから実行できます。'); return; }
@@ -644,7 +644,7 @@
      Google=主軸はシートの g:{uidハッシュ} 行、保険は users/{uid}/userdata/main。
      取り込みは原則「統合」（和集合）で、端末のデータを勝手に消さない。
      反映は localStorage へ書いて1回だけ再読込 */
-  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended',plans:'kg_trial_plans_v1',plan:'kg_trial_plan_v1',cals:'kg_trial_calendars_v1',words:'kg_trial_saved_words_v1'};
+  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended',plans:'kg_trial_plans_v1',plan:'kg_trial_plan_v1',cals:'kg_trial_calendars_v1',words:'kg_trial_saved_words_v1',heat:'kg_trial_heat_v1'};
   function udArr(v){ return Array.isArray(v)? v : []; }
   function udParse(k, fb){ try{ var v=localStorage.getItem(k); return v==null? fb : JSON.parse(v); }catch(e){ return fb; } }
   function udReadLocal(){
@@ -659,7 +659,8 @@
       showEnded:localStorage.getItem(UD_KEYS.showEnded)==='1',
       plans:udParse(UD_KEYS.plans,null),
       cals:udArr(udParse(UD_KEYS.cals,[])),
-      words:udArr(udParse(UD_KEYS.words,[]))
+      words:udArr(udParse(UD_KEYS.words,[])),
+      heat:udParse(UD_KEYS.heat,{})
     };
   }
   function udSig(){ try{ return JSON.stringify(udReadLocal()); }catch(e){ return ''; } }
@@ -724,6 +725,10 @@
       else words.push({w:String(row.w), on:row.on!==false});
     });
     out.words=words.slice(0,50);
+    /* 熱量（v257）: イベントごとに段階の大きい方を取る */
+    var heat={};
+    [local.heat, cloud.heat].forEach(function(h){ if(h && typeof h==='object'){ Object.keys(h).forEach(function(k){ var v=Number(h[k]); if(v>=1 && v<=5 && (!heat[k] || v>heat[k])) heat[k]=v; }); } });
+    out.heat=heat;
     return out;
   }
   function udWriteLocal(d){
@@ -743,6 +748,7 @@
       }
       if(Array.isArray(d.cals)) localStorage.setItem(UD_KEYS.cals, JSON.stringify(d.cals));
       if(Array.isArray(d.words)) localStorage.setItem(UD_KEYS.words, JSON.stringify(d.words));
+      if(d.heat && typeof d.heat==='object') localStorage.setItem(UD_KEYS.heat, JSON.stringify(d.heat));
     }catch(e){}
   }
   var udBusy=false, udLastSig='';
