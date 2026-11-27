@@ -1113,7 +1113,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v237';
+  window.__kgShell='v238';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1129,7 +1129,7 @@
   var DKEY='kg_diag_v1';
   function diagRead(){ try{ return JSON.parse(localStorage.getItem(DKEY)||'[]'); }catch(e){ return []; } }
   function diagPush(msg){ try{ var arr=diagRead(); arr.push({t:Date.now(), m:String(msg||'').slice(0,200)}); while(arr.length>5) arr.shift(); localStorage.setItem(DKEY, JSON.stringify(arr)); }catch(e){} }
-  window.addEventListener('error', function(ev){ diagPush((ev.message||'error')+' @'+String(ev.filename||'').split('/').pop()+':'+(ev.lineno||'')); });
+  window.addEventListener('error', function(ev){ if(!ev.filename && (!ev.message || ev.message==='Script error.')) return; diagPush((ev.message||'error')+' @'+String(ev.filename||'').split('/').pop()+':'+(ev.lineno||'')); });
   window.addEventListener('unhandledrejection', function(ev){ var r=ev.reason; diagPush('未処理の失敗: '+((r&&r.message)||r||'')); });
   window.__kgDiagLast=function(){ var arr=diagRead(); return arr.length? arr[arr.length-1] : null; };
   function escT(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
