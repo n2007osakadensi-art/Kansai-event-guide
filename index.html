@@ -1113,12 +1113,17 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v232';
+  window.__kgShell='v233';
   var st=read()||{};
-  var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
+  var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
+  /* 遅いだけの起動を「失敗」と数えない（v233）: 前回に処理段階の形跡
+     （busy マーカー）が残っていたら、固まったのではなく時間がかかって
+     いただけとみなし、自動消去の数えに含めない。遅い端末で「警告→
+     自動消去→冷えた状態から再読み込み→さらに遅い」の悪循環を断つ */
+  var fails=(st.pending && (Date.now()-st.pending)<120000 && !prevBusy0) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
   window.__kgBooted=false;
-  window.__kgBootMarkOk=function(){ window.__kgBooted=true; save({pending:0, fails:0, ok:Date.now()}); if(window.__kgDiagLine) window.__kgDiagLine(); };
+  window.__kgBootMarkOk=function(){ window.__kgBooted=true; save({pending:0, fails:0, ok:Date.now()}); var pd=document.getElementById('kg-stall-panel'); if(pd) pd.remove(); if(window.__kgDiagLine) window.__kgDiagLine(); };
   /* エラー記録: 起きている端末でしか分からないエラーを、画面下の「動作記録」と
      復旧バナーに残す（固まった端末自身が原因を言えるようにする） */
   var DKEY='kg_diag_v1';
@@ -1239,15 +1244,27 @@
   var params=null; try{ params=new URLSearchParams(location.search); }catch(e){}
   if(params && params.get('reset')==='1'){ wipeAll().then(function(){ save({pending:0,fails:0}); location.replace(cleanUrl()); }); return; }
   if(fails>=2){ wipeDerived().then(function(){ save({pending:Date.now(),fails:0}); location.reload(); }); return; }
-  setTimeout(function(){
-    if(window.__kgBooted) return;
+  /* 起動の見張り（v233で進行連動に変更）: 以前は20秒固定だったため、
+     遅い端末では正常に読み込み中でも警告が出ていた。処理段階
+     （busy マーカー）が進んでいる間は出さず、段階が45秒止まった時か、
+     開始から150秒を超えた時だけ出す。起動が完了したら自動で消える */
+  var kgBootStart=Date.now(), kgLastBusy=null, kgLastBusyAt=Date.now(), kgPanelShown=false;
+  var kgWatchTimer=setInterval(function(){
+    if(window.__kgBooted){ var pd2=document.getElementById('kg-stall-panel'); if(pd2) pd2.remove(); clearInterval(kgWatchTimer); return; }
+    var busy=''; try{ busy=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
+    var now=Date.now();
+    if(busy!==kgLastBusy){ kgLastBusy=busy; kgLastBusyAt=now; return; }
+    if(kgPanelShown) return;
+    if(!((now-kgLastBusyAt>=45000 && now-kgBootStart>=45000) || now-kgBootStart>=150000)) return;
+    kgPanelShown=true;
     var d=document.createElement('div');
+    d.id='kg-stall-panel';
     d.setAttribute('style','position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;background:#fff;color:#222;border:2px solid #c0392b;border-radius:12px;padding:14px 16px;font-family:system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3);line-height:1.6');
     var lastErr=window.__kgDiagLast();
-    d.innerHTML='<strong style="font-size:15px">読み込みが止まっているようです</strong><br><span style="font-size:13px">端末内に保存されたサイトのデータが壊れていると、固まったままになることがあります。保存データを消して読み込み直すと直る場合があります（お気に入り・推しは消えません）。</span>'+(lastErr? '<br><span style="font-size:12px;color:#c0392b">直近のエラー: '+escT(lastErr.m)+'</span>' : '')+'<br><button type="button" style="margin-top:10px;min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#c0392b;color:#fff;font-size:15px;font-weight:700;cursor:pointer">保存データを消して再読み込み</button>';
+    d.innerHTML='<strong style="font-size:15px">読み込みが止まっているようです</strong><br><span style="font-size:13px">端末内に保存されたサイトのデータが壊れていると、固まったままになることがあります。保存データを消して読み込み直すと直る場合があります（お気に入り・推しは消えません）。そのまま待つと開く場合もあります。</span>'+(lastErr? '<br><span style="font-size:12px;color:#c0392b">直近のエラー: '+escT(lastErr.m)+'</span>' : '')+'<br><button type="button" style="margin-top:10px;min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#c0392b;color:#fff;font-size:15px;font-weight:700;cursor:pointer">保存データを消して再読み込み</button>';
     d.querySelector('button').addEventListener('click', function(){ window.KG_RESET_SITE(); });
     (document.body||document.documentElement).appendChild(d);
-  }, 20000);
+  }, 5000);
 })();
 </script>
 </head>
