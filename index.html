@@ -1142,7 +1142,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v263';
+  window.__kgShell='v264';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -2746,6 +2746,7 @@ function vsChipHTML(ev){
    その人に合う現場を「理由つき」でしれっと目立たせる仕組み。
    A 見落とし防止（ガイド側ルール）＋ B 公平ローテーション（日替わり）
    ＋ C その人向け（フォロー・推し）。検索結果には割り込まない */
+var pickupCache=null;
 function pickupHash(s){ var h=0; for(var i=0;i<s.length;i++){ h=((h*31)+s.charCodeAt(i))>>>0; } return h; }
 function pickupReasonsGuide(ev, vCount, oCount){
   var rs=[];
@@ -2773,8 +2774,20 @@ function buildPickups(){
     var rs=pickupReasonsGuide(ev, vCount, oCount);
     if(rs.length) poolA.push({ev:ev, why:rs, h:pickupHash(today+":"+ev.id)});
   });
-  poolA.sort(function(a,b){ return a.h-b.h; });
-  var picks=poolA.slice(0,4), used={};
+  /* 理由の種類が偏らないよう、区分ごとに日替わり順で1件ずつ拾う */
+  var buckets=[[],[],[],[]];
+  poolA.forEach(function(p){
+    var i = p.why[0]==="最後の機会"? 0 : p.why[0]==="SNSのみで告知"? 1 : p.why[0]==="まだ掲載の少ない主催"? 2 : 3;
+    buckets[i].push(p);
+  });
+  buckets.forEach(function(b){ b.sort(function(a,b2){ return a.h-b2.h; }); });
+  var picks=[];
+  while(picks.length<4){
+    var progressed=false;
+    for(var bi=0; bi<4 && picks.length<4; bi++){ if(buckets[bi].length){ picks.push(buckets[bi].shift()); progressed=true; } }
+    if(!progressed) break;
+  }
+  var used={};
   picks.forEach(function(p){ used[String(p.ev.id)]=1; });
   var poolC=[];
   allEvents.forEach(function(ev){
@@ -7418,12 +7431,16 @@ function renderHomeExtras(){
     if(showFollow) els.followList.innerHTML=sugs.map(followRowHTML).join("");
   }
   if(els.pickupShelf){
-    /* ピックアップもトップページの初期表示だけ（検索・絞り込み中は出さない） */
-    var showPickup = isHome && !searching && activeCat==="すべて" && selCats.size===0;
-    var picks = showPickup ? buildPickups() : [];
-    showPickup = showPickup && picks.length>0;
+    /* ピックアップもトップページの初期表示だけ（検索・絞り込み中は出さない）。
+       選定は起動完了後に1日分を固定する（読み込み途中の部分データで
+       顔ぶれが入れ替わって見えないように） */
+    var showPickup = isHome && !searching && activeCat==="すべて" && selCats.size===0 && !!window.__kgBooted;
+    if(showPickup){
+      if(!pickupCache || pickupCache.day!==todayStr()) pickupCache={day:todayStr(), picks:buildPickups()};
+      showPickup = pickupCache.picks.length>0;
+      if(showPickup) els.pickupList.innerHTML=pickupCache.picks.map(function(p){ return pickupRowHTML(p.ev, p.why); }).join("");
+    }
     els.pickupShelf.classList.toggle("hidden", !showPickup);
-    if(showPickup) els.pickupList.innerHTML=picks.map(function(p){ return pickupRowHTML(p.ev, p.why); }).join("");
   }
 }
 if(els.prefsCta){
