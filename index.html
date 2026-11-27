@@ -1137,7 +1137,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v258';
+  window.__kgShell='v259';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1898,7 +1898,7 @@ var intEvents = loadSet(LS_INT);
    want/int 集合を見ているため、段階から集合を導出して互換を保つ:
    段階2以上→want、段階1→interest、未設定→どちらにも入れない */
 var LS_HEAT="kg_trial_heat_v1";
-var HEAT_LEVELS=[null,{e:"👀",label:"気になる"},{e:"🔥",label:"行きたい"},{e:"🌱",label:"行けたら行く"},{e:"🏃",label:"参戦"},{e:"💯",label:"絶対行く"}];
+var HEAT_LEVELS=[null,{e:"👀",label:"気になる"},{e:"🔥",label:"行きたい"},{e:"🌱",label:"行けたら行く"},{e:"🏃",label:"行く"},{e:"💯",label:"絶対行く"}];
 var heatMap=(function(){ try{ var o=JSON.parse(localStorage.getItem(LS_HEAT)||"{}"); return (o && typeof o==="object" && !Array.isArray(o))? o : {}; }catch(e){ return {}; } })();
 function heatOf(id){ var v=heatMap[String(id)]; return (v>=1 && v<=5)? Math.floor(v) : 0; }
 function heatSave(){ try{ localStorage.setItem(LS_HEAT, JSON.stringify(heatMap)); }catch(e){} }
@@ -5358,16 +5358,18 @@ function planPickRowHTML(ev){
 }
 function renderPlanPick(){
   var box=document.getElementById("planPick"); if(!box) return;
-  var tabs=[["artist","推し"],["venue","会場"],["organizer","主催者"],["want","行きたい"],["int","気になる"]];
+  var tabs=[["heat","行く候補"],["artist","推し"],["venue","会場"],["organizer","主催者"],["want","行きたい"],["int","気になる"]];
   var h='<h3 class="plan-pick-h">フォローから探す</h3><div class="plan-pick-tabs">'
     + tabs.map(function(tb){ return '<button type="button" class="plan-pat'+(planPickTab===tb[0]?" on":"")+'" data-pick-tab="'+tb[0]+'">'+tb[1]+'</button>'; }).join("") + '</div>';
-  if(planPickTab==="want" || planPickTab==="int"){
+  if(planPickTab==="want" || planPickTab==="int" || planPickTab==="heat"){
     var mset = planPickTab==="want"? wantEvents : intEvents;
     var mtoday = todayStr();
-    var mlist = allEvents.filter(function(ev){ return mset.has(String(ev.id)) && !isEnded(ev) && (ev.dateEnd||ev.date)>=mtoday; });
+    var mlist = planPickTab==="heat"
+      ? allEvents.filter(function(ev){ return heatOf(ev.id)>=4 && !isEnded(ev) && (ev.dateEnd||ev.date)>=mtoday; })
+      : allEvents.filter(function(ev){ return mset.has(String(ev.id)) && !isEnded(ev) && (ev.dateEnd||ev.date)>=mtoday; });
     mlist.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin; return as-bs; });
     if(!mlist.length){
-      h+='<p class="plan-pick-note">'+(planPickTab==="want"? "「行きたい」を付けた今後のイベントはまだありません。イベントの詳細から付けられます。":"「気になる」を付けた今後のイベントはまだありません。イベントの詳細から付けられます。")+'</p>';
+      h+='<p class="plan-pick-note">'+(planPickTab==="heat"? "「行く」「絶対行く」を付けた今後のイベントはまだありません。イベントの詳細の「気持ちの度合い」から付けられます。": planPickTab==="want"? "「行きたい」以上を付けた今後のイベントはまだありません。イベントの詳細の「気持ちの度合い」から付けられます。":"「気になる」を付けた今後のイベントはまだありません。イベントの詳細の「気持ちの度合い」から付けられます。")+'</p>';
     } else {
       h+='<div class="plan-pick-evs">'+mlist.slice(0,20).map(planPickRowHTML).join("")+'</div>'+(mlist.length>20? '<p class="plan-pick-note">ほか '+(mlist.length-20)+' 件あります</p>':"");
     }
