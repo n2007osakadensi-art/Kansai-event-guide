@@ -10,11 +10,13 @@
   var client = null, fbUser = null, user = null, initialized = false, running = false, generation = 0;
   var currentMarker = 'kg_account_selected_user_v1';
   var member = null, memberReady = false, choiceMode = 'google', pendingMemberCloud = null, memberPushTimer = null;
+  var retryMemberBoot = null;
   var $ = function (id) { return document.getElementById(id); };
   var overlay = document.createElement('div');
   overlay.innerHTML = '<dialog id="kg-account-dialog" aria-labelledby="kg-account-title" style="width:min(94vw,480px);max-height:90vh;overflow:auto;border:1px solid #ccc;border-radius:16px;padding:22px;color:CanvasText;background:Canvas;box-shadow:0 8px 30px #0005">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 id="kg-account-title" style="font-size:19px;margin:0">ログイン・同期</h2><button id="kg-account-close" type="button" aria-label="閉じる" style="min-width:44px">✕</button></div>' +
     '<p id="kg-account-status" role="status" aria-live="polite"></p>' +
+    '<div id="kg-webview-warn" hidden style="border:1px solid #c0392b;border-radius:10px;padding:10px 12px;margin:8px 0"><p style="margin:0 0 6px;font-weight:700">アプリ内ブラウザではログインできません</p><p style="font-size:13px;margin:0 0 8px">Xなどのアプリの中で開いたページでは、Google本人確認が使えません。ログインしても、いつものブラウザに情報は引き継がれません。通常のブラウザ（Safari／Chrome）で開き直してください。</p><p style="margin:0"><button id="kg-webview-copy" type="button">このページのURLをコピー</button> <a id="kg-webview-open" href="#" hidden>ブラウザで開く（Android）</a></p></div>' +
     '<div id="kg-sync-panel" hidden><p id="kg-sync-last" style="font-size:13px;margin:4px 0"></p><p style="font-size:13px;margin:4px 0">同期は自動でも行われます（変更時・約45秒ごと・アプリを離れる時）。確実に反映したいときは、このボタンで今すぐ同期できます。</p><button id="kg-sync-now" type="button">今すぐ同期する</button></div>' +
     '<div id="kg-account-off" hidden><p>ログインの接続設定はまだ完了していません。現在の推し・お気に入りはこの端末だけに保存されます。</p></div>' +
     '<div id="kg-login-form" hidden><p>Googleアカウントでログインします。</p><button id="kg-google-login" type="button">Googleでログイン</button></div>' +
@@ -37,8 +39,10 @@
   function fmtSyncTime(t){ var d=new Date(t); function p2(n){ return (n<10?'0':'')+n; } return (d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }
   function markSynced(){ try{ localStorage.setItem('kg_last_sync_v1', String(Date.now())); }catch(e){} syncPanelRender(); }
   function syncPanelRender(){ var p=$('kg-sync-panel'); if(!p) return; p.hidden=!(member||user); var el=$('kg-sync-last'); if(el){ var t=0; try{ t=Number(localStorage.getItem('kg_last_sync_v1')||0); }catch(e){} el.textContent = t? ('最終同期：'+fmtSyncTime(t)) : '最終同期：まだ同期されていません'; } }
-  function showModal() { syncPanelRender(); refreshBindBlock(); if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open',''); } }
+  function inAppBrowser(){ var ua=navigator.userAgent||''; if(/Twitter|Line\/|Instagram|FBAN|FBAV|FB_IAB|; wv\)/.test(ua)) return true; if(/(iPhone|iPad|iPod)/.test(ua) && !/Safari/.test(ua)) return true; return false; }
+  function showModal() { syncPanelRender(); refreshBindBlock(); var wv=$('kg-webview-warn'); if(wv){ wv.hidden=!inAppBrowser(); var op=$('kg-webview-open'); if(op){ if(/Android/.test(navigator.userAgent||'')){ op.hidden=false; op.href='intent://'+location.host+location.pathname+'#Intent;scheme=https;end'; } else { op.hidden=true; } } } if(retryMemberBoot && !member){ try{ retryMemberBoot(); }catch(_){} } if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open',''); } }
   $('kg-account-open').onclick = showModal;
+  $('kg-webview-copy').onclick=function(){ var u=location.href; if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(u).then(function(){ text('URLをコピーしました。通常のブラウザに貼って開いてください。'); }, function(){ text('コピーできませんでした。アドレスバーのURLをコピーしてください。'); }); } };
   $('kg-account-close').onclick = function () { if (dialog.close) dialog.close(); else dialog.removeAttribute('open'); };
   function parts(off, login, logged, choice) { $('kg-account-off').hidden=!off; $('kg-login-form').hidden=true; $('kg-account-user').hidden=!logged; $('kg-account-choice').hidden=!choice; }
   /* 同期待ち行列: 主軸用（kg_account_pending_v1_）と保険（Firestore）用を分ける。
@@ -261,6 +265,7 @@
      ポップアップを開き、uid のハッシュだけを返して即サインアウトする。
      実機でリダイレクト方式は完走しなかったため、ポップアップのみ */
   async function googleVerify(){
+    if(inAppBrowser()) throw new Error('アプリ内ブラウザではGoogle本人確認ができません。通常のブラウザ（Safari／Chrome）で開き直してください');
     if(!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) throw new Error('本人確認の準備ができていません');
     var appMod=await fsTimeout(import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'), '読み込みがタイムアウトしました');
     var authMod=await fsTimeout(import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js'), '読み込みがタイムアウトしました');
@@ -1003,6 +1008,7 @@
     var savedSession=null; try{ savedSession=JSON.parse(localStorage.getItem('kg_member_session_v2')||'null'); }catch(_){}
     if(savedSession && savedSession.acct){ activateMember(savedSession.acct, savedSession.code||null, true).catch(function(){ bootMember.done=false; /* 到達できない場合は後の初期化で再試行 */ }); }
   }
+  retryMemberBoot=bootMember;
   if(syncReady()) bootMember();
   if(!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) {
     if(!syncReady()) { parts(true,false,false,false); text('ログイン機能は準備中です。'); }
