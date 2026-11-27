@@ -421,7 +421,7 @@
      Google=主軸はシートの g:{uidハッシュ} 行、保険は users/{uid}/userdata/main。
      取り込みは原則「統合」（和集合）で、端末のデータを勝手に消さない。
      反映は localStorage へ書いて1回だけ再読込 */
-  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended',plans:'kg_trial_plans_v1',plan:'kg_trial_plan_v1'};
+  var UD_KEYS={want:'kg_trial_want_events_v1',interest:'kg_trial_interest_events_v1',lists:'kg_trial_lists_v1',follows:'kg_trial_follows_v1',prefs:'kg_trial_prefs_v1',profiles:'kg_filter_profiles_v1',learned:'kg_trial_learn_v1',showEnded:'kg_trial_show_ended',plans:'kg_trial_plans_v1',plan:'kg_trial_plan_v1',cals:'kg_trial_calendars_v1'};
   function udArr(v){ return Array.isArray(v)? v : []; }
   function udParse(k, fb){ try{ var v=localStorage.getItem(k); return v==null? fb : JSON.parse(v); }catch(e){ return fb; } }
   function udReadLocal(){
@@ -434,7 +434,8 @@
       profiles:udArr(udParse(UD_KEYS.profiles,[])),
       learned:udParse(UD_KEYS.learned,null),
       showEnded:localStorage.getItem(UD_KEYS.showEnded)==='1',
-      plans:udParse(UD_KEYS.plans,null)
+      plans:udParse(UD_KEYS.plans,null),
+      cals:udArr(udParse(UD_KEYS.cals,[]))
     };
   }
   function udSig(){ try{ return JSON.stringify(udReadLocal()); }catch(e){ return ''; } }
@@ -477,6 +478,20 @@
     if(!pats.some(function(p){ return String(p.id)===String(act); })) act=(cloud.plans&&cloud.plans.active)||null;
     if(!pats.some(function(p){ return String(p.id)===String(act); })) act=pats.length? pats[0].id : null;
     out.plans={patterns:pats, active:act};
+    var cals=(local.cals||[]).map(udClone);
+    (cloud.cals||[]).forEach(function(row){
+      if(!row || row.id==null) return;
+      var i=cals.findIndex(function(x){ return String(x.id)===String(row.id); });
+      if(i>=0){
+        cals[i].artists=udUnion(cals[i].artists,row.artists);
+        cals[i].venues=udUnion(cals[i].venues,row.venues);
+        cals[i].organizers=udUnion(cals[i].organizers,row.organizers);
+        ['fav','want','int','plan'].forEach(function(k){ cals[i][k]=!!(cals[i][k]||row[k])? 1:0; });
+        if(!cals[i].name && row.name) cals[i].name=row.name;
+      }
+      else cals.push(udClone(row));
+    });
+    out.cals=cals.slice(0,20);
     return out;
   }
   function udWriteLocal(d){
@@ -494,6 +509,7 @@
         var ap=d.plans.patterns.find(function(p){ return String(p.id)===String(d.plans.active); }) || d.plans.patterns[0];
         localStorage.setItem(UD_KEYS.plan, JSON.stringify(ap? (ap.ids||[]) : []));
       }
+      if(Array.isArray(d.cals)) localStorage.setItem(UD_KEYS.cals, JSON.stringify(d.cals));
     }catch(e){}
   }
   var udBusy=false, udLastSig='';
