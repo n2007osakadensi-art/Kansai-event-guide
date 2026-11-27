@@ -428,6 +428,10 @@
   .tl-me-fname{font-weight:700;font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tl-me-fmeta{font-size:12px;opacity:.8;display:block}
   .tl-me-un{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid rgba(244,242,236,.3);background:transparent;color:#f4f2ec;font-size:13px;cursor:pointer;font-family:inherit}
+  .sug-save{display:block;width:100%;text-align:left;padding:10px 12px;background:none;border:none;border-top:1px solid var(--border);color:var(--accent);font-size:13.5px;cursor:pointer;font-family:inherit}
+  .sug-saved{padding:10px 12px;border-top:1px solid var(--border);color:var(--muted);font-size:12.5px}
+  .tl-me-wtog{flex:none;min-width:58px;height:36px;padding:0 10px;border-radius:999px;border:1px solid rgba(244,242,236,.3);background:transparent;color:#f4f2ec;font-size:12px;cursor:pointer;font-family:inherit}
+  .tl-me-wtog.on{background:#f59e0b;border-color:#f59e0b;color:#1c1917;font-weight:700}
   .tl-me-empty{font-size:12.5px;opacity:.7;margin:2px 0 0}
   .tl-me-more{margin-top:7px;background:none;border:0;color:#f4f2ec;font-weight:700;font-size:12.5px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:4px 0}
   .tl-scope{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 2px;scrollbar-width:none;overscroll-behavior-x:contain}
@@ -1108,7 +1112,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v220';
+  window.__kgShell='v221';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3508,7 +3512,7 @@ function myCalKinds(ev){
   if(intEvents.has(id)) kinds.push("int");
   if(hasOshi(ev)) kinds.push("oshi");
   if(planIds.has(id)) kinds.push("plan");
-  if(venueFollowed(ev.venue||"") || (ev.organizerName && followHas("organizer", ev.organizerName))) kinds.push("follow");
+  if(venueFollowed(ev.venue||"") || (ev.organizerName && followHas("organizer", ev.organizerName)) || savedWordOnHit(ev)) kinds.push("follow");
   return kinds;
 }
 var LS_MYCALS="kg_trial_calendars_v1";
@@ -5982,6 +5986,17 @@ var follows=loadFollows();
 function followHas(kind, name){ var arr=(kind==="venue")? follows.venues : follows.organizers; return arr.indexOf(name)>=0; }
 /* 会場フォローは表記ゆれを許容して判定する（イベント側の会場名で登録される場合があるため） */
 function venueFollowed(v){ return follows.venues.some(function(f){ return sameVenueFacility(v, f); }); }
+/* 検索ワード保存（v221・仮機能）: プロフィールが無い主催などを検索で追う代替手段。
+   管理はタイムラインのフォローと同じ場所（マイページのフォロー欄）に置き、
+   反映オンのワードはフォロー中スコープとカレンダーの「フォロー中」に流れる */
+var LS_WORDS="kg_trial_saved_words_v1";
+var savedWords=(function(){ try{ var v=JSON.parse(localStorage.getItem(LS_WORDS)||"[]"); return Array.isArray(v)? v.filter(function(x){ return x && x.w; }).map(function(x){ return {w:String(x.w), on:x.on!==false}; }) : []; }catch(e){ return []; } })();
+function saveSavedWords(){ try{ localStorage.setItem(LS_WORDS, JSON.stringify(savedWords)); }catch(e){} }
+function savedWordNorm(w){ return normSearch(String(w||"").replace(/\s+/g," ")); }
+function savedWordHit(ev, w){ var n=savedWordNorm(w); if(!n) return false; return searchHay(ev).indexOf(n)>=0; }
+function savedWordOnHit(ev){ for(var i=0;i<savedWords.length;i++){ if(savedWords[i].on && savedWords[i].w && savedWordHit(ev, savedWords[i].w)) return true; } return false; }
+function savedWordHas(w){ var n=savedWordNorm(w); if(!n) return false; return savedWords.some(function(x){ return savedWordNorm(x.w)===n; }); }
+function savedWordAdd(w){ w=String(w||"").trim(); if(!w || savedWordHas(w)) return false; savedWords.push({w:w, on:true}); saveSavedWords(); return true; }
 function followEventSet(){
   var set=new Set();
   allEvents.forEach(function(ev){
@@ -5992,6 +6007,7 @@ function followEventSet(){
       var v=(ev.venue||"").trim();
       for(var i=0;i<follows.venues.length;i++){ if(sameVenueFacility(v, follows.venues[i])){ set.add(String(ev.id)); break; } }
     }
+    if(savedWordOnHit(ev)){ set.add(String(ev.id)); return; }
   });
   return set;
 }
@@ -7207,10 +7223,13 @@ function renderSuggest(){
   var text=normSearch(q.replace(/\s+/g," "));
   if(!text){ els.suggest.classList.remove("show"); els.suggest.innerHTML=""; return; }
   var items=collectSuggestItems(text);
-  if(!items.length){ els.suggest.classList.remove("show"); els.suggest.innerHTML=""; return; }
+  /* 検索ワード保存（v221）: 候補が無い語でも保存できるよう、保存行は常に出す */
+  var saveRow=savedWordHas(q)? '<div class="sug-saved">この検索ワードは保存済みです（タイムラインのフォロー欄で管理）</div>'
+    : '<button type="button" class="sug-save" data-sug-save="'+esc(q)+'">＋ この検索ワードを保存（フォローとして追う）</button>';
+  if(!items.length){ els.suggest.innerHTML=saveRow; els.suggest.classList.add("show"); return; }
   els.suggest.innerHTML=items.map(function(it){
     return '<button type="button" role="option" data-suggest="'+esc(it.value)+'" data-suggest-kind="'+it.kind+'"><span class="sk" style="background:'+it.color+'">'+esc(it.klabel)+'</span><span>'+esc(it.label)+'</span>'+(it.sub?'<span style="color:var(--muted);font-size:12.5px">'+esc(it.sub)+'</span>':"")+'</button>';
-  }).join("");
+  }).join("")+saveRow;
   els.suggest.classList.add("show");
 }
 /* 候補の選択: アーティスト／会場はそのページを直接開く（検索からデータベースへ飛べるように、v202）。
@@ -7230,6 +7249,8 @@ function applySuggestPick(kind, value){
   render();
 }
 els.suggest.addEventListener("click", function(e){
+  var sv=e.target.closest("[data-sug-save]");
+  if(sv){ var sw=sv.getAttribute("data-sug-save"); if(savedWordAdd(sw)){ toast("検索ワードを保存しました："+sw); } renderSuggest(); return; }
   var b=e.target.closest("[data-suggest]"); if(!b) return;
   applySuggestPick(b.getAttribute("data-suggest-kind")||"event", b.getAttribute("data-suggest"));
 });
@@ -9610,7 +9631,7 @@ function renderTlMe(){
   if(prefs.tlMode!=="feed"){
     el.innerHTML='<button type="button" class="tl-me-bar" data-tlme="feed">'
       +'<span class="tl-me-ava">★</span><span class="tl-me-bar-t">マイページ</span>'
-      +'<span class="tl-me-bar-s">フォロー '+(favPerfs.size+follows.venues.length+follows.organizers.length)+' ・ プラン今日 '+todaySlots.length+'件 ・ リスト '+myLists.length+'件</span>'
+      +'<span class="tl-me-bar-s">フォロー '+(favPerfs.size+follows.venues.length+follows.organizers.length+savedWords.length)+' ・ プラン今日 '+todaySlots.length+'件 ・ リスト '+myLists.length+'件</span>'
       +'<span class="tl-me-bar-go">開く ›</span></button>';
     return;
   }
@@ -9623,7 +9644,7 @@ function renderTlMe(){
     '<div class="tl-me-head"><span class="tl-me-ava big">★</span><div><div class="tl-me-name">マイページ</div><div class="tl-me-state">'+esc(state||"この端末")+'</div></div></div>'
     +(tlMeNoteOpen? '<p class="tl-me-note">あなたの端末の中だけの表示です。他人に公開されることはありません。<button type="button" class="tl-me-note-x" data-tlme-note="1">隠す</button></p>' : '<button type="button" class="tl-me-note-link" data-tlme-note="1">この表示について ›</button>')
     +'<div class="tl-me-stats">'
-    +'<button type="button" data-tlme="follow"'+(tlMePanel==="follow"?' class="on"':'')+'><strong>'+(favPerfs.size+follows.venues.length+follows.organizers.length)+'</strong><span>フォロー</span></button>'
+    +'<button type="button" data-tlme="follow"'+(tlMePanel==="follow"?' class="on"':'')+'><strong>'+(favPerfs.size+follows.venues.length+follows.organizers.length+savedWords.length)+'</strong><span>フォロー</span></button>'
     +'<button type="button" data-tlme="fav"'+(tlMePanel==="fav"?' class="on"':'')+'><strong>'+favEvents.size+'</strong><span>お気に入り</span></button>'
     +'<button type="button" data-tlme="plan"'+(tlMePanel==="plan"?' class="on"':'')+'><strong>'+slots.length+'</strong><span>回しプラン</span></button>'
     +'<button type="button" data-tlme="lists"'+(tlMePanel==="lists"?' class="on"':'')+'><strong>'+myLists.length+'</strong><span>リスト</span></button>'
@@ -9723,6 +9744,12 @@ function tlMeFollowHTML(){
   else h+='<div class="tl-me-orows">'+follows.organizers.map(function(nm){
       var cnt=allEvents.filter(function(ev){ return !isEnded(ev) && (ev.organizerName||"").trim()===nm; }).length;
       return '<div class="tl-me-frow"><button type="button" class="tl-me-frow-main" data-tlme-dir="organizer:'+esc(nm)+'"><span class="tl-me-fava">✦</span><span style="flex:1;min-width:0"><span class="tl-me-fname">'+esc(nm)+'</span><span class="tl-me-fmeta">今後のイベント '+cnt+'件</span></span></button><button type="button" class="tl-me-un" data-tlme-unfollow="organizer:'+esc(nm)+'" aria-label="'+esc(nm)+' のフォローを外す">✕</button></div>';
+    }).join("")+'</div>';
+  h+='<div class="tl-me-sec">キーワード（'+savedWords.length+'）</div>';
+  if(!savedWords.length) h+='<p class="tl-me-empty">保存した検索ワードはありません。検索ボックスの候補の下にある「この検索ワードを保存」から追加できます。プロフィールの無い主催などを追う仮の手段です。</p>';
+  else h+='<div class="tl-me-orows">'+savedWords.map(function(x){
+      var cnt=allEvents.filter(function(ev){ return !isEnded(ev) && savedWordHit(ev, x.w); }).length;
+      return '<div class="tl-me-frow"><button type="button" class="tl-me-frow-main" data-tlme-wsearch="'+esc(x.w)+'"><span class="tl-me-fava">⌕</span><span style="flex:1;min-width:0"><span class="tl-me-fname">'+esc(x.w)+'</span><span class="tl-me-fmeta">今後の一致 '+cnt+'件'+(x.on? '' : '（スケジュール反映オフ）')+'</span></span></button><button type="button" class="tl-me-wtog'+(x.on? ' on':'')+'" data-tlme-wtoggle="'+esc(x.w)+'">'+(x.on? '反映中':'オフ')+'</button><button type="button" class="tl-me-un" data-tlme-wdel="'+esc(x.w)+'" aria-label="'+esc(x.w)+' の保存をやめる">✕</button></div>';
     }).join("")+'</div>';
   return h;
 }
@@ -10147,6 +10174,12 @@ function refreshTlLogin(){
   if(mf) mf.addEventListener("click", function(){ tlSetMode("feed"); });
   var meEl=tlEl("tlMe");
   if(meEl) meEl.addEventListener("click", function(e){
+    var wd=e.target.closest("[data-tlme-wdel]");
+    if(wd){ var wdn=wd.getAttribute("data-tlme-wdel"); savedWords=savedWords.filter(function(x){ return x.w!==wdn; }); saveSavedWords(); toast("検索ワードの保存をやめました："+wdn); renderTlMe(); return; }
+    var wt=e.target.closest("[data-tlme-wtoggle]");
+    if(wt){ var wtn=wt.getAttribute("data-tlme-wtoggle"); savedWords.forEach(function(x){ if(x.w===wtn) x.on=!x.on; }); saveSavedWords(); renderTlMe(); return; }
+    var ws=e.target.closest("[data-tlme-wsearch]");
+    if(ws){ var wsn=ws.getAttribute("data-tlme-wsearch"); tlMePanel=null; closeTimeline(); view="all"; els.searchInput.value=wsn; query=wsn; exactTarget=null; els.clearSearch.style.display="block"; render(); window.scrollTo(0,0); return; }
     var un=e.target.closest("[data-tlme-unoshi]");
     if(un){ var unm=un.getAttribute("data-tlme-unoshi"); favPerfs.delete(unm); saveSet(LS_OSHI, favPerfs); renderCountsOnly(); toast("フォローを外しました："+unm); if(tlScopeArtist===unm){ tlScopeArtist=null; renderTlScope(); } tlState.items=buildTimelineItems(); tlBuildTicker(); renderTlMe(); return; }
     var uv=e.target.closest("[data-tlme-unfollow]");
