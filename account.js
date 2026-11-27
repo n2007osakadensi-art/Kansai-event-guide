@@ -11,6 +11,7 @@
   var currentMarker = 'kg_account_selected_user_v1';
   var member = null, memberReady = false, choiceMode = 'google', pendingMemberCloud = null, memberPushTimer = null;
   var retryMemberBoot = null;
+  var bootRestoring = false;
   var $ = function (id) { return document.getElementById(id); };
   var overlay = document.createElement('div');
   overlay.innerHTML = '<dialog id="kg-account-dialog" aria-labelledby="kg-account-title" style="width:min(94vw,480px);max-height:90vh;overflow:auto;border:1px solid #ccc;border-radius:16px;padding:22px;color:CanvasText;background:Canvas;box-shadow:0 8px 30px #0005">' +
@@ -568,10 +569,13 @@
     if(!(member && memberReady) && !(user && initialized)) return false;
     udBusy=true;
     try{
+      if(udPushNow.retryT){ clearTimeout(udPushNow.retryT); udPushNow.retryT=null; }
       if(member && memberReady){ await memberSetMeta(member.acct, {userdata:data, udUpdatedAt:Date.now()}); udLastSig=sig; noteCloudOk(); markSynced(); }
       else if(user && initialized){ await udGoogleSet(user.id, data); udLastSig=sig; noteCloudOk(); markSynced(); }
       return true;
-    }catch(e){ noteCloudFail(); /* 失敗しても端末内データは無事。次回の定期チェックで再送する */ return false; }
+    }catch(e){ noteCloudFail(); /* 失敗しても端末内データは無事。12秒後に1回自動で再送し、それでも駄目なら次回の定期チェックで再送する */
+      if(!udPushNow.retryT){ udPushNow.retryT=setTimeout(function(){ udPushNow.retryT=null; udPushNow(true); }, 12000); }
+      return false; }
     finally{ udBusy=false; }
   }
   function udArmWatchers(){
@@ -757,8 +761,10 @@
   function stateLabel(){
     if(adminOn()){
       if(user||member) return bootChoicePending? '管理者モード（同期は選択待ち）' : '管理者モード（同期ON）';
+      if(bootRestoring) return '管理者モード（復旧中）';
       return '管理者モード（未同期）';
     }
+    if(bootRestoring && !user && !member) return 'ログイン復旧中…';
     if(user) return bootChoicePending? 'ログイン中（同期は選択待ち）' : 'ログイン中（同期ON）';
     if(member) return bootChoicePending? 'ログイン中（会員コード・同期は選択待ち）' : 'ログイン中（会員コード）';
     if(guestOn()) return 'ゲスト利用中';
@@ -1039,7 +1045,19 @@
     $('kg-member').hidden=false;
     try{ localStorage.removeItem('kg_member_code_v1'); localStorage.removeItem('kg_member_selected_v1'); }catch(_){}
     var savedSession=null; try{ savedSession=JSON.parse(localStorage.getItem('kg_member_session_v2')||'null'); }catch(_){}
-    if(savedSession && savedSession.acct){ activateMember(savedSession.acct, savedSession.code||null, true).catch(function(){ bootMember.done=false; /* 到達できない場合は後の初期化で再試行 */ }); }
+    if(savedSession && savedSession.acct){
+      bootRestoring=true; renderState();
+      var attempt=bootMember.attempts||0;
+      var settleFail=function(){
+        bootRestoring=false; renderState(); bootMember.done=false;
+        var still=false; try{ still=!!localStorage.getItem('kg_member_session_v2'); }catch(_){}
+        if(still && attempt<2){ bootMember.attempts=attempt+1; setTimeout(bootMember, attempt? 20000: 6000); }
+      };
+      activateMember(savedSession.acct, savedSession.code||null, true).then(function(ok){
+        if(ok){ bootRestoring=false; renderState(); }
+        else settleFail();
+      }, settleFail);
+    }
   }
   retryMemberBoot=bootMember;
   if(syncReady()) bootMember();
