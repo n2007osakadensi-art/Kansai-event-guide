@@ -1108,7 +1108,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v219';
+  window.__kgShell='v220';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3047,69 +3047,36 @@ document.addEventListener("click", function(e){
   var cl=e.target.closest("[data-mfacet-clear]");
   if(cl){ kgMemberFacets={artist:cl.getAttribute("data-martist"), facets:[]}; refreshMemberSurfaces(); return; }
 });
-var hayEpoch=1, hayPerfFrag={}, hayVenueFrag={};
-function kgClearHayFrags(){ hayPerfFrag={}; hayVenueFrag={}; }
-function kgWarmHay(){
-  if(kgWarmHay._t) return;
-  var idx=0, epoch=hayEpoch;
-  function slice(){
-    kgWarmHay._t=null;
-    if(epoch!==hayEpoch) return;
-    var t0=Date.now();
-    while(idx<allEvents.length && Date.now()-t0<24){
-      var ev=allEvents[idx++];
-      if(!ev._hay || ev._hayEpoch!==hayEpoch) searchHay(ev);
-    }
-    if(idx<allEvents.length) kgWarmHay._t=setTimeout(slice, 60);
-  }
-  kgWarmHay._t=setTimeout(slice, 350);
-}
 function searchHay(ev){
-  if(ev._hay && ev._hayEpoch===hayEpoch) return ev._hay;
+  if(ev._hay) return ev._hay;
   var parts=[ev.title, ev.venue, ev.vs, ev.performers, ev.category, ev.categories, ev.area, ev.prefecture, ev.organizerName, ev.date];
   dateHayVariants(ev.date).forEach(function(v){ parts.push(v); });
   if(ev.dateEnd){ parts.push(ev.dateEnd); dateHayVariants(ev.dateEnd).forEach(function(v){ parts.push(v); }); }
-  if(ev._pd===undefined) ev._pd=parseDesc(ev.description);
-  var desc=ev._pd;
+  var desc=parseDesc(ev.description);
   if(desc){
     desc.rows.forEach(function(r){ var pp=descRowTimeText(r); parts.push(pp.time, pp.text); });
     if(desc.note) parts.push(desc.note);
   } else if(ev.description){ parts.push(ev.description); }
   ev._perfList.forEach(function(p){
-    var frag=hayPerfFrag[p];
-    if(frag===undefined){
-      var pp=[];
-      if(readingByName[p]) pp.push(readingByName[p]);
-      var ap=artistProfileFor(p);
-      if(ap && ap.al && ap.al.length) pp.push(ap.al.join(" "));
-      var dw=dictWords(p); if(dw.length) pp.push(dw.join(" "));
-      /* グループならメンバー名でも探せるようにする */
-      var mems=groupMembers(p); if(mems.length) pp.push(mems.join(" "));
-      frag=pp.join(" ");
-      hayPerfFrag[p]=frag;
-    }
-    if(frag) parts.push(frag);
+    if(readingByName[p]) parts.push(readingByName[p]);
+    var ap=artistProfileFor(p);
+    if(ap && ap.al && ap.al.length) parts.push(ap.al.join(" "));
+    var dw=dictWords(p); if(dw.length) parts.push(dw.join(" "));
+    /* グループならメンバー名でも探せるようにする */
+    var mems=groupMembers(p); if(mems.length) parts.push(mems.join(" "));
   });
   tagsOf(ev).forEach(function(t){ parts.push(t.tag); });
   var tdw=dictWords(ev.title); if(tdw.length) parts.push(tdw.join(" "));
-  var vf=hayVenueFrag[ev.venue];
-  if(vf===undefined){
-    var vp2=[];
-    var vdw=dictWords(ev.venue); if(vdw.length) vp2.push(vdw.join(" "));
-    venueVariants(ev.venue).forEach(function(vv){ if(vv!==ev.venue) vp2.push(vv); });
-    var vp=venueProfileFor(ev.venue);
-    if(vp){
-      if(vp.n) vp2.push(vp.n);
-      if(vp.al && vp.al.length) vp2.push(vp.al.join(" "));
-      if(vp.ad){ vp2.push(vp.ad); addressVariants(vp.ad).forEach(function(av){ if(av!==vp.ad) vp2.push(av); }); }
-      if(vp.n){ var ndw=dictWords(vp.n); if(ndw.length) vp2.push(ndw.join(" ")); venueVariants(vp.n).forEach(function(vv){ if(vv!==vp.n) vp2.push(vv); }); }
-    }
-    vf=vp2.join(" ");
-    hayVenueFrag[ev.venue]=vf;
+  var vdw=dictWords(ev.venue); if(vdw.length) parts.push(vdw.join(" "));
+  venueVariants(ev.venue).forEach(function(vv){ if(vv!==ev.venue) parts.push(vv); });
+  var vp=venueProfileFor(ev.venue);
+  if(vp){
+    if(vp.n) parts.push(vp.n);
+    if(vp.al && vp.al.length) parts.push(vp.al.join(" "));
+    if(vp.ad){ parts.push(vp.ad); addressVariants(vp.ad).forEach(function(av){ if(av!==vp.ad) parts.push(av); }); }
+    if(vp.n){ var ndw=dictWords(vp.n); if(ndw.length) parts.push(ndw.join(" ")); venueVariants(vp.n).forEach(function(vv){ if(vv!==vp.n) parts.push(vv); }); }
   }
-  if(vf) parts.push(vf);
   ev._hay=normSearch(parts.filter(Boolean).join(" "));
-  ev._hayEpoch=hayEpoch;
   return ev._hay;
 }
 /* 候補選択時の完全一致判定：イベント名＝そのタイトルの公演のみ、
@@ -4152,50 +4119,28 @@ function loadProfiles(){
      取れなければ取れた分だけで続行する */
   try{
   function get(u){ var ctl=("AbortController" in window)?new AbortController():null; var tm=ctl?setTimeout(function(){ ctl.abort(); },20000):null; return fetch(u, ctl?{signal:ctl.signal}:undefined).then(function(r){ if(tm)clearTimeout(tm); if(!r.ok) throw new Error(u); return r.json(); }).catch(function(){ if(tm)clearTimeout(tm); return null; }); }
-  profilesLoading=Promise.all([get("assets/artists.json"),get("assets/readings.json"),get("assets/venue-supp.json"),get("assets/dict.json"),get("assets/artist-cats.json"),get("assets/muni.json")]).then(function(res){
-    if(res[5] && res[5].info){ muniInfo=res[5].info; muniNote=res[5].note||""; }
-    if(res[0]){ artistProfiles=res[0]; }
-    if(res[1]){ Object.keys(res[1]).forEach(function(rd){ var nm=res[1][rd]; if(nm && !readingByName[nm]) readingByName[nm]=rd; }); }
-    if(res[2]){ venueSuppById=res[2]; attachVenueSupp(); }
-    if(res[3]){ dictByName=res[3]; dictWords.memo={}; buildDictRevMap(); dictDataVer++; }
+  profilesLoading=Promise.all([get("assets/venues.json"),get("assets/artists.json"),get("assets/readings.json"),get("assets/venue-supp.json"),get("assets/dict.json"),get("assets/artist-cats.json"),get("assets/muni.json")]).then(function(res){
+    if(res[6] && res[6].info){ muniInfo=res[6].info; muniNote=res[6].note||""; }
+    if(res[0]){ venueProfiles=res[0]; indexVenueProfiles(); }
+    if(res[1]){ artistProfiles=res[1]; }
+    if(res[2]){ Object.keys(res[2]).forEach(function(rd){ var nm=res[2][rd]; if(nm && !readingByName[nm]) readingByName[nm]=rd; }); }
+    if(res[3]){ venueSuppById=res[3]; attachVenueSupp(); }
+    if(res[4]){ dictByName=res[4]; dictWords.memo={}; buildDictRevMap(); dictDataVer++; }
     loadSheetDict();
     loadSheetProfiles();
     if(profSheetState.open) renderProfSheet();
     if(detailCtx) renderDetail();
-    if(res[4]){ artistCats=res[4]; }
+    if(res[5]){ artistCats=res[5]; }
     artistCatCache={};
     profilesLoaded=true; profilesLoading=null;
-    setTimeout(function(){ loadVenueProfiles(); }, 20000);
     if(!kgHashOpened) kgOpenHashTarget();
     artistProfCache={};
-    hayEpoch++; kgClearHayFrags(); kgWarmHay();
+    allEvents.forEach(function(ev){ ev._hay=null; });
     if(allEvents.length) render();
   });
   return profilesLoading;
   }catch(e){
     profilesLoading=null;
-    return Promise.resolve();
-  }
-}
-
-var venueProfilesLoaded=false, venueProfilesLoading=null;
-function loadVenueProfiles(){
-  if(venueProfilesLoaded) return Promise.resolve();
-  if(venueProfilesLoading) return venueProfilesLoading;
-  try{
-  venueProfilesLoading=fetch("assets/venues.json").then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }).then(function(res){
-    if(res){ venueProfiles=res; indexVenueProfiles(); }
-    loadSheetVenues();
-    venueProfilesLoaded=true; venueProfilesLoading=null;
-    artistProfCache={};
-    hayEpoch++; kgClearHayFrags(); kgWarmHay();
-    if(allEvents.length) render();
-    if(detailCtx) renderDetail();
-    if(profSheetState.open) renderProfSheet();
-  });
-  return venueProfilesLoading;
-  }catch(e){
-    venueProfilesLoading=null;
     return Promise.resolve();
   }
 }
@@ -4694,7 +4639,7 @@ function renderDetailInner(){
   var nxb=els.detailBody.querySelector("[data-next-ev]");
   if(nxb) nxb.addEventListener("click", function(){ var t=allEvents.find(function(x){ return String(x.id)===nxb.getAttribute("data-next-ev"); }); if(t) openModal(t); });
   var peb=document.getElementById("detailProfEditBtn");
-  if(peb) peb.addEventListener("click", function(){ kgOpenProfileEditor(kind, name); });
+  if(peb) peb.addEventListener("click", function(){ if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name); });
   var dlb=document.getElementById("detailListBtn");
   if(dlb) dlb.addEventListener("click", function(){ openListPicker(kind, name); });
   var flb=document.getElementById("detailFollowBtn");
@@ -5733,7 +5678,8 @@ function openModal(ev){
   document.getElementById("modalEdit").addEventListener("click", function(){
     var id=String(ev.id);
     closeModal();
-    kgOpenEditorId(id);
+    if(window.KGEditorOpenWithId){ window.KGEditorOpenWithId(id); }
+    else { toast("編集フォームを開けませんでした"); }
   });
   var galIdx=0;
   var galSuppressClick=false;
@@ -7302,9 +7248,9 @@ var searchRenderTimer=null;
 els.searchInput.addEventListener("input", function(){
   exactTarget=null; /* 手入力に戻ったら候補の完全一致は解除し、入力した語だけで検索する */
   tagFilter="";
-  query=els.searchInput.value; els.clearSearch.style.display = query? "block":"none";
+  query=els.searchInput.value; els.clearSearch.style.display = query? "block":"none"; renderSuggest();
   if(query && view==="home") view="all"; /* トップで検索を始めたらイベントタブへ移る（v207。候補から選んだ場合は元々イベントタブへ移る） */
-  clearTimeout(searchRenderTimer); searchRenderTimer=setTimeout(function(){ renderSuggest(); render(); }, 110);
+  clearTimeout(searchRenderTimer); searchRenderTimer=setTimeout(render, 110);
 });
 els.clearSearch.addEventListener("click", function(){ els.searchInput.value=""; query=""; exactTarget=null; els.clearSearch.style.display="none"; render(); els.searchInput.focus(); });
 document.getElementById("emptyState").addEventListener("click", function(e){
@@ -7348,7 +7294,6 @@ document.querySelectorAll(".view-tab").forEach(function(t){
     if(nv!==view && (nv==="artists"||nv==="venues"||view==="artists"||view==="venues")){ dirQuery=""; if(els.dirSearch) els.dirSearch.value=""; }
     view=nv;
     if(view==="artists"||view==="venues") loadProfiles();
-    if(view==="venues") loadVenueProfiles();
     render(); window.scrollTo({top:0,behavior:"smooth"});
   });
 });
@@ -7547,9 +7492,7 @@ function applyDataInner(events, cachedSavedAt, cachedSlim, cachedLite){
   if(detailsState!=="pending") tryDeepLink();
   maybeOpenStartFeed();
   loadProfiles();
-  if(detailsState!=="pending") loadVenueProfiles();
   loadEventImages();
-  kgWarmHay();
   /* データが差し替わったら、開いているタイムラインも新しいデータで
      組み直す（v150。裏の自動更新や引っ張って更新の反映先） */
   try{
@@ -7903,7 +7846,7 @@ function loadSheetDict(){
         dictWords.memo={};
         buildDictRevMap();
         artistCatCache={};
-        hayEpoch++; kgClearHayFrags(); kgWarmHay();
+        allEvents.forEach(function(ev){ ev._hay=null; });
         if(allEvents.length) render();
       }
     }catch(e){}
@@ -7980,7 +7923,7 @@ function applyTagNg(){
   var out={};
   Object.keys(tagsRawByEvent).forEach(function(eid){ var l=tagsRawByEvent[eid].filter(function(t){ return !tagIsNg(t.tag); }); if(l.length) out[eid]=l; });
   tagsByEvent=out;
-  if(typeof allEvents!=="undefined" && allEvents){ hayEpoch++; kgClearHayFrags(); kgWarmHay(); }
+  if(typeof allEvents!=="undefined" && allEvents) allEvents.forEach(function(ev){ ev._hay=null; });
   prunePendTags();
   if(openBefore!==null && JSON.stringify(tagsOf(currentEv))!==openBefore) openModal(currentEv);
 }
@@ -8302,14 +8245,14 @@ function mergeProfileObj(base, over){
 function loadSheetProfiles(){
   if(sheetProfilesLoaded) return;
   sheetProfilesLoaded=true;
-  var pending=3, changed=false;
+  var pending=4, changed=false;
   function step(){
     if(--pending>0 || !changed) return;
     indexVenueProfiles();
     try{ applyProfileImages(); }catch(e){}
     perfIndex=null; artistResolveCache=null; artistProfCache={};
     artistCatCache={};
-    hayEpoch++; kgClearHayFrags(); kgWarmHay();
+    allEvents.forEach(function(ev){ ev._hay=null; });
     if(allEvents.length) render();
     if(detailCtx) renderDetail();
     if(profSheetState.open) renderProfSheet();
@@ -8328,6 +8271,7 @@ function loadSheetProfiles(){
     });
   }
   profTab("artists", artistProfiles);
+  profTab("venues", venueProfiles);
   profTab("organizers", organizerProfiles);
   fetchSheetRows("readings", function(rows){
     if(rows){ var seen={}; rows.forEach(function(r, ri){
@@ -8338,31 +8282,6 @@ function loadSheetProfiles(){
       if(readingByName[nm]!==rd){ readingByName[nm]=rd; changed=true; }
     }); }
     step();
-  });
-}
-var sheetVenuesLoaded=false;
-function loadSheetVenues(){
-  if(sheetVenuesLoaded) return;
-  sheetVenuesLoaded=true;
-  fetchSheetRows("venues", function(rows){
-    var changed=false;
-    if(rows) rows.forEach(function(r, ri){
-      if(ri===0 || !r) return;
-      var name=r[0], js=r[1];
-      if(!name || !js) return;
-      var p; try{ p=JSON.parse(js); }catch(e){ return; }
-      var merged=mergeProfileObj(venueProfiles[name]||{}, p);
-      if(JSON.stringify(merged)!==JSON.stringify(venueProfiles[name]||{})){ venueProfiles[name]=merged; changed=true; }
-    });
-    if(!changed) return;
-    indexVenueProfiles();
-    try{ applyProfileImages(); }catch(e){}
-    perfIndex=null; artistResolveCache=null; artistProfCache={};
-    artistCatCache={};
-    hayEpoch++; kgClearHayFrags(); kgWarmHay();
-    if(allEvents.length) render();
-    if(detailCtx) renderDetail();
-    if(profSheetState.open) renderProfSheet();
   });
 }
 function loadSheetRace(sheetName, ok, failAll){
@@ -10103,7 +10022,7 @@ function renderProfSheet(){
   panel.querySelectorAll("[data-ps-org]").forEach(function(b){ b.addEventListener("click", function(){ openProfSheet("organizer", b.getAttribute("data-ps-org")); }); });
   panel.querySelectorAll("[data-ps-venue]").forEach(function(b){ b.addEventListener("click", function(){ openProfSheet("venue", b.getAttribute("data-ps-venue")); }); });
   var peb=document.getElementById("psProfEditBtn");
-  if(peb) peb.addEventListener("click", function(){ kgOpenProfileEditor(kind, name); });
+  if(peb) peb.addEventListener("click", function(){ if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name); });
 }
 function psRowHTML(ev, idx){
   var parts=[ev.timeLabel];
@@ -10651,38 +10570,6 @@ window.addEventListener("storage",function(e){
   if(all||e.key===LS_FAV||e.key===LS_PLAN||e.key===LS_PLANS||e.key===LS_OSHI||e.key===LS_PREFS||e.key===LS_LEARN||e.key==="kg_trial_show_ended")if(allEvents.length)render();
 });
 
-/* Edit scripts load lazily (v219): keep startup light; load on first open */
-var kgLazyLoaded={};
-function kgLazyScript(src){
-  if(kgLazyLoaded[src]) return kgLazyLoaded[src];
-  kgLazyLoaded[src]=new Promise(function(res, rej){
-    var sc=document.createElement("script"); sc.src=src;
-    sc.onload=function(){ res(); };
-    sc.onerror=function(){ rej(new Error("script load failed")); };
-    document.body.appendChild(sc);
-  });
-  return kgLazyLoaded[src];
-}
-function kgOpenEditorNew(){
-  kgLazyScript("editor.js").then(function(){
-    var b=document.getElementById("kg-editor-open");
-    if(b && b.onclick) b.onclick();
-  }).catch(function(){ toast("編集画面を読み込めませんでした。通信の状態を確認してください"); });
-}
-function kgOpenEditorId(id){
-  kgLazyScript("editor.js").then(function(){
-    if(window.KGEditorOpenWithId) window.KGEditorOpenWithId(id);
-  }).catch(function(){ toast("編集画面を読み込めませんでした。通信の状態を確認してください"); });
-}
-function kgOpenProfileEditor(kind, name){
-  kgLazyScript("profile-editor.js").then(function(){
-    if(window.KGProfileEditor) window.KGProfileEditor.open(kind, name);
-  }).catch(function(){ toast("プロフィール編集を読み込めませんでした。通信の状態を確認してください"); });
-}
-(function(){
-  var b=document.getElementById("kg-editor-open");
-  if(b) b.addEventListener("click", function(){ if(!window.KGEditorOpenWithId) kgOpenEditorNew(); });
-})();
 window.KGEditorBridge = {
   count: function(){ return allEvents.length; },
   getArtistProfile: function(name){
@@ -10765,6 +10652,8 @@ load();
 <script src="account-config.js"></script>
 <script src="account.js"></script>
 <script src="editor-config.js"></script>
+<script src="editor.js"></script>
+<script src="profile-editor.js"></script>
 
 
 <script src="./pwa-ui.js"></script>
