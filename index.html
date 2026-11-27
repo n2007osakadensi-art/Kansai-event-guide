@@ -250,7 +250,7 @@
   .tl-prof{border:1px solid rgba(244,242,236,.45);color:#f4f2ec;border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;background:rgba(255,255,255,.10)}
   .tl-backbar{display:inline-block;border:1.5px solid var(--accent);color:var(--accent);background:var(--surface);border-radius:999px;padding:8px 16px;font-weight:800;font-size:14px;min-height:42px;cursor:pointer;font-family:inherit;margin-bottom:12px}
   /* プロフィールシート: タイムラインの中で開くSNS風プロフィール（v90） */
-  .overlay.prof-above{z-index:140}
+  .overlay.prof-above{z-index:160}
   .psheet{position:fixed;inset:0;z-index:150;display:none;background:rgba(10,10,12,.55)}
   .psheet.open{display:block}
   .psheet-panel{position:absolute;left:0;right:0;bottom:0;top:5%;background:var(--surface);color:var(--ink);border-radius:20px 20px 0 0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
@@ -1129,7 +1129,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v255';
+  window.__kgShell='v256';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
