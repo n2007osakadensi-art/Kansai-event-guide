@@ -1113,7 +1113,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v228';
+  window.__kgShell='v229';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -4008,6 +4008,36 @@ function evImgErr(img){
   } else fail();
 }
 window.evImgErr=evImgErr;
+/* 画像の読み込み見張り（v229、Kota指摘 2026-11-27）: 失敗ではなく「遅い」
+   場合にも保険へ回す。公開先（Notionプロキシ等）が10秒以上応答しないと、
+   反映済みでもプレースホルダのまま見え「反映されていない」ように見える。
+   一次情報元の予備URLがある画像は10秒でそちらへ切り替え（evImgErr経由）、
+   無い画像は遅い経路（notion/jsdelivr）に限って1回だけ取り直す。
+   予備が無い画像を強制的に失敗扱いにはしない（遅くても届く方がよい）。 */
+function kgImgWatchTick(){
+  try{
+    var now=Date.now();
+    document.querySelectorAll("img[data-fbk]").forEach(function(img){
+      if(!img.isConnected || img.dataset.fbTried || img.complete) return;
+      var r=img.getBoundingClientRect();
+      if(r.bottom<-600 || r.top>(window.innerHeight||0)+600) return;
+      var t0=Number(img.dataset.kgW0||0);
+      if(!t0){ img.dataset.kgW0=String(now); return; }
+      if(now-t0<10000) return;
+      var spec=(img.getAttribute("data-fbk")||"").split(":");
+      var fb=(typeof fbUrlFor==="function")? fbUrlFor(spec[0], parseInt(spec[1]||"0",10)||0) : "";
+      if(fb && typeof eventImageFallbacksLoaded!=="undefined" && eventImageFallbacksLoaded){ evImgErr(img); return; }
+      if(!img.dataset.kgRetried){
+        var src=img.getAttribute("src")||"";
+        if(/notion\.so|cdn\.jsdelivr\.net/.test(src)){
+          img.dataset.kgRetried="1"; img.dataset.kgW0=String(now);
+          img.src=src+(src.indexOf("?")>=0?"&":"?")+"kgretry=1";
+        }
+      }
+    });
+  }catch(e){}
+}
+setInterval(kgImgWatchTick, 4000);
 function fbResolveWaiters(){
   var ws=fbWaiters; fbWaiters=[];
   ws.forEach(function(img){ if(img.isConnected && img.dataset.fbWait){ delete img.dataset.fbWait; img.style.visibility=""; evImgErr(img); } });
