@@ -31,8 +31,8 @@
     '<div id="kg-guest-off"><p style="font-size:13px">ログインせず、この端末にだけ保存して使います。共有端末や一時的な利用向けです。</p><button id="kg-guest-start" type="button">ゲストとして使う</button></div>' +
     '<div id="kg-guest-on" hidden><p>ゲスト利用中です。推し・お気に入りはこの端末にだけ保存されます。引き継ぎはヘッダーの「データ引っ越し」からバックアップできます。</p><button id="kg-guest-end" type="button">ゲスト利用を終了してデータを消す</button><span id="kg-guest-end-confirm" hidden> <span style="font-size:13px">この端末のデータを消去しますか？</span> <button id="kg-guest-end-yes" type="button">消去する</button> <button id="kg-guest-end-no" type="button">やめる</button></span></div></div>' +
     '<div id="kg-admin"><hr><p><strong>管理者モード</strong></p>' +
-    '<div id="kg-admin-off"><p style="font-size:13px">管理者のGoogleアカウントでログインすると、この端末は自動で管理者モードになります（同期も同時に始まります）。パスフレーズでも有効化できます。初めての端末・ブラウザでは、使いたいパスフレーズを決めて、確認欄にも同じものを入力してください（入力したものが、この端末のパスフレーズとして設定されます）。設定済みの端末では、決めたパスフレーズを入れるだけで有効化できます。</p><p><input id="kg-admin-p1" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"><br><input id="kg-admin-p2" type="password" placeholder="確認のためもう一度（新規設定のとき）" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-enable" type="button">管理者モードを有効にする</button></div>' +
-    '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。Googleログインで管理者になった場合は、同期も有効になっています。パスフレーズだけで有効化した場合は同期しません（同期にはGoogleログイン、または会員コードのログインが別途必要です。併用できます）。</p><div id="kg-role-admin"><hr><p><strong>アーティスト・主催者コード管理</strong></p><p style="font-size:13px">アーティスト・主催者向けの会員コードを発行・管理します。発行したコードを相手に渡してください。相手の初回ログイン時に、Google本人確認でコードがそのGoogleに紐づきます（通常のコードと同じ仕組み）。このコードに特別な編集権限は付かず、送信は従来どおりフォーム＋取り込み確認を通ります。</p><p><label>種別 <select id="kg-role-kind"><option value="artist">アーティスト</option><option value="organizer">主催者</option><option value="venue">会場</option></select></label></p><p><input id="kg-role-email" type="email" placeholder="申し込みメールアドレス（任意）" style="min-width:260px;padding:6px"></p><p><input id="kg-role-link" type="text" placeholder="紐づけ先（アーティストのプロフィールキー／主催者名）" list="kg-role-link-list" style="min-width:260px;padding:6px"><datalist id="kg-role-link-list"></datalist></p><p><button id="kg-role-issue" type="button">コードを発行する</button></p><p id="kg-role-issued" hidden>発行したコード：<strong id="kg-role-issued-code"></strong> <button id="kg-role-issued-copy" type="button">コピー</button> <button id="kg-role-issued-mail" type="button">返信文をコピー</button><br><span style="font-size:13px">このコードは後から再表示できません。必ず控えてから相手に渡してください。</span></p><p id="kg-role-list-status" style="font-size:13px"></p><div id="kg-role-list"></div><p><button id="kg-role-reload" type="button">一覧を読み直す</button></p></div><div id="kg-notice-admin"><hr><p><strong>\u304a\u77e5\u3089\u305b\u6295\u7a3f</strong></p><p style="font-size:13px">\u7ba1\u7406\u8005\u304b\u3089\u306e\u304a\u77e5\u3089\u305b\u3092\u6295\u7a3f\u3057\u307e\u3059\u3002\u9001\u4fe1\u3059\u308b\u3068\u53d7\u4ed8\u306b\u5c4a\u304d\u3001\u78ba\u8a8d\u5f8c\u306b\u30b5\u30a4\u30c8\u306e\u300c\u304a\u77e5\u3089\u305b\u300d\u3078\u53cd\u6620\u3055\u308c\u307e\u3059\uff08\u901a\u5e3030\u5206\u4ee5\u5185\uff09\u3002SNS\u6295\u7a3f\u306eURL\u3092\u5165\u308c\u308b\u3068\u3001X\u30fbInstagram\u30fbTikTok\u30fbThreads\u306e\u6295\u7a3f\u304c\u57cb\u3081\u8fbc\u307f\u8868\u793a\u3055\u308c\u307e\u3059\u3002</p><p><input id="kg-notice-title" type="text" placeholder="\u30bf\u30a4\u30c8\u30eb\uff08\u4efb\u610f\uff09" style="min-width:260px;padding:6px"></p><p><textarea id="kg-notice-body" rows="3" placeholder="\u672c\u6587" style="min-width:260px;padding:6px"></textarea></p><p><input id="kg-notice-embed" type="url" placeholder="SNS\u6295\u7a3f\u306eURL\uff08\u57cb\u3081\u8fbc\u307f\uff09" style="min-width:260px;padding:6px"></p><p><input id="kg-notice-url" type="url" placeholder="\u30ea\u30f3\u30afURL\uff08\u4efb\u610f\uff09" style="min-width:260px;padding:6px"></p><p><input id="kg-notice-urllabel" type="text" placeholder="\u30ea\u30f3\u30af\u6587\u8a00\uff08\u4efb\u610f\uff09" style="min-width:260px;padding:6px"></p><p><button id="kg-notice-send" type="button">\u304a\u77e5\u3089\u305b\u3092\u9001\u4fe1\u3059\u308b</button></p><p id="kg-notice-status" style="font-size:13px"></p></div><p><input id="kg-admin-off-p" type="password" placeholder="パスフレーズ" autocomplete="off" style="min-width:220px;padding:6px"></p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></div></div>' +
+    '<div id="kg-admin-off"><p style="font-size:13px">管理者のGoogleアカウントでログインすると、この端末は自動で管理者モードになります（同期も同時に始まります）。有効化はGoogleログインだけです。</p></div>' +
+    '<div id="kg-admin-on" hidden><p>管理者モードが有効です（この端末）。Googleログインで管理者になっている場合は、同期も有効になっています。同期にはGoogleログイン、または会員コードのログインが必要です（併用できます）。</p><div id="kg-role-admin"><hr><p><strong>アーティスト・主催者コード管理</strong></p><p style="font-size:13px">アーティスト・主催者向けの会員コードを発行・管理します。発行したコードを相手に渡してください。相手の初回ログイン時に、Google本人確認でコードがそのGoogleに紐づきます（通常のコードと同じ仕組み）。このコードに特別な編集権限は付かず、送信は従来どおりフォーム＋取り込み確認を通ります。</p><p><label>種別 <select id="kg-role-kind"><option value="artist">アーティスト</option><option value="organizer">主催者</option><option value="venue">会場</option></select></label></p><p><input id="kg-role-email" type="email" placeholder="申し込みメールアドレス（任意）" style="min-width:260px;padding:6px"></p><p><input id="kg-role-link" type="text" placeholder="紐づけ先（アーティストのプロフィールキー／主催者名）" list="kg-role-link-list" style="min-width:260px;padding:6px"><datalist id="kg-role-link-list"></datalist></p><p><button id="kg-role-issue" type="button">コードを発行する</button></p><p id="kg-role-issued" hidden>発行したコード：<strong id="kg-role-issued-code"></strong> <button id="kg-role-issued-copy" type="button">コピー</button> <button id="kg-role-issued-mail" type="button">返信文をコピー</button><br><span style="font-size:13px">このコードは後から再表示できません。必ず控えてから相手に渡してください。</span></p><p id="kg-role-list-status" style="font-size:13px"></p><div id="kg-role-list"></div><p><button id="kg-role-reload" type="button">一覧を読み直す</button></p></div><div id="kg-notice-admin"><hr><p><strong>\u304a\u77e5\u3089\u305b\u6295\u7a3f</strong></p><p style="font-size:13px">\u7ba1\u7406\u8005\u304b\u3089\u306e\u304a\u77e5\u3089\u305b\u3092\u6295\u7a3f\u3057\u307e\u3059\u3002\u9001\u4fe1\u3059\u308b\u3068\u53d7\u4ed8\u306b\u5c4a\u304d\u3001\u78ba\u8a8d\u5f8c\u306b\u30b5\u30a4\u30c8\u306e\u300c\u304a\u77e5\u3089\u305b\u300d\u3078\u53cd\u6620\u3055\u308c\u307e\u3059\uff08\u901a\u5e3030\u5206\u4ee5\u5185\uff09\u3002SNS\u6295\u7a3f\u306eURL\u3092\u5165\u308c\u308b\u3068\u3001X\u30fbInstagram\u30fbTikTok\u30fbThreads\u306e\u6295\u7a3f\u304c\u57cb\u3081\u8fbc\u307f\u8868\u793a\u3055\u308c\u307e\u3059\u3002</p><p><input id="kg-notice-title" type="text" placeholder="\u30bf\u30a4\u30c8\u30eb\uff08\u4efb\u610f\uff09" style="min-width:260px;padding:6px"></p><p><textarea id="kg-notice-body" rows="3" placeholder="\u672c\u6587" style="min-width:260px;padding:6px"></textarea></p><p><input id="kg-notice-embed" type="url" placeholder="SNS\u6295\u7a3f\u306eURL\uff08\u57cb\u3081\u8fbc\u307f\uff09" style="min-width:260px;padding:6px"></p><p><input id="kg-notice-url" type="url" placeholder="\u30ea\u30f3\u30afURL\uff08\u4efb\u610f\uff09" style="min-width:260px;padding:6px"></p><p><input id="kg-notice-urllabel" type="text" placeholder="\u30ea\u30f3\u30af\u6587\u8a00\uff08\u4efb\u610f\uff09" style="min-width:260px;padding:6px"></p><p><button id="kg-notice-send" type="button">\u304a\u77e5\u3089\u305b\u3092\u9001\u4fe1\u3059\u308b</button></p><p id="kg-notice-status" style="font-size:13px"></p></div><p><button id="kg-admin-disable" type="button">管理者モードを解除する</button></p></div></div>' +
     '<p style="font-size:13px">メールアドレス・推し・お気に入りを認証・保存サービスで扱います。サービス提供者のプライバシーポリシーをご確認ください。</p></dialog>';
   document.body.appendChild(overlay);
   var dialog = $('kg-account-dialog');
@@ -975,8 +975,8 @@
   };
   /* 管理者モード（Kota、2026-11-23）：管理者の端末ではログイン操作を不要にする。
      端末内にだけ保存される印で、サーバ側の権限ではない（公開側に守る管理データはない）。
-     有効化・解除には本人が決めたパスフレーズが要る（ハッシュだけを端末に保存）。 */
-  var ADMIN_FLAG='kg_admin_mode_v1', ADMIN_HASH='kg_admin_hash_v1';
+     有効化は管理者本人のGoogleログインによる自動判定だけ（パスフレーズ方式は 2026-11-27 に廃止）。 */
+  var ADMIN_FLAG='kg_admin_mode_v1';
   function adminOn(){ try{ return localStorage.getItem(ADMIN_FLAG)==='1'; }catch(_){ return false; } }
   /* 管理者本人のGoogleアカウント（ハッシュで照合し、アドレス自体は埋め込まない）で
      ログインしたら、その端末を自動で管理者として扱う（Kota指示 2026-11-24:
@@ -991,33 +991,11 @@
     return false;
   }
   function renderAdmin(){ var on=adminOn(); var offEl=$('kg-admin-off'), onEl=$('kg-admin-on'); if(offEl) offEl.hidden=on; if(onEl) onEl.hidden=!on; if(on && !user && !member) text('管理者モード（この端末）です。管理者モードだけでは情報は同期されません。他の端末と共有するには、会員コードでログインしてください（管理者モードと両立できます）。'); if(on && !roleAdminLoaded) renderRoleAdmin(); renderState(); }
-  /* パスフレーズはダイアログ内の通常 input で扱う（v53）。prompt() は
-     ダイアログ抑制環境で無言で null を返し、管理者フロー全体が死ぬため使わない。
-     ハッシュ保存形式（kg-admin: 前置＋ kg_admin_hash_v1 / kg_admin_mode_v1）は従来互換 */
-  $('kg-admin-enable').onclick=async function(){
-    var existing=null; try{ existing=localStorage.getItem(ADMIN_HASH); }catch(_){}
-    var p1=($('kg-admin-p1')||{}).value||'';
-    if(!p1){ text('パスフレーズを入力してください。'); return; }
-    var h=await sha256hex('kg-admin:'+p1);
-    if(existing){ if(h!==existing){ text('パスフレーズが違います。'); return; } }
-    else {
-      var p2=($('kg-admin-p2')||{}).value||'';
-      if(p2!==p1){ text('パスフレーズが一致しませんでした。確認欄にも同じものを入力してください。'); return; }
-      try{ localStorage.setItem(ADMIN_HASH, h); }catch(_){}
-    }
-    try{ localStorage.setItem(ADMIN_FLAG, '1'); }catch(_){}
-    var i1=$('kg-admin-p1'), i2=$('kg-admin-p2'); if(i1)i1.value=''; if(i2)i2.value='';
-    renderAdmin();
-    text('管理者モードを有効にしました。この端末ではログイン不要です。');
-  };
-  $('kg-admin-disable').onclick=async function(){
-    var p=($('kg-admin-off-p')||{}).value||'';
-    if(!p){ text('パスフレーズを入力してください。'); return; }
-    var h=await sha256hex('kg-admin:'+p);
-    var existing=null; try{ existing=localStorage.getItem(ADMIN_HASH); }catch(_){}
-    if(h!==existing){ text('パスフレーズが違います。'); return; }
+  /* パスフレーズ方式は廃止（Kota指示 2026-11-27）。管理者の有効化は
+     管理者本人のGoogleログインによる自動判定（noteAdminAccount）だけ。
+     解除はこの端末の印を消すだけ（パスフレーズ照合なし）。 */
+  $('kg-admin-disable').onclick=function(){
     try{ localStorage.removeItem(ADMIN_FLAG); }catch(_){}
-    var io=$('kg-admin-off-p'); if(io)io.value='';
     renderAdmin();
     text('管理者モードを解除しました。');
   };
