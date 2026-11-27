@@ -196,6 +196,12 @@
   async function kvSet(key, value, token){ var body={op:'set', key:key, value:value}; if(token) body.token=token; await kvCall(body); }
   async function kvMerge(key, fields, token){ var body={op:'merge', key:key, value:fields}; if(token) body.token=token; await kvCall(body); }
   async function kvDel(key, token){ var body={op:'del', key:key}; if(token) body.token=token; await kvCall(body); }
+  /* タブストア（v253）: 管理者が公開したタブの一覧は誰でも読める。
+     書き換えは入口側で管理者の Google ログインかどうかを照合する */
+  window.kgTabStore = {
+    get: async function(){ var j=await kvCall({op:'storeget'}); return (j && j.found && j.value && Array.isArray(j.value.tabs)) ? j.value.tabs : []; },
+    set: async function(tabs){ var t=await idToken(); if(!t) throw new Error('not signed in'); await kvCall({op:'storeset', token:t, value:{tabs:tabs}}); }
+  };
   /* アカウント文書の短期キャッシュ（v156）: ログイン直後は同じ文書
      （m:/g:）を お気に入り取得・userdata取得・書き戻し判定で何度も読む。
      入口は全リクエスト直列＋ロックで1回が重いため、30秒以内の再読は

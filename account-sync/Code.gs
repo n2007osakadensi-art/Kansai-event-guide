@@ -9,6 +9,11 @@
 var PROJECT_ID = 'kansai-event-guide';
 var SHEET_NAME = 'kv';
 var MAX_VALUE = 900000;
+// 管理者（ガイド運営）の Google アカウントのメールアドレスのハッシュ。
+// サイト側 account.js の ADMIN_EMAIL_HASH と同じ値。タブストアへの
+// 書き込み（storeset）は、このハッシュに一致するログインだけ許可する。
+var ADMIN_EMAIL_HASH = '57214438aece9c683a3ab3120651fe8828ae6230cf855af1acbca324d37b26a3';
+var STORE_KEY = 'store:tabs';
 // Firebase ウェブ API キー（サイト側 account-config.js と同じ公開キー）。
 // トークン検証を tokeninfo から Firebase Auth 本体の照会へ切り替えるために使う。
 var FIREBASE_API_KEY = 'AIzaSyAeqWGn1jg4LpErCcxA8ERqgMF9F0AFxpA';
@@ -22,6 +27,32 @@ function doPost(e) {
     var req = JSON.parse(e.postData.contents);
     var op = String(req.op || '');
     var key = String(req.key || '');
+    // タブストア（2026-11-28）: 読み取りは公開、書き換えは管理者だけ。
+    // 通常の鍵チェックとは別系統で処理する
+    if (op === 'storeget') {
+      var sh0 = sheet_();
+      var sv = getVal_(sh0, findRow_(sh0, STORE_KEY));
+      return json_({ ok: true, found: sv !== null, value: sv });
+    }
+    if (op === 'storeset') {
+      var token0 = String(req.token || '');
+      if (!token0) throw new Error('token required');
+      var gu = verifyGoogleUser_(token0);
+      if (!gu || !gu.email) throw new Error('invalid token');
+      if (sha256hex_(String(gu.email).trim().toLowerCase()) !== ADMIN_EMAIL_HASH) throw new Error('not admin');
+      var val0 = req.value || {};
+      if (!val0.tabs || Object.prototype.toString.call(val0.tabs) !== '[object Array]') throw new Error('bad value');
+      if (val0.tabs.length > 100) throw new Error('too many tabs');
+      var lockS = LockService.getScriptLock();
+      lockS.waitLock(15000);
+      try {
+        var sh1 = sheet_();
+        setVal_(sh1, findRow_(sh1, STORE_KEY), STORE_KEY, { tabs: val0.tabs, updatedAt: Date.now() });
+        return json_({ ok: true });
+      } finally {
+        lockS.releaseLock();
+      }
+    }
     // 鍵チェック（g: はトークン検証＝外部通信を含む）はロックの外で先に行う
     checkKey_(req, key);
     if (op === 'get') {
@@ -126,6 +157,12 @@ function sha256hex_(text) {
 // 照会（accounts:lookup、このプロジェクトのキーで照会するので発行元も
 // 同時に確認できる）を主経路にし、tokeninfo は予備に回した。
 function verifyGoogleToken_(token) {
+  var u = verifyGoogleUser_(token);
+  return u ? u.uid : null;
+}
+
+// トークンを検証し、uid とメールアドレスを返す（storeset の管理者照合用）
+function verifyGoogleUser_(token) {
   try {
     var resp = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + FIREBASE_API_KEY, {
       method: 'post',
@@ -135,14 +172,14 @@ function verifyGoogleToken_(token) {
     });
     if (resp.getResponseCode() === 200) {
       var body = JSON.parse(resp.getContentText());
-      if (body.users && body.users.length && body.users[0].localId) return String(body.users[0].localId);
+      if (body.users && body.users.length && body.users[0].localId) return { uid: String(body.users[0].localId), email: String(body.users[0].email || '') };
     }
   } catch (e) { /* 予備経路へ */ }
   try {
     var r2 = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token), { muteHttpExceptions: true });
     if (r2.getResponseCode() === 200) {
       var claims = JSON.parse(r2.getContentText());
-      if (claims.aud === PROJECT_ID && claims.sub) return String(claims.sub);
+      if (claims.aud === PROJECT_ID && claims.sub) return { uid: String(claims.sub), email: String(claims.email || '') };
     }
   } catch (e2) { /* 検証失敗として扱う */ }
   return null;

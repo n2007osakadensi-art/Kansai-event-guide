@@ -1120,7 +1120,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v252';
+  window.__kgShell='v253';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1491,6 +1491,8 @@
         <button type="button" class="btn" id="calMgrSave" style="flex:1">この内容で保存</button>
         <button type="button" class="cal-chip" id="calMgrNew">新規（入力を空に）</button>
       </div>
+      <div class="cal-mgr-sec">タブストア（管理者が公開したタブ）</div>
+      <div id="calMgrStore"><p style="font-size:12.5px;color:var(--muted);margin:4px 0">読み込み中…</p></div>
       <button type="button" class="cal-panel-close" id="calMgrCloseB">閉じる</button>
       <p class="cal-mgr-note">選んだ対象のイベントだけが集まります。この設定はカレンダーとタイムラインのタブで共通です（タイムラインの「タブを追加・編集」からも、タイムラインを離れずに開けます）。端末に保存され、ログイン中はアカウントにも同期されます。</p>
     </div>
@@ -3663,13 +3665,84 @@ function calMgrPoolRender(kind){
 function calMgrRender(){
   var list=document.getElementById("calMgrList"); if(!list) return;
   list.innerHTML=myCalendars.length? myCalendars.map(function(c){
-    return '<div class="cal-mgr-row"><span class="nm">'+esc(c.name)+'</span><button type="button" data-cal-edit="'+esc(c.id)+'">編集</button><button type="button" data-cal-del="'+esc(c.id)+'">削除</button></div>';
+    return '<div class="cal-mgr-row"><span class="nm">'+esc(c.name)+'</span><button type="button" data-cal-edit="'+esc(c.id)+'">編集</button><button type="button" data-cal-del="'+esc(c.id)+'">削除</button>'
+      + ((typeof kgAdminOn==="function" && kgAdminOn())? '<button type="button" data-cal-pub="'+esc(c.id)+'">'+(calStorePublishedSrc[c.id]? "公開中（取り消す）":"ストアに公開")+'</button>' : '')
+      + '</div>';
   }).join("") : '<p style="font-size:13px;color:var(--muted);margin:4px 0">まだカレンダーがありません。下のフォームで作れます。</p>';
   if(!calDraft || calDraftFor!==calEditId) calDraftSync();
   var cur=null; myCalendars.forEach(function(c){ if(c.id===calEditId) cur=c; });
   document.getElementById("calMgrName").value=cur? cur.name : "";
   calMgrPoolRender("artists"); calMgrPoolRender("venues"); calMgrPoolRender("organizers");
   document.querySelectorAll("[data-cal-flag]").forEach(function(cb){ var k=cb.getAttribute("data-cal-flag"); cb.checked=!!(cur && cur[k]); });
+  calStoreRender();
+}
+/* タブストア（v253）: 管理者が公開したタブを読み、保存できるようにする。
+   書き換え（公開・取り消し）は入口側で管理者照合される */
+var calStoreCache=null, calStoreCacheAt=0, calStorePublishedSrc={};
+async function calStoreLoad(force){
+  if(!window.kgTabStore) return null;
+  if(!force && calStoreCache && (Date.now()-calStoreCacheAt)<30000) return calStoreCache;
+  try{
+    var tabs=await window.kgTabStore.get();
+    calStoreCache=tabs; calStoreCacheAt=Date.now();
+    calStorePublishedSrc={}; tabs.forEach(function(t){ if(t && t.srcId) calStorePublishedSrc[t.srcId]=t.id; });
+    return tabs;
+  }catch(e){ return null; }
+}
+async function calStoreRender(){
+  var box=document.getElementById("calMgrStore"); if(!box) return;
+  var tabs=await calStoreLoad(false);
+  if(!tabs){ box.innerHTML='<p style="font-size:12.5px;color:var(--muted);margin:4px 0">ストアを読み込めませんでした。通信を確認して、開き直してください。</p>'; return; }
+  document.querySelectorAll("[data-cal-pub]").forEach(function(b){ var cid=b.getAttribute("data-cal-pub"); b.textContent=calStorePublishedSrc[cid]? "公開中（取り消す）" : "ストアに公開"; });
+  if(!tabs.length){ box.innerHTML='<p style="font-size:12.5px;color:var(--muted);margin:4px 0">まだ公開されたタブがありません。</p>'; return; }
+  box.innerHTML=tabs.map(function(t){
+    var saved=myCalendars.some(function(c){ return c.fromStore && c.fromStore===t.id; });
+    var bits=[];
+    if(t.oshiAll) bits.push("推し全員");
+    if(t.intAll) bits.push("気になるアーティスト全員");
+    if(t.artists && t.artists.length) bits.push("アーティスト"+t.artists.length+"件");
+    if(t.venues && t.venues.length) bits.push("会場"+t.venues.length+"件");
+    if(t.organizers && t.organizers.length) bits.push("主催者"+t.organizers.length+"件");
+    if(t.fav) bits.push("お気に入り");
+    if(t.want) bits.push("行きたい");
+    if(t.int) bits.push("気になる");
+    if(t.plan) bits.push("回しプラン");
+    return '<div class="cal-mgr-row"><span class="nm">'+esc(t.name||"（無題）")+'<span style="display:block;font-size:11.5px;color:var(--muted);font-weight:400">'+esc(bits.join("・")||"対象なし")+'</span></span>'
+      + (saved? '<button type="button" disabled>保存済み</button>' : '<button type="button" data-store-save="'+esc(t.id)+'">保存する</button>')
+      + '</div>';
+  }).join("");
+}
+function calStoreSave(storeId){
+  var t=null; (calStoreCache||[]).forEach(function(x){ if(x.id===storeId) t=x; });
+  if(!t) return;
+  if(myCalendars.some(function(c){ return c.fromStore===storeId; })){ toast("すでに保存済みです"); return; }
+  var data={ id:"cal"+Date.now().toString(36), name:t.name||"ストアのタブ", artists:(t.artists||[]).slice(), venues:(t.venues||[]).slice(), organizers:(t.organizers||[]).slice(), fromStore:storeId };
+  ["fav","want","int","plan","oshiAll","intAll"].forEach(function(k){ data[k]=t[k]? 1:0; });
+  myCalendars.push(data);
+  saveMyCalendars(); calMgrRender(); renderCalendar(); tlRefreshIfOpen();
+  toast("タブ「"+data.name+"」を保存しました");
+}
+async function calStoreTogglePublish(calId){
+  if(!window.kgTabStore){ toast("ストアに接続できませんでした"); return; }
+  var tabs=await calStoreLoad(true);
+  if(!tabs){ toast("ストアを読み込めませんでした"); return; }
+  var cal=null; myCalendars.forEach(function(c){ if(c.id===calId) cal=c; });
+  if(!cal) return;
+  var isPub=!!calStorePublishedSrc[calId];
+  var next;
+  if(isPub){ next=tabs.filter(function(t){ return t.srcId!==calId; }); }
+  else {
+    var entry={ id:"store"+Date.now().toString(36), srcId:calId, name:cal.name||"（無題）", artists:(cal.artists||[]).slice(), venues:(cal.venues||[]).slice(), organizers:(cal.organizers||[]).slice(), publishedAt:Date.now() };
+    ["fav","want","int","plan","oshiAll","intAll"].forEach(function(k){ entry[k]=cal[k]? 1:0; });
+    next=tabs.concat([entry]);
+  }
+  try{
+    await window.kgTabStore.set(next);
+    calStoreCache=next; calStoreCacheAt=Date.now();
+    calStorePublishedSrc={}; next.forEach(function(t){ if(t.srcId) calStorePublishedSrc[t.srcId]=t.id; });
+    calMgrRender();
+    toast(isPub? "ストアへの公開を取り消しました" : "タブ「"+(cal.name||"")+"」をストアに公開しました");
+  }catch(e){ toast("公開に失敗しました（"+((e&&e.message)||"エラー")+"）。管理者でログインしているか確認してください"); }
 }
 function calModeNow(){ return (typeof prefs!=="undefined" && ["month","week","2week"].indexOf(prefs.calMode)>=0) ? prefs.calMode : "month"; }
 function calWsNow(){ return (typeof prefs!=="undefined" && prefs.weekStart===1) ? 1 : 0; }
@@ -9135,6 +9208,10 @@ if(els.calScopeFollow) els.calScopeFollow.addEventListener("click", function(){ 
   var closeBtnB=document.getElementById("calMgrCloseB");
   if(closeBtnB && mgr) closeBtnB.addEventListener("click", function(){ mgr.hidden=true; if(mgr.classList.contains("cal-mgr-in-tl")) calMgrRestoreHome(); });
   if(mgr) mgr.addEventListener("click", function(e){
+    var pub=e.target.closest("[data-cal-pub]");
+    if(pub){ calStoreTogglePublish(pub.getAttribute("data-cal-pub")); return; }
+    var sv=e.target.closest("[data-store-save]");
+    if(sv){ calStoreSave(sv.getAttribute("data-store-save")); return; }
     var ed=e.target.closest("[data-cal-edit]"), del=e.target.closest("[data-cal-del]");
     if(ed){ calEditId=ed.getAttribute("data-cal-edit"); calDraft=null; calMgrRender(); return; }
     if(del){
