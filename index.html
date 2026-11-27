@@ -1030,7 +1030,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v198';
+  window.__kgShell='v199';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2878,7 +2878,7 @@ function contentPass(ev, opts){
   if(selPrefs.size && selPrefs.has(ev.prefecture)===false) return false;
   if(selAreas.size && !selAreas.has(ev.area||"（エリア未設定）")) return false;
   if(selVenues.size && !venueMatchesSel(ev)) return false;
-  if(selPerfs.size){ var pok=false; var spKeys={}; selPerfs.forEach(function(sp){ spKeys[normSearch(sp)]=1; }); ev._perfList.forEach(function(p){ if(selPerfs.has(p) || spKeys[normSearch(p)]){ pok=true; return; } var pp=artistProfileFor(p); if(pp){ selPerfs.forEach(function(sp){ if(artistProfileFor(sp)===pp) pok=true; }); } }); if(!pok) return false; }
+  if(selPerfs.size){ var pok=false; var spKeys={}; selPerfs.forEach(function(sp){ spKeys[normSearch(sp)]=1; }); ev._perfList.forEach(function(p){ if(selPerfs.has(p) || spKeys[normSearch(p)] || selPerfs.has(resolveArtistName(p))){ pok=true; return; } var pp=artistProfileFor(p); if(pp){ selPerfs.forEach(function(sp){ if(artistProfileFor(sp)===pp) pok=true; }); } }); if(!pok) return false; }
   if(selPrices.size){ var pc=priceClassOf(ev); if(!pc || !selPrices.has(pc)) return false; }
   if(selThemes.size){ var ok=false; selThemes.forEach(function(t){ if(themeMatch(ev,t)) ok=true; }); if(!ok) return false; }
   if(selDows.size){ var wds=evWeekdays(ev), wok=false; selDows.forEach(function(d){ if(wds[d]) wok=true; }); if(!wok) return false; }
@@ -3143,7 +3143,7 @@ function renderFilterOpts(){
     return '<button type="button" class="fopt" data-fvenue="'+esc(v)+'" aria-pressed="'+selVenues.has(v)+'">'+esc(v)+'（'+vcount[v]+'）</button>';
   }).join("") + (vshown.length>vcap.length? '<span style="font-size:13px;color:var(--muted)">ほか '+(vshown.length-vcap.length)+' 件の会場があります。会場名で候補を絞ってください。</span>' : (vshown.length===0? '<span style="font-size:13px;color:var(--muted)">該当する会場がありません</span>' : ""));
   var perfGrp=perfGroups(), pcount={}, pnames=[];
-  Object.keys(perfGrp.counts).forEach(function(p){ var cnP=perfGrp.canonOf[p]||p; if(!pcount[cnP]){ pcount[cnP]=0; pnames.push(cnP); } pcount[cnP]+=perfGrp.counts[p]; });
+  Object.keys(perfGrp.counts).forEach(function(p){ var cnP=resolveArtistName(p); if(!pcount[cnP]){ pcount[cnP]=0; pnames.push(cnP); } pcount[cnP]+=perfGrp.counts[p]; });
   pnames.sort(function(a,b){ if(pcount[b]!==pcount[a]) return pcount[b]-pcount[a]; return a.localeCompare(b,"ja"); });
   var pqRaw=(els.perfSearch.value||"").trim(); var pq=pqRaw.toLowerCase();
   var pshown=pnames.filter(function(p){ return selPerfs.has(p) || !pq || p.toLowerCase().indexOf(pq)>=0 || normSearch(p).indexOf(normSearch(pqRaw))>=0 || (readingByName[p]||"").indexOf(pqRaw)>=0 || dictHit(p, normSearch(pqRaw)) || groupMembers(p).some(function(mn){ return normSearch(mn).indexOf(normSearch(pqRaw))>=0; }) || (perfGrp.groupOf[p]||[]).some(function(sp){ return normSearch(sp).indexOf(normSearch(pqRaw))>=0 || (readingByName[sp]||"").indexOf(pqRaw)>=0 || dictHit(sp, normSearch(pqRaw)); }); });
@@ -5576,27 +5576,28 @@ function buildFollowSuggestions(){
   var aScore={}, aWhy={}, aUp={}, vScore={}, vUp={}, oScore={}, oUp={};
   up.forEach(function(ev){
     var perfs=ev._perfList||[];
-    perfs.forEach(function(p){ aUp[p]=(aUp[p]||0)+1; });
+    perfs.forEach(function(p){ var rp=resolveArtistName(p); aUp[rp]=(aUp[rp]||0)+1; });
     var v=(ev.venue||"").trim(); if(v) vUp[v]=(vUp[v]||0)+1;
     var o=(ev.organizerName||"").trim(); if(o) oUp[o]=(oUp[o]||0)+1;
-    var oshiNames=perfs.filter(function(p){ return favPerfs.has(p); });
+    var oshiNames=perfs.filter(function(p){ return oshiNameHas(p); });
     if(oshiNames.length){
       perfs.forEach(function(p){
-        if(favPerfs.has(p)) return;
-        aScore[p]=(aScore[p]||0)+2;
-        if(!aWhy[p]) aWhy[p]="推しの"+oshiNames[0]+"と共演";
+        if(oshiNameHas(p)) return;
+        var rp=resolveArtistName(p);
+        aScore[rp]=(aScore[rp]||0)+2;
+        if(!aWhy[rp]) aWhy[rp]="推しの"+resolveArtistName(oshiNames[0])+"と共演";
       });
       if(v) vScore[v]=(vScore[v]||0)+1;
       if(o) oScore[o]=(oScore[o]||0)+1;
     }
     if(marked.has(String(ev.id))){
-      perfs.forEach(function(p){ if(!favPerfs.has(p) && !aScore[p]) aScore[p]=(aScore[p]||0)+1; });
+      perfs.forEach(function(p){ var rp=resolveArtistName(p); if(!oshiNameHas(p) && !aScore[rp]) aScore[rp]=(aScore[rp]||0)+1; });
       if(v) vScore[v]=(vScore[v]||0)+2;
       if(o) oScore[o]=(oScore[o]||0)+2;
     }
   });
   var out=[];
-  Object.keys(aScore).forEach(function(p){ if(aScore[p]>0 && !favPerfs.has(p)) out.push({kind:"artist", name:p, score:aScore[p], why:aWhy[p]||"印をつけたイベントに出演", upcoming:aUp[p]||0}); });
+  Object.keys(aScore).forEach(function(p){ if(aScore[p]>0 && !oshiNameHas(p)) out.push({kind:"artist", name:p, score:aScore[p], why:aWhy[p]||"印をつけたイベントに出演", upcoming:aUp[p]||0}); });
   Object.keys(vScore).forEach(function(v){ if(vScore[v]>0 && !venueFollowed(v)) out.push({kind:"venue", name:v, score:vScore[v], why:"推し・印のイベントの会場", upcoming:vUp[v]||0}); });
   Object.keys(oScore).forEach(function(o){ if(oScore[o]>0 && !followHas("organizer", o)) out.push({kind:"organizer", name:o, score:oScore[o], why:"推し・印のイベントの主催", upcoming:oUp[o]||0}); });
   out.sort(function(a,b){ if(b.score!==a.score) return b.score-a.score; return (b.upcoming||0)-(a.upcoming||0); });
@@ -6573,7 +6574,7 @@ if(els.followList) els.followList.addEventListener("click", function(e){
   var fb=e.target.closest("[data-ffollow]");
   if(fb){
     var k=fb.getAttribute("data-ffollow"), n=fb.getAttribute("data-fname");
-    if(k==="artist"){ if(!favPerfs.has(n)){ favPerfs.add(n); saveSet(LS_OSHI, favPerfs); } fb.textContent="★ 推し登録中"; toast("推しに登録しました："+n); }
+    if(k==="artist"){ if(!oshiNameHas(n)){ favPerfs.add(resolveArtistName(n)); saveSet(LS_OSHI, favPerfs); } fb.textContent="★ 推し登録中"; toast("推しに登録しました："+n); }
     else if(k==="venue"){ if(!venueFollowed(n)) follows.venues.push(n); saveFollows(); fb.textContent="フォロー中"; toast("フォローしました："+n); }
     else { if(!followHas("organizer", n)) follows.organizers.push(n); saveFollows(); fb.textContent="フォロー中"; toast("フォローしました："+n); }
     fb.classList.add("on"); renderCountsOnly(); return;
