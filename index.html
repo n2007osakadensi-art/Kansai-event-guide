@@ -662,6 +662,8 @@
   .mycal-labels{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
   .mycal-label{font-size:12px;font-weight:800;color:#fff;border-radius:999px;padding:3px 9px}
   .mycal-label.fav{background:var(--heart)} .mycal-label.want{background:var(--accent)} .mycal-label.int{background:#d97706} .mycal-label.oshi{background:var(--oshi)}
+  .mycal-label.plan{background:#0284c7}
+  .mycal-label.follow{background:#7c3aed}
 
   /* Directory (artists / venues) */
   .dir-search{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:11px 14px;font-size:15px;margin:0 0 12px;min-height:46px}
@@ -1079,7 +1081,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v209';
+  window.__kgShell='v210';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
