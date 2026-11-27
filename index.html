@@ -657,6 +657,13 @@
   .cal-mgr-opts label{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:12.5px;cursor:pointer}
   .cal-mgr-actions{display:flex;gap:8px;margin-top:14px}
   .cal-mgr-note{font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.6}
+  .cal-ctl-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;margin:0 0 10px}
+  .cal-ctl-caret{color:var(--muted);font-size:12px}
+  .cal-ctl-panel{border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:10px 10px 2px;margin:0 0 12px}
+  #calView .cal-scope{margin-bottom:10px}
+  #calView .cal-scope button{padding:7px 3px;font-size:13px}
+  #calView .cal-ctl-panel .cal-scope{margin-bottom:8px}
+  #calView .cal-custom-row{margin-bottom:12px}
   .cal-day .dots{display:flex;gap:3px;justify-content:center;min-height:7px}
   .cal-day .dots i{width:7px;height:7px;border-radius:50%;display:block}
   .mycal-labels{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
@@ -1081,7 +1088,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v210';
+  window.__kgShell='v211';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1377,16 +1384,25 @@
       <h2 id="calTitle"></h2>
       <button type="button" id="calNext">次の月 →</button>
     </div>
+    <button type="button" class="cal-ctl-bar" id="calCtlToggle" aria-expanded="false"><span id="calCtlSummary">表示：全イベント・月間・日曜始まり</span><span class="cal-ctl-caret">▾ 開く</span></button>
+    <div class="cal-custom-row">
+      <span class="cal-custom-label">マイカレンダー</span>
+      <span id="calCustomChips" style="display:contents"></span>
+      <button type="button" class="cal-chip" id="calMgrOpen">＋ カレンダーを作る・管理</button>
+    </div>
+    <div class="cal-ctl-panel" id="calCtlPanel" hidden>
     <div class="cal-scope" role="tablist" aria-label="カレンダーの表示範囲">
       <button type="button" id="calScopeAll" class="on" role="tab" aria-selected="true">全イベント</button>
       <button type="button" id="calScopeMine" role="tab" aria-selected="false">自分の予定</button>
       <button type="button" id="calScopeMix" role="tab" aria-selected="false">ミックス</button>
       <button type="button" id="calScopeFollow" role="tab" aria-selected="false">フォロー中</button>
     </div>
-    <div class="cal-custom-row">
-      <span class="cal-custom-label">マイカレンダー</span>
-      <span id="calCustomChips" style="display:contents"></span>
-      <button type="button" class="cal-chip" id="calMgrOpen">＋ カレンダーを作る・管理</button>
+    <div class="cal-scope cal-mode" role="tablist" aria-label="カレンダーの表示単位">
+      <button type="button" data-cal-mode="month" role="tab" aria-selected="true">月間</button>
+      <button type="button" data-cal-mode="week" role="tab" aria-selected="false">週間</button>
+      <button type="button" data-cal-mode="2week" role="tab" aria-selected="false">2週間</button>
+      <button type="button" id="calWeekStart" class="cal-ws" aria-label="週の始まりを切り替える">日曜始まり</button>
+    </div>
     </div>
     <div class="cal-mgr" id="calMgr" hidden>
       <div class="cal-mgr-head"><strong>マイカレンダーの管理</strong><button type="button" class="cal-chip" id="calMgrClose">閉じる</button></div>
@@ -1411,12 +1427,6 @@
         <button type="button" class="cal-chip" id="calMgrNew">新規（入力を空に）</button>
       </div>
       <p class="cal-mgr-note">選んだ対象のイベントだけが、このカレンダーに集まります。端末に保存され、ログイン中はアカウントにも同期されます。</p>
-    </div>
-    <div class="cal-scope cal-mode" role="tablist" aria-label="カレンダーの表示単位">
-      <button type="button" data-cal-mode="month" role="tab" aria-selected="true">月間</button>
-      <button type="button" data-cal-mode="week" role="tab" aria-selected="false">週間</button>
-      <button type="button" data-cal-mode="2week" role="tab" aria-selected="false">2週間</button>
-      <button type="button" id="calWeekStart" class="cal-ws" aria-label="週の始まりを切り替える">日曜始まり</button>
     </div>
     <div id="calCondRow" class="cal-cond" hidden><span>検索・絞り込みの条件に合う件数で表示中です</span><button type="button" id="calCondClear">条件を外す</button></div>
     <div class="cal-legend" id="calLegend" hidden>
@@ -3554,6 +3564,10 @@ function renderCalendar(){
   if(pvB) pvB.textContent=prevLabel; if(nxB) nxB.textContent=nextLabel;
   document.querySelectorAll("[data-cal-mode]").forEach(function(b){ var on=b.getAttribute("data-cal-mode")===mode; b.classList.toggle("on", on); b.setAttribute("aria-selected", on?"true":"false"); });
   var wsBtn=document.getElementById("calWeekStart"); if(wsBtn) wsBtn.textContent=(ws?"月曜始まり":"日曜始まり");
+  var ctlSum=document.getElementById("calCtlSummary");
+  if(ctlSum){ var scTxt=mine? "自分の予定" : mix? "ミックス" : follow? "フォロー中" : custom? "マイカレンダー「"+customCal.name+"」" : "全イベント";
+    var mdTxt=mode==="week"? "週間" : mode==="2week"? "2週間" : "月間";
+    ctlSum.textContent="表示："+scTxt+"・"+mdTxt+"・"+(ws? "月曜始まり":"日曜始まり"); }
   if(els.calScopeAll){ els.calScopeAll.classList.toggle("on", calScope==="all"); els.calScopeAll.setAttribute("aria-selected", calScope==="all"?"true":"false"); }
   if(els.calScopeMine){ els.calScopeMine.classList.toggle("on", mine); els.calScopeMine.setAttribute("aria-selected", mine?"true":"false"); }
   if(els.calScopeMix){ els.calScopeMix.classList.toggle("on", mix); els.calScopeMix.setAttribute("aria-selected", mix?"true":"false"); }
@@ -8724,6 +8738,12 @@ if(els.calScopeFollow) els.calScopeFollow.addEventListener("click", function(){ 
       toast("カレンダーを削除しました");
       return;
     }
+  });
+  var ctlT=document.getElementById("calCtlToggle"), ctlP=document.getElementById("calCtlPanel");
+  if(ctlT && ctlP) ctlT.addEventListener("click", function(){
+    var open=ctlP.hidden; ctlP.hidden=!open;
+    ctlT.setAttribute("aria-expanded", open?"true":"false");
+    var car=ctlT.querySelector(".cal-ctl-caret"); if(car) car.textContent=open? "▴ 閉じる":"▾ 開く";
   });
   var newBtn=document.getElementById("calMgrNew");
   if(newBtn) newBtn.addEventListener("click", function(){ calEditId=""; calMgrRender(); });
