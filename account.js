@@ -190,7 +190,15 @@
   function docCachePut(key, v){ docCache[key]={value:v, at:Date.now()}; }
   function docCacheMerge(key, fields){ var c=docCache[key]; if(c && c.value && typeof c.value==='object'){ Object.keys(fields).forEach(function(k){ c.value[k]=fields[k]; }); c.at=Date.now(); } }
   function docCacheDrop(key){ delete docCache[key]; }
-  async function idToken(){ try{ return fbUser ? await fbUser.getIdToken() : null; }catch(_){ return null; } }
+  async function idToken(){
+    if(!fbUser) return null;
+    try{ var t=await fbUser.getIdToken(); if(t) return t; }catch(_){}
+    /* キャッシュ側のトークンが失効・破損していても、更新トークンが生きて
+       いれば強制更新で取り直せる（v241、Kota指摘「トークン失ってる」対策）。
+       ここで null を返すと同期全体が「ログイン情報が確認できませんでした」
+       で止まるため、1回だけ強制更新を試す */
+    try{ return await fbUser.getIdToken(true); }catch(_){ return null; }
+  }
   async function googleKeyOf(uid){ return 'g:' + await sha256hex('kg-google:' + uid); }
   /* ================= 振り分け（主軸→保険） ================= */
   async function flush(uid,g) {
@@ -215,6 +223,23 @@
       return sameUser(uid,g) && !queueRead(uid).length;
     } catch(e) { noteCloudFail(e); text('同期できていません。端末内には保存済みです。通信を確認して「クラウドから再読み込み」を押してください。'); return false; }
     finally { running=false; }
+  }
+  /* ログイン直後の初期化が一時的な失敗（通信の競合・トークンの取り直し・
+     別処理の送信中）で止まると、initialized が立たず、その後の同期が全部
+     静かに止まっていた（v241で自己回復化）。送信中なら終わるまで待って
+     から送り、初期化に失敗したら間隔をあけて自動でやり直す */
+  async function flushWait(uid,g){
+    for(var i=0;i<70 && running;i++){ await new Promise(function(r){ setTimeout(r,500); }); }
+    return flush(uid,g);
+  }
+  var initRetryCount=0, initRetryTimer=null;
+  function scheduleInitRetry(uid,g,fn){
+    if(initialized || !sameUser(uid,g)) return;
+    if(initRetryCount>=6) return;
+    initRetryCount++;
+    if(initRetryTimer) clearTimeout(initRetryTimer);
+    var delays=[8000,20000,40000,60000,90000,120000];
+    initRetryTimer=setTimeout(function(){ if(!initialized && sameUser(uid,g)) fn(); }, delays[Math.min(initRetryCount-1,5)]);
   }
   async function pull(uid) {
     var sheetErr=null;
@@ -344,8 +369,15 @@
     if(syncReady()) {
       var token=await idToken(); if(!token) throw new Error('ログイン情報が確認できませんでした');
       var gk3=await googleKeyOf(uid);
-      await kvMerge(gk3, {userdata:data, udUpdatedAt:Date.now()}, token);
-      docCacheMerge(gk3, {userdata:data, udUpdatedAt:Date.now()});
+      try {
+        await kvMerge(gk3, {userdata:data, udUpdatedAt:Date.now()}, token);
+        docCacheMerge(gk3, {userdata:data, udUpdatedAt:Date.now()});
+      } catch(e) {
+        /* 主軸（シート）が落ちても保険（Firestore）へは書いてから投げる。
+           片方でも残れば、次回ログインで引き継げる（v241） */
+        if(client) { try { await fsTimeout(client.setDoc(client.doc(client.db,'users',uid,'userdata','main'), {data:data, updatedAt:Date.now()}), '同期がタイムアウトしました'); } catch(e2) {} }
+        throw e;
+      }
       if(client) { try { await fsTimeout(client.setDoc(client.doc(client.db,'users',uid,'userdata','main'), {data:data, updatedAt:Date.now()}), '同期がタイムアウトしました'); } catch(e) {} }
       return;
     }
@@ -355,6 +387,7 @@
   async function setupSession(session) {
     generation++; var g=generation;
     user=session && session.user ? session.user : null; initialized=false;
+    initRetryCount=0; if(initRetryTimer){ clearTimeout(initRetryTimer); initRetryTimer=null; }
     if(!user){ parts(false,true,false,false); if(!member) text('ログインしていません。推し・お気に入りは端末内に保存されます。'); renderAdmin(); return; }
     var uid=user.id; $('kg-email-display').textContent='ログイン中：'+(user.email||'アカウント');
     var isAdminAcct=await noteAdminAccount(user);
@@ -362,10 +395,13 @@
     parts(false,false,true,false); renderState();
     if (localStorage.getItem(currentMarker)===uid) {
       text('アカウントのデータを確認しています…');
-      if(!await flush(uid,g)) return;
-      fsDrain(uid);
-      try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; text('同期済み。'); udPullMerge(); }
-      catch(e) { noteCloudFail(e); text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); }
+      var initReturning=async function(){
+        if(!await flushWait(uid,g)){ scheduleInitRetry(uid,g,initReturning); return; }
+        fsDrain(uid);
+        try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; initRetryCount=0; text('同期済み。'); udPullMerge(); }
+        catch(e) { noteCloudFail(e); text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); scheduleInitRetry(uid,g,initReturning); }
+      };
+      await initReturning();
     } else {
       /* 初回ログインは自動で統合して同期を始める（v151）。選択待ちのまま
          同期が始まらない状態をなくす。統合は和集合で端末データを消さない。
@@ -377,22 +413,22 @@
   async function applyChoice(merge) {
     if(!user) return; var uid=user.id,g=generation; text('データを確認しています…');
     try {
-      if(!await flush(uid,g)) return;
+      if(!await flushWait(uid,g)){ scheduleInitRetry(uid,g,function(){ if(!initialized) applyChoice(merge); }); return; }
       fsDrain(uid);
       var cloud=await pull(uid); if(!sameUser(uid,g)) return;
       if(merge) {
         var local=bridge.read(), operations=[];
         ['event','artist'].forEach(function(k){ var present=new Set(cloud[k]); local[k].forEach(function(v){if(!present.has(v)){operations.push({op:'add',kind:k,value:v});present.add(v);}}); cloud[k]=Array.from(present); });
-        enqueue(uid,operations); fsEnqueue(uid,operations); if(!await flush(uid,g)) return; fsDrain(uid);
+        enqueue(uid,operations); fsEnqueue(uid,operations); if(!await flushWait(uid,g)){ scheduleInitRetry(uid,g,function(){ if(!initialized) applyChoice(merge); }); return; } fsDrain(uid);
       }
       if(!sameUser(uid,g)) return;
-      bridge.replace(cloud); localStorage.setItem(currentMarker,uid); initialized=true;
+      bridge.replace(cloud); localStorage.setItem(currentMarker,uid); initialized=true; initRetryCount=0;
       parts(false,false,true,false); text('同期済み。'); udPullMerge();
-    } catch(e) { noteCloudFail(e); text('同期に失敗しました。端末内データは保持されています。もう一度お試しください。'); }
+    } catch(e) { noteCloudFail(e); text('同期に失敗しました。端末内データは保持されています。もう一度お試しください。'); scheduleInitRetry(uid,g,function(){ if(!initialized) applyChoice(merge); }); }
   }
   $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
   $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
-  $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; text('同期しています…'); if(!await flush(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail();text('同期に失敗しました。端末内のデータは保持されています。');} };
+  $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; noteCloudOk(); text('同期しています…'); if(!await flushWait(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail(e);text('同期に失敗しました。端末内のデータは保持されています。');} };
   $('kg-sync-now').onclick=async function(){
     var btn=this; btn.disabled=true;
     var f0=cloudFails;
