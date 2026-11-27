@@ -1035,6 +1035,15 @@
   .tl-title{font-size:15px;font-weight:800;white-space:nowrap}
   .tl-mode{display:flex;gap:0;border:1.5px solid rgba(255,255,255,.4);border-radius:999px;overflow:hidden;flex:none}
   .tl-mode button{border:0;background:transparent;color:#f4f2ec;font-weight:800;font-size:13px;padding:8px 14px;min-height:40px;cursor:pointer}
+  /* タイムライン⇄カレンダーの切り替え（v255）: ヘッダーには入れず、
+     専用の段として置く（ヘッダー常設ボタンは表示切替のデザインを
+     崩したため廃止し、押してもホームへ戻るだけに見えた問題も含め作り直し） */
+  .tl-vswitch{display:flex;gap:0;margin:8px 12px 0;border:1.5px solid rgba(255,255,255,.4);border-radius:999px;overflow:hidden;flex:none}
+  .tl-vswitch button{flex:1;border:0;background:transparent;color:#f4f2ec;font-weight:800;font-size:13.5px;padding:9px 10px;min-height:42px;cursor:pointer;font-family:inherit}
+  .tl-vswitch button.on{background:#f2c14e;color:#17181c}
+  .cal-vswitch{display:flex;gap:0;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;margin:0 0 10px}
+  .cal-vswitch button{flex:1;border:0;background:var(--surface);color:var(--muted);font-weight:800;font-size:13.5px;padding:9px 10px;min-height:42px;cursor:pointer;font-family:inherit}
+  .cal-vswitch button.on{background:var(--accent);color:#fff}
   .tl-mode button.on{background:#f2c14e;color:#17181c}
   .tl-post{flex:none;border:0;background:var(--accent);color:#fff;border-radius:999px;padding:9px 18px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer}
   .tl-login{flex:none;border:1.5px solid rgba(255,255,255,.55);background:transparent;color:#f4f2ec;border-radius:999px;padding:9px 16px;font-weight:800;font-size:14px;min-height:44px;cursor:pointer}
@@ -1120,7 +1129,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v254';
+  window.__kgShell='v255';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1430,6 +1439,10 @@
   </section>
 
   <section id="calView" class="hidden" aria-label="カレンダー">
+    <div class="cal-vswitch" role="group" aria-label="タイムラインとカレンダーの切り替え">
+      <button type="button" id="calToTlBtn">タイムライン</button>
+      <button type="button" class="on" aria-current="true">カレンダー</button>
+    </div>
     <div class="cal-nav">
       <button type="button" id="calPrev">‹ 前へ</button>
       <h2 id="calTitle"></h2>
@@ -1633,10 +1646,13 @@
       <button type="button" id="tlModeSlide">ストーリー</button>
       <button type="button" id="tlModeFeed">一覧</button>
     </div>
-    <button class="tl-post" id="tlCalBtn" type="button">📅 カレンダー</button>
     <button class="tl-post" id="tlPostBtn" type="button">＋ 投稿する</button>
     <button class="tl-login hidden" id="tlLoginBtn" type="button">ログイン</button>
     <button class="sg-close" id="tlClose" type="button">✕ 閉じる</button>
+  </div>
+  <div class="tl-vswitch" role="group" aria-label="タイムラインとカレンダーの切り替え">
+    <button type="button" class="on" aria-current="true">タイムライン</button>
+    <button type="button" id="tlToCalBtn">カレンダー</button>
   </div>
   <div class="tl-search" id="tlSearch">
     <input id="tlSearchInput" type="search" placeholder="タイムライン内を検索（イベント名・会場・出演者）" aria-label="タイムライン内を検索">
@@ -3609,7 +3625,7 @@ function renderCalChips(){
   box.innerHTML=myCalendars.map(function(c){
     var on=(calScope==="custom" && calActiveId===c.id);
     return '<button type="button" class="cal-chip'+(on?" on":"")+'" data-cal-chip="'+esc(c.id)+'">'+esc(c.name)+'</button>';
-  }).join("") + ((calScope==="custom" && calActiveId)? ' <button type="button" class="cal-chip" data-cal-tl="1">タイムラインで見る</button>' : "");
+  }).join("");
 }
 /* 管理画面の下書きと候補プール（v249）。候補は推し・フォロー中だけだった
    不足を解消し、気になるアーティスト・全プロフィール・全イベントの
@@ -3720,8 +3736,12 @@ function calStoreSave(storeId){
   var data={ id:"cal"+Date.now().toString(36), name:t.name||"ストアのタブ", artists:(t.artists||[]).slice(), venues:(t.venues||[]).slice(), organizers:(t.organizers||[]).slice(), fromStore:storeId };
   ["fav","want","int","plan","oshiAll","intAll"].forEach(function(k){ data[k]=t[k]? 1:0; });
   myCalendars.push(data);
-  saveMyCalendars(); calMgrRender(); renderCalendar(); tlRefreshIfOpen();
-  toast("タブ「"+data.name+"」を保存しました");
+  saveMyCalendars();
+  /* 保存した実感が持てるよう、保存直後にそのタブの編集画面を開く
+     （名前はここで自分の付けたい名前に変えられる） */
+  calEditId=data.id; calDraft=null;
+  calMgrRender(); renderCalendar(); tlRefreshIfOpen();
+  toast("タブ「"+data.name+"」を保存しました。名前はそのまま変更できます");
 }
 async function calStoreTogglePublish(calId){
   if(!window.kgTabStore){ toast("ストアに接続できませんでした"); return; }
@@ -9204,6 +9224,13 @@ if(els.calScopeFollow) els.calScopeFollow.addEventListener("click", function(){ 
   var mgr=document.getElementById("calMgr");
   var openBtn=document.getElementById("calMgrOpen");
   if(openBtn && mgr) openBtn.addEventListener("click", function(){ mgr.hidden=false; calDraft=null; calMgrRender(); mgr.scrollIntoView({block:"nearest"}); });
+  /* タイムラインとの切り替え（v255）: カレンダー上部の切り替え段から。
+     マイカレンダーを選択中なら、そのタブのままタイムラインを開く */
+  var toTlBtn=document.getElementById("calToTlBtn");
+  if(toTlBtn) toTlBtn.addEventListener("click", function(){
+    if(calScope==="custom" && calActiveId) tlPendingCalId=calActiveId;
+    openTimeline();
+  });
   var closeBtn=document.getElementById("calMgrClose");
   if(closeBtn && mgr) closeBtn.addEventListener("click", function(){ mgr.hidden=true; if(mgr.classList.contains("cal-mgr-in-tl")) calMgrRestoreHome(); });
   var closeBtnB=document.getElementById("calMgrCloseB");
@@ -10783,15 +10810,16 @@ function refreshTlLogin(){
   });
   var post=tlEl("tlPostBtn");
   if(post) post.addEventListener("click", tlOpenPost);
-  /* カレンダーとの切り替え（v254）: ヘッダーに常設。カスタムタブを
-     選択中ならそのタブのままカレンダーを開き、そうでなければ
-     カレンダー表示へそのまま切り替える */
-  var calB=tlEl("tlCalBtn");
+  /* カレンダーとの切り替え（v255）: 専用の切り替え段から。
+     先に行き先（カレンダー表示＋タブ）を確定させてからタイムラインを
+     閉じる。閉じる処理を先にすると、ホームへ戻っただけに見える
+     ことがあったため、この順序にする */
+  var calB=tlEl("tlToCalBtn");
   if(calB) calB.addEventListener("click", function(){
     var cid=tlCalId;
-    closeTimeline();
-    view="calendar";
     if(cid){ calScope="custom"; calActiveId=cid; }
+    view="calendar";
+    closeTimeline();
     render(); window.scrollTo(0,0);
   });
   var stage=tlEl("tlStage");
