@@ -18,7 +18,7 @@
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 id="kg-account-title" style="font-size:19px;margin:0">ログイン・同期</h2><button id="kg-account-close" type="button" aria-label="閉じる" style="min-width:44px">✕</button></div>' +
     '<p id="kg-account-status" role="status" aria-live="polite"></p>' +
     '<div id="kg-webview-warn" hidden style="border:1px solid #c0392b;border-radius:10px;padding:10px 12px;margin:8px 0"><p style="margin:0 0 6px;font-weight:700">アプリ内ブラウザではログインできません</p><p style="font-size:13px;margin:0 0 8px">Xなどのアプリの中で開いたページでは、Google本人確認が使えません。ログインしても、いつものブラウザに情報は引き継がれません。通常のブラウザ（Safari／Chrome）で開き直してください。</p><p style="margin:0"><button id="kg-webview-copy" type="button">このページのURLをコピー</button> <a id="kg-webview-open" href="#" hidden>ブラウザで開く（Android）</a></p></div>' +
-    '<div id="kg-sync-panel" hidden><p id="kg-sync-last" style="font-size:13px;margin:4px 0"></p><p id="kg-sync-cloud" style="font-size:13px;margin:4px 0"></p><p id="kg-sync-err" style="font-size:13px;margin:4px 0;color:#b03a2e"></p><p style="font-size:13px;margin:4px 0">同期は自動でも行われます（変更時・約45秒ごと・アプリを離れる時）。確実に反映したいときは、このボタンで今すぐ同期できます。</p><button id="kg-sync-now" type="button">今すぐ同期する</button></div>' +
+    '<div id="kg-sync-panel" hidden><p id="kg-sync-last" style="font-size:13px;margin:4px 0"></p><p id="kg-sync-cloud" style="font-size:13px;margin:4px 0"></p><p id="kg-sync-err" style="font-size:13px;margin:4px 0;color:#b03a2e"></p><p id="kg-sync-note" style="font-size:13px;margin:4px 0">同期は自動でも行われます（変更時・約45秒ごと・アプリを離れる時）。確実に反映したいときは、このボタンで今すぐ同期できます。</p><button id="kg-sync-now" type="button">今すぐ同期する</button><p style="margin:8px 0 4px"><button id="kg-sync-write" type="button">クラウドへ書き込む</button> <button id="kg-sync-read" type="button">クラウドから読み込む</button></p><p id="kg-sync-verify" style="font-size:13px;margin:4px 0"></p><label style="font-size:13px;display:block;margin:6px 0"><input type="checkbox" id="kg-sync-auto-off"> 自動同期を止める（手動だけにする）</label></div>' +
     '<div id="kg-account-off" hidden><p>ログインの接続設定はまだ完了していません。現在の推し・お気に入りはこの端末だけに保存されます。</p></div>' +
     '<div id="kg-login-form" hidden><p>Googleアカウントでログインします（ログインすると、推し・お気に入りの同期も始まります）。</p><button id="kg-google-login" type="button">Googleでログイン</button></div>' +
     '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推し・お気に入り・マイリスト・行きたい／気になる・フォロー・好みなどをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button><span id="kg-signout-confirm" hidden> <span style="font-size:13px">ログアウトすると、この端末内のデータをすべて消去します。アカウントのデータは残ります。</span> <button id="kg-signout-yes" type="button">ログアウトする</button> <button id="kg-signout-no" type="button">やめる</button></span></div>' +
@@ -39,7 +39,7 @@
   function text(s) { $('kg-account-status').textContent = s; }
   function fmtSyncTime(t){ var d=new Date(t); function p2(n){ return (n<10?'0':'')+n; } return (d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }
   function markSynced(){ try{ localStorage.setItem('kg_last_sync_v1', String(Date.now())); }catch(e){} syncPanelRender(); }
-  function syncPanelRender(){ var p=$('kg-sync-panel'); if(!p) return; p.hidden=!(member||user); var el=$('kg-sync-last'); if(el){ var t=0; try{ t=Number(localStorage.getItem('kg_last_sync_v1')||0);  syncCloudRender(); }catch(e){} el.textContent = t? ('最終同期：'+fmtSyncTime(t)) : '最終同期：まだ同期されていません'; } var ee=$('kg-sync-err'); if(ee){ var le=null; try{ le=JSON.parse(localStorage.getItem('kg_last_cloud_err_v1')||'null'); }catch(_){} ee.textContent = (le && le.m)? ('直近の同期エラー：'+le.m+'（'+fmtSyncTime(le.t)+'）') : ''; } }
+  function syncPanelRender(){ var p=$('kg-sync-panel'); if(!p) return; p.hidden=!(member||user); syncAutoRender(); var el=$('kg-sync-last'); if(el){ var t=0; try{ t=Number(localStorage.getItem('kg_last_sync_v1')||0);  syncCloudRender(); }catch(e){} el.textContent = t? ('最終同期：'+fmtSyncTime(t)) : '最終同期：まだ同期されていません'; } var ee=$('kg-sync-err'); if(ee){ var le=null; try{ le=JSON.parse(localStorage.getItem('kg_last_cloud_err_v1')||'null'); }catch(_){} ee.textContent = (le && le.m)? ('直近の同期エラー：'+le.m+'（'+fmtSyncTime(le.t)+'）') : ''; } }
   var syncCloudBusy=false;
   async function syncCloudRender(){
     var el=$('kg-sync-cloud'); if(!el) return;
@@ -203,6 +203,7 @@
   /* ================= 振り分け（主軸→保険） ================= */
   async function flush(uid,g) {
     if (running) return false;
+    if (syncSuspended()) return false;
     running=true;
     try {
       if(queueRead(uid).length) {
@@ -239,7 +240,7 @@
     initRetryCount++;
     if(initRetryTimer) clearTimeout(initRetryTimer);
     var delays=[8000,20000,40000,60000,90000,120000];
-    initRetryTimer=setTimeout(function(){ if(!initialized && sameUser(uid,g)) fn(); }, delays[Math.min(initRetryCount-1,5)]);
+    initRetryTimer=setTimeout(function(){ if(!initialized && sameUser(uid,g) && !syncSuspended()) fn(); }, delays[Math.min(initRetryCount-1,5)]);
   }
   async function pull(uid) {
     var sheetErr=null;
@@ -393,6 +394,14 @@
     var isAdminAcct=await noteAdminAccount(user);
     if(isAdminAcct){ $('kg-email-display').textContent+='（管理者）'; renderAdmin(); }
     parts(false,false,true,false); renderState();
+    if(syncAutoOff()){
+      /* 自動同期オフ（Kota要望 v243）: ログインはしても送受信はしない。
+         バックアップを取る前など、クラウドを勝手に書き換えられたくない
+         場面のため。手動の書き込み/読み込みは同期パネルから実行できる */
+      text('自動同期はオフです。この端末のデータは自動では送受信されません。同期パネルの「クラウドへ書き込む」「クラウドから読み込む」は手動で実行できます。');
+      syncPanelRender();
+      return;
+    }
     if (localStorage.getItem(currentMarker)===uid) {
       text('アカウントのデータを確認しています…');
       var initReturning=async function(){
@@ -428,9 +437,9 @@
   }
   $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
   $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
-  $('kg-refresh').onclick=async function(){ if(!user)return; var uid=user.id,g=generation; noteCloudOk(); text('同期しています…'); if(!await flushWait(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail(e);text('同期に失敗しました。端末内のデータは保持されています。');} };
+  $('kg-refresh').onclick=function(){ if(!user)return; var uid=user.id,g=generation; withBypass(async function(){ noteCloudOk(); text('同期しています…'); if(!await flushWait(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail(e);text('同期に失敗しました。端末内のデータは保持されています。');} }); };
   $('kg-sync-now').onclick=async function(){
-    var btn=this; btn.disabled=true;
+    var btn=this; btn.disabled=true; manualBypass=true;
     var f0=cloudFails;
     try{
       if(member && memberReady){
@@ -453,8 +462,116 @@
         text('ログインが完了してから同期できます。');
       }
     }catch(e){ noteCloudFail(e); text('同期に失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。時間をおいてもう一度お試しください。'); }
-    finally{ btn.disabled=false; syncPanelRender(); }
+    finally{ btn.disabled=false; manualBypass=false; syncPanelRender(); }
   };
+  /* ===== 自動同期オフと、手動の書き込み/読み込み（v243、Kota要望） =====
+     バックアップを取りたい時など、勝手に同期されて戻せなくなるのを防ぐ。
+     オフの間は自動の送信・受信・統合をすべて止め（端末内の変更キューは
+     そのまま保持）、同期パネルのボタンからだけ明示的に送受信できる。
+     書き込みは送信後にクラウドを読み戻して件数を照合し、一致した時だけ
+     「確認済み」と出す */
+  var manualBypass=false;
+  function syncAutoOff(){ try{ return localStorage.getItem('kg_sync_auto_off_v1')==='1'; }catch(e){ return false; } }
+  function syncSuspended(){ return syncAutoOff() && !manualBypass; }
+  async function withBypass(fn){ manualBypass=true; try{ return await fn(); } finally{ manualBypass=false; } }
+  function syncAutoRender(){
+    var cb=$('kg-sync-auto-off'); if(cb) cb.checked=syncAutoOff();
+    var nt=$('kg-sync-note'); if(nt) nt.textContent = syncAutoOff() ? '自動同期はオフです。変更は自動で送られません。「クラウドへ書き込む」「クラウドから読み込む」は手動で実行できます。' : '同期は自動でも行われます（変更時・約45秒ごと・アプリを離れる時）。確実に反映したいときは、このボタンで今すぐ同期できます。';
+  }
+  function resumeAutoSync(){
+    if(user && !initialized && fbUser){ setupSession({user:{id:fbUser.uid, email:fbUser.email}}); }
+    else if(member && !memberReady){ activateMember(member.acct, member.code||null, true); }
+    else { udPullMerge(); }
+  }
+  $('kg-sync-auto-off').onchange=function(){
+    try{ if(this.checked) localStorage.setItem('kg_sync_auto_off_v1','1'); else localStorage.removeItem('kg_sync_auto_off_v1'); }catch(e){}
+    syncAutoRender();
+    if(this.checked){ text('自動同期を止めました。この端末の変更は、手動で「クラウドへ書き込む」を押すまで送られません。'); }
+    else { text('自動同期を再開します。'); resumeAutoSync(); }
+  };
+  function udCounts(o){
+    o=o||{}; var f=o.follows||{}; var pc=0;
+    if(o.plans && Array.isArray(o.plans.patterns)) o.plans.patterns.forEach(function(p){ pc+=((p&&p.ids)||[]).length; });
+    return [ (o.want||[]).length, (o.interest||[]).length, ((f.venues||[]).length)+((f.organizers||[]).length), (o.lists||[]).length, pc, (o.cals||[]).length, (o.words||[]).length ];
+  }
+  async function manualWrite(){
+    if(!(member||user)){ text('ログインしてから実行できます。'); return; }
+    var vEl=$('kg-sync-verify');
+    await withBypass(async function(){
+      noteCloudOk();
+      try{
+        if(member){
+          text('クラウドへ書き込んでいます…');
+          await memberPushFavorites(member.acct);
+          var dataM=udReadLocal();
+          await memberSetMeta(member.acct, {userdata:dataM, udUpdatedAt:Date.now()});
+          try{ docCacheDrop('m:'+member.acct); }catch(_){}
+          var d=await memberDoc(member.acct);
+          var localM=bridge.read();
+          var okM = !!d && (d.events||[]).length===localM.event.length && (d.artists||[]).length===localM.artist.length && udCounts(d.userdata).join(',')===udCounts(dataM).join(',');
+          if(vEl) vEl.textContent = okM ? ('書き込み確認：クラウドと一致しました（お気に入り '+((d.events||[]).length)+'件・推し '+((d.artists||[]).length)+'件）') : '書き込み確認：クラウドと一致しませんでした。時間をおいてもう一度お試しください。';
+          if(okM){ markSynced(); text('書き込みが完了し、クラウドで確認できました（会員コード）。'); }
+          else { text('書き込みは送りましたが、クラウド側と一致しませんでした。'); }
+        } else if(user){
+          var uid=user.id, g=generation;
+          text('クラウドへ書き込んでいます…');
+          if(!await flushWait(uid,g)){ if(vEl) vEl.textContent='書き込み確認：お気に入りの送信が完了しませんでした。'; text('書き込みに失敗しました。端末内データは保持されています。'); return; }
+          fsDrain(uid);
+          var dataG=udReadLocal();
+          await udGoogleSet(uid, dataG);
+          var token=await idToken(); var gk=await googleKeyOf(uid);
+          docCacheDrop(gk);
+          var doc=await kvGet(gk, token);
+          var fv=(doc&&doc.favorites)||{};
+          var ce=Array.isArray(fv.event)?fv.event.length:0, ca=Array.isArray(fv.artist)?fv.artist.length:0;
+          var localG=bridge.read();
+          var okG = ce===localG.event.length && ca===localG.artist.length && udCounts(doc&&doc.userdata).join(',')===udCounts(dataG).join(',');
+          if(vEl) vEl.textContent = okG ? ('書き込み確認：クラウドと一致しました（お気に入り '+ce+'件・推し '+ca+'件）') : ('書き込み確認：クラウドと一致しません（お気に入り 端末'+localG.event.length+'件／クラウド'+ce+'件、推し 端末'+localG.artist.length+'件／クラウド'+ca+'件）。時間をおいてもう一度お試しください。');
+          if(okG){ noteCloudOk(); markSynced(); text('書き込みが完了し、クラウドで確認できました。'); }
+          else { text('書き込みは送りましたが、クラウド側と一致しませんでした。'); }
+        }
+      }catch(e){ noteCloudFail(e); if(vEl) vEl.textContent='書き込み確認：失敗しました（'+((e&&e.code)||'エラー')+'）'; text('書き込みに失敗しました。端末内データは保持されています。'); }
+    });
+    syncPanelRender();
+  }
+  async function manualRead(){
+    if(!(member||user)){ text('ログインしてから実行できます。'); return; }
+    if(!confirm('クラウドの内容を読み込みます。推し・お気に入りはクラウドの内容に置き換わります。よろしいですか？')) return;
+    var vEl=$('kg-sync-verify');
+    await withBypass(async function(){
+      noteCloudOk();
+      try{
+        if(member){
+          text('クラウドから読み込んでいます…');
+          try{ docCacheDrop('m:'+member.acct); }catch(_){}
+          var d=await memberDoc(member.acct);
+          if(!d){ text('クラウドのデータが見つかりませんでした。'); return; }
+          bridge.replace(cloudOf(d));
+          try{ localStorage.setItem('kg_member_selected_v2', member.acct); }catch(_){}
+          memberReady=true;
+          await udPullMerge();
+          if(vEl) vEl.textContent='読み込み確認：お気に入り '+((d.events||[]).length)+'件・推し '+((d.artists||[]).length)+'件を反映しました。';
+          markSynced();
+          text('クラウドから読み込みました（会員コード）。');
+        } else if(user){
+          var uid=user.id, g=generation;
+          text('クラウドから読み込んでいます…');
+          var data=await pull(uid);
+          if(!sameUser(uid,g)) return;
+          bridge.replace(data);
+          initialized=true;
+          try{ localStorage.setItem(currentMarker, uid); }catch(_){}
+          await udPullMerge();
+          if(vEl) vEl.textContent='読み込み確認：お気に入り '+(data.event.length)+'件・推し '+(data.artist.length)+'件を反映しました。';
+          markSynced();
+          text('クラウドから読み込みました。');
+        }
+      }catch(e){ noteCloudFail(e); text('読み込みに失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。'); }
+    });
+    syncPanelRender();
+  }
+  $('kg-sync-write').onclick=function(){ manualWrite(); };
+  $('kg-sync-read').onclick=function(){ manualRead(); };
   $('kg-signout').onclick=function(){ if(!user)return; if(queueRead(user.id).length){text('未同期の変更があります。まず同期してからログアウトしてください。');return;} $('kg-signout-confirm').hidden=false; };
   $('kg-signout-no').onclick=function(){ $('kg-signout-confirm').hidden=true; };
   $('kg-signout-yes').onclick=async function(){ if(!user)return; $('kg-signout-confirm').hidden=true; try { await client.signOut(client.auth); } catch(e) { text('ログアウトできませんでした。'); return; } localStorage.removeItem(currentMarker); wipeLocalUserData(); setTimeout(function(){ location.reload(); }, 400); };
@@ -486,7 +603,7 @@
   function cloudOf(d){ return {event:Array.isArray(d.events)?d.events:[], artist:Array.isArray(d.artists)?d.artists:[]}; }
   function saveMemberSession(){ if(member) localStorage.setItem('kg_member_session_v2', JSON.stringify({acct:member.acct, code:member.code||null})); }
   function renderMember(){ var has=!!member; $('kg-member-off').hidden=has; $('kg-member-on').hidden=!has; if(has) $('kg-code-display').textContent = member.code ? member.code : '（未設定）'; var rd=$('kg-role-display'); if(rd){ if(has && member.role && member.linkName){ rd.hidden=false; rd.textContent=roleLabel(member.role)+' '+member.linkName+' としてログイン中です。'; } else { rd.hidden=true; } } if(has) refreshBindBlock(); }
-  function scheduleMemberPush(){ if(!member||!memberReady)return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member)return; memberPushFavorites(member.acct).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
+  function scheduleMemberPush(){ if(!member||!memberReady)return; if(syncSuspended())return; if(memberPushTimer)clearTimeout(memberPushTimer); memberPushTimer=setTimeout(function(){ if(!member||syncSuspended())return; memberPushFavorites(member.acct).then(function(){ text('同期済み（会員コード）。'); }, function(e){ text('同期できませんでした（'+((e&&e.code)||'エラー')+'）。端末内には保存済みです。'); }); },700); }
   /* ---------- その他の端末データの同期（v105で追加） ----------
      推し・お気に入り以外の端末データ（行きたい／気になる／マイリスト／
      フォロー／好み／保存した絞り込み／学習／終了表示）も端末をまたげるよう、
@@ -597,6 +714,7 @@
   }
   var udBusy=false, udLastSig='';
   async function udPushNow(force){
+    if(syncSuspended()) return false;
     if(udBusy) return true;
     if(cloudBlocked()) return false;
     var sig=udSig(); if(!sig) return false; if(!force && sig===udLastSig) return true;
@@ -623,6 +741,7 @@
   async function udPullMerge(){
     /* ログイン確定後に呼ぶ: クラウド側の userdata を端末へ統合し、
        変化があれば1回だけ再読み込みして画面へ反映する */
+    if(syncSuspended()) return;
     udArmWatchers();
     if(cloudBlocked()) return;
     try{
@@ -659,6 +778,7 @@
     if(!fromRestore){ memberSetMeta(acct, {lastLoginAt:Date.now()}).catch(function(){}); }
     saveMemberSession();
     renderMember(); renderState();
+    if(syncAutoOff()){ text('自動同期はオフです。この端末のデータは自動では送受信されません。同期パネルから手動で実行できます。'); syncPanelRender(); return true; }
     if(localStorage.getItem('kg_member_selected_v2')===acct){ bridge.replace(cloudOf(d)); memberReady=true; text('同期済み（会員コード）。'); udPullMerge(); }
     else {
       /* 会員コードの初回ログインも自動で統合して同期を始める（v151） */
