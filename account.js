@@ -423,7 +423,7 @@
       var initReturning=async function(){
         if(!await flushWait(uid,g)){ scheduleInitRetry(uid,g,initReturning); return; }
         fsDrain(uid);
-        try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; initRetryCount=0; text('同期済み。'); udPullMerge(); }
+        try { var cloud=await pull(uid); if(!sameUser(uid,g)) return; cloud=await mergeFavLocal(uid,g,cloud); if(!sameUser(uid,g)) return; bridge.replace(cloud); initialized=true; initRetryCount=0; text('同期済み。'); udPullMerge(); }
         catch(e) { noteCloudFail(e); text('クラウドの読み込みに失敗しました。端末内データは保持されています。'); scheduleInitRetry(uid,g,initReturning); }
       };
       await initReturning();
@@ -434,6 +434,17 @@
       await applyChoice(true);
       if(!initialized){ choiceMode='google'; parts(false,false,false,true); text('同期方法を選んでください。'); bootChoicePending=true; renderState(); }
     }
+  }
+  /* 端末のお気に入り・推しをクラウドへ和集合で統合する（v248）。
+     ログイン未完了の間に切り替えた分は同期待ち行列に入っておらず、
+     そのままクラウドの内容で置き換えると端末側の追加分が消えてしまう
+     （2026-11-28、同期不良の期間中の追加フォローが消えた実害を受けて追加）。
+     置き換えの前に必ず端末分をクラウドへ足し、足した分は送信まで行う */
+  async function mergeFavLocal(uid,g,cloud){
+    var local=bridge.read(), operations=[];
+    ['event','artist'].forEach(function(k){ var present=new Set(cloud[k]); local[k].forEach(function(v){ if(!present.has(v)){ operations.push({op:'add',kind:k,value:String(v)}); present.add(v); } }); cloud[k]=Array.from(present); });
+    if(operations.length){ enqueue(uid,operations); fsEnqueue(uid,operations); await flushWait(uid,g); fsDrain(uid); }
+    return cloud;
   }
   async function applyChoice(merge) {
     if(!user) return; var uid=user.id,g=generation; text('データを確認しています…');
@@ -453,7 +464,7 @@
   }
   $('kg-merge').onclick=function(){ bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(true); else applyChoice(true); };
   $('kg-use-cloud').onclick=function(){ if(confirm('この端末の推し・お気に入りをアカウントのデータに置き換えます。よろしいですか？')) { bootChoicePending=false; renderState(); if(choiceMode==='member') applyMemberChoice(false); else applyChoice(false); } };
-  $('kg-refresh').onclick=function(){ if(!user)return; var uid=user.id,g=generation; withBypass(async function(){ noteCloudOk(); text('同期しています…'); if(!await flushWait(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail(e);text('同期に失敗しました。端末内のデータは保持されています。');} }); };
+  $('kg-refresh').onclick=function(){ if(!user)return; var uid=user.id,g=generation; withBypass(async function(){ noteCloudOk(); text('同期しています…'); if(!await flushWait(uid,g))return; fsDrain(uid); try{var data=await pull(uid);if(!sameUser(uid,g))return;data=await mergeFavLocal(uid,g,data);if(!sameUser(uid,g))return;bridge.replace(data);initialized=true;localStorage.setItem(currentMarker,uid);text('同期済み。');udPullMerge();}catch(e){noteCloudFail(e);text('同期に失敗しました。端末内のデータは保持されています。');} }); };
   $('kg-sync-now').onclick=async function(){
     var btn=this; btn.disabled=true; manualBypass=true;
     var f0=cloudFails;
@@ -795,7 +806,7 @@
     saveMemberSession();
     renderMember(); renderState();
     if(syncAutoOff()){ text('自動同期はオフです。この端末のデータは自動では送受信されません。同期パネルから手動で実行できます。'); syncPanelRender(); return true; }
-    if(localStorage.getItem('kg_member_selected_v2')===acct){ bridge.replace(cloudOf(d)); memberReady=true; text('同期済み（会員コード）。'); udPullMerge(); }
+    if(localStorage.getItem('kg_member_selected_v2')===acct){ var cd=cloudOf(d); var lc=bridge.read(); ['event','artist'].forEach(function(k){ var s=new Set(cd[k]); lc[k].forEach(function(v){ s.add(v); }); cd[k]=Array.from(s); }); bridge.replace(cd); memberReady=true; text('同期済み（会員コード）。'); udPullMerge(); }
     else {
       /* 会員コードの初回ログインも自動で統合して同期を始める（v151） */
       pendingMemberCloud=cloudOf(d);
