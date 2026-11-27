@@ -414,6 +414,20 @@
   .tl-me-favrow{display:flex;gap:6px;align-items:stretch}
   .tl-me-favmain{flex:1;display:flex;gap:9px;align-items:baseline;text-align:left;background:rgba(244,242,236,.07);border:1px solid rgba(244,242,236,.18);color:#f4f2ec;border-radius:9px;padding:7px 10px;cursor:pointer;font-family:inherit;min-width:0}
   .tl-me-unfav{flex:none;width:40px;border:1px solid rgba(244,242,236,.25);background:transparent;color:#f4f2ec;border-radius:9px;font-size:14px;cursor:pointer;font-family:inherit}
+  /* マイページのデザイン刷新とフォロー管理（v205）: ヘッダーにグラデーション帯、
+     統計は数字＋ラベルのセグメント行、フォロー行は丸アイコン＋✕（その場で外せる） */
+  .tl-me-head{padding:10px 12px;border-radius:12px;background:linear-gradient(120deg,rgba(184,134,11,.38),rgba(150,30,60,.34) 58%,rgba(40,83,107,.38));border:1px solid rgba(244,242,236,.18)}
+  .tl-me-ava.big{box-shadow:0 0 0 2px rgba(244,242,236,.85)}
+  .tl-me-stats{gap:0;background:rgba(244,242,236,.05);border:1px solid rgba(244,242,236,.16);border-radius:10px;overflow:hidden}
+  .tl-me-stats button{background:transparent;border:0;border-radius:0;min-height:54px}
+  .tl-me-stats button + button{border-left:1px solid rgba(244,242,236,.14)}
+  .tl-me-stats button.on{border-color:transparent;color:#ffd94a;box-shadow:inset 0 -2px 0 #ffd94a}
+  .tl-me-frow{display:flex;align-items:center;gap:8px;background:rgba(244,242,236,.07);border:1px solid rgba(244,242,236,.18);border-radius:9px;padding:5px 8px 5px 10px}
+  .tl-me-frow-main{flex:1;display:flex;align-items:center;gap:9px;background:none;border:0;color:#f4f2ec;text-align:left;cursor:pointer;font-family:inherit;padding:2px 0;min-height:40px;min-width:0}
+  .tl-me-fava{flex:none;width:34px;height:34px;border-radius:50%;object-fit:cover;background:#f4f2ec;color:#0e0f12;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900}
+  .tl-me-fname{font-weight:700;font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl-me-fmeta{font-size:12px;opacity:.8;display:block}
+  .tl-me-un{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid rgba(244,242,236,.3);background:transparent;color:#f4f2ec;font-size:13px;cursor:pointer;font-family:inherit}
   .tl-me-empty{font-size:12.5px;opacity:.7;margin:2px 0 0}
   .tl-me-more{margin-top:7px;background:none;border:0;color:#f4f2ec;font-weight:700;font-size:12.5px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:4px 0}
   .tl-scope{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 2px;scrollbar-width:none;overscroll-behavior-x:contain}
@@ -1040,7 +1054,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v204';
+  window.__kgShell='v205';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -9173,7 +9187,7 @@ function renderTlMe(){
   if(prefs.tlMode!=="feed"){
     el.innerHTML='<button type="button" class="tl-me-bar" data-tlme="feed">'
       +'<span class="tl-me-ava">★</span><span class="tl-me-bar-t">マイページ</span>'
-      +'<span class="tl-me-bar-s">推し '+favPerfs.size+'組 ・ プラン今日 '+todaySlots.length+'件 ・ リスト '+myLists.length+'件</span>'
+      +'<span class="tl-me-bar-s">フォロー '+(favPerfs.size+follows.venues.length+follows.organizers.length)+' ・ プラン今日 '+todaySlots.length+'件 ・ リスト '+myLists.length+'件</span>'
       +'<span class="tl-me-bar-go">開く ›</span></button>';
     return;
   }
@@ -9186,13 +9200,12 @@ function renderTlMe(){
     '<div class="tl-me-head"><span class="tl-me-ava big">★</span><div><div class="tl-me-name">マイページ</div><div class="tl-me-state">'+esc(state||"この端末")+'</div></div></div>'
     +(tlMeNoteOpen? '<p class="tl-me-note">あなたの端末の中だけの表示です。他人に公開されることはありません。<button type="button" class="tl-me-note-x" data-tlme-note="1">隠す</button></p>' : '<button type="button" class="tl-me-note-link" data-tlme-note="1">この表示について ›</button>')
     +'<div class="tl-me-stats">'
-    +'<button type="button" data-tlme="oshi"'+(tlMePanel==="oshi"?' class="on"':'')+'><strong>'+favPerfs.size+'</strong><span>推し（組）</span></button>'
+    +'<button type="button" data-tlme="follow"'+(tlMePanel==="follow"?' class="on"':'')+'><strong>'+(favPerfs.size+follows.venues.length+follows.organizers.length)+'</strong><span>フォロー</span></button>'
     +'<button type="button" data-tlme="fav"'+(tlMePanel==="fav"?' class="on"':'')+'><strong>'+favEvents.size+'</strong><span>お気に入り</span></button>'
     +'<button type="button" data-tlme="plan"'+(tlMePanel==="plan"?' class="on"':'')+'><strong>'+slots.length+'</strong><span>回しプラン</span></button>'
     +'<button type="button" data-tlme="lists"'+(tlMePanel==="lists"?' class="on"':'')+'><strong>'+myLists.length+'</strong><span>リスト</span></button>'
-    +'<button type="button" data-tlme="follow"><strong>'+(favPerfs.size+follows.venues.length+follows.organizers.length)+'</strong><span>フォロー</span></button>'
     +'</div>'
-    +(tlMePanel==="oshi"? '<div class="tl-me-panel">'+tlMeOshiHTML()+'</div>' : '')
+    +(tlMePanel==="follow"? '<div class="tl-me-panel">'+tlMeFollowHTML()+'</div>' : '')
     +(tlMePanel==="plan"? '<div class="tl-me-panel"><div class="tl-me-panel-t">今日の回し'+(planPatterns.length>1 && activePattern()? '（'+esc(activePattern().name)+'）' : '')+'</div>'+(planRows? '<div class="tl-me-slots">'+planRows+'</div>' : '<p class="tl-me-empty">'+(planIds.size? '今日のプランはありません。' : '今日のプランはまだありません。イベントの詳細から「回しプラン」に入れられます。')+'</p>')+(slots.length? '<button type="button" class="tl-me-more" data-tlme-scope="plan">回しプランを全部見る（'+slots.length+'件）</button>' : '')+'</div>' : '')
     +(tlMePanel==="fav"? '<div class="tl-me-panel"><div class="tl-me-panel-t">お気に入りの管理</div>'+tlMeFavHTML()+'</div>' : '')
     +(tlMePanel==="lists"? '<div class="tl-me-panel"><div class="tl-me-panel-t">リスト（ブックマーク）</div>'+tlMeListsHTML()+'</div>' : '');
@@ -9248,6 +9261,47 @@ function tlMeOshiHTML(){
     return '<button type="button" class="tl-me-orow" data-tlme-oshi="'+esc(p)+'"><span class="tl-me-orow-n">★ '+esc(p)+'</span><span class="tl-me-orow-m">'+esc(meta)+'</span></button>';
   }).join("");
   return '<div class="tl-me-orows">'+rows+'</div>';
+}
+/* フォローの管理（v205、Kota指示）: アーティスト（推し）・会場・主催者を1つの
+   「フォロー」として並べ、各行の✕で登録名そのものを直接外せるようにする。
+   名前解決を通さないので、統合前の古い名前や別表記が残っていても外せる */
+function tlMeFollowHTML(){
+  var stats=tlMeOshiStats();
+  var td=todayStr();
+  var h='<button type="button" class="tl-me-more" data-tlme-scope="follow">フォロー中をタイムラインで見る</button>';
+  h+='<div class="tl-me-sec">アーティスト（'+favPerfs.size+'）</div>';
+  if(!favPerfs.size) h+='<p class="tl-me-empty">まだフォローがありません。アーティストのページやイベント詳細から登録できます。</p>';
+  else {
+    var names=Array.from(favPerfs);
+    names.sort(function(a,b){
+      var sa=stats[a], sb=stats[b];
+      var na=sa? sa.next : "", nb=sb? sb.next : "";
+      if(na && nb){ if(na!==nb) return na<nb? -1 : 1; return sb.count-sa.count; }
+      if(na) return -1;
+      if(nb) return 1;
+      return 0;
+    });
+    h+='<div class="tl-me-orows">'+names.map(function(p){
+      var st=stats[p];
+      var meta=!st? '今後の予定なし' : (st.next<td? ('開催中 ・ '+st.count+'件') : ('次回 '+(+st.next.slice(5,7))+'/'+(+st.next.slice(8,10))+' ・ '+st.count+'件'));
+      var pr=artistProfileFor(p);
+      var av=(pr && pr.av)? '<img class="tl-me-fava" src="'+esc(pr.av)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '<span class="tl-me-fava">★</span>';
+      return '<div class="tl-me-frow"><button type="button" class="tl-me-frow-main" data-tlme-oshi="'+esc(p)+'">'+av+'<span style="flex:1;min-width:0"><span class="tl-me-fname">'+esc(p)+'</span><span class="tl-me-fmeta">'+esc(meta)+'</span></span></button><button type="button" class="tl-me-un" data-tlme-unoshi="'+esc(p)+'" aria-label="'+esc(p)+' のフォローを外す">✕</button></div>';
+    }).join("")+'</div>';
+  }
+  h+='<div class="tl-me-sec">会場（'+follows.venues.length+'）</div>';
+  if(!follows.venues.length) h+='<p class="tl-me-empty">フォロー中の会場はありません。会場のページからフォローできます。</p>';
+  else h+='<div class="tl-me-orows">'+follows.venues.map(function(nm){
+      var cnt=allEvents.filter(function(ev){ return !isEnded(ev) && sameVenueFacility(ev.venue, nm); }).length;
+      return '<div class="tl-me-frow"><button type="button" class="tl-me-frow-main" data-tlme-dir="venue:'+esc(nm)+'"><span class="tl-me-fava">⌖</span><span style="flex:1;min-width:0"><span class="tl-me-fname">'+esc(nm)+'</span><span class="tl-me-fmeta">今後のイベント '+cnt+'件</span></span></button><button type="button" class="tl-me-un" data-tlme-unfollow="venue:'+esc(nm)+'" aria-label="'+esc(nm)+' のフォローを外す">✕</button></div>';
+    }).join("")+'</div>';
+  h+='<div class="tl-me-sec">主催者（'+follows.organizers.length+'）</div>';
+  if(!follows.organizers.length) h+='<p class="tl-me-empty">フォロー中の主催者はありません。主催者のページからフォローできます。</p>';
+  else h+='<div class="tl-me-orows">'+follows.organizers.map(function(nm){
+      var cnt=allEvents.filter(function(ev){ return !isEnded(ev) && (ev.organizerName||"").trim()===nm; }).length;
+      return '<div class="tl-me-frow"><button type="button" class="tl-me-frow-main" data-tlme-dir="organizer:'+esc(nm)+'"><span class="tl-me-fava">✦</span><span style="flex:1;min-width:0"><span class="tl-me-fname">'+esc(nm)+'</span><span class="tl-me-fmeta">今後のイベント '+cnt+'件</span></span></button><button type="button" class="tl-me-un" data-tlme-unfollow="organizer:'+esc(nm)+'" aria-label="'+esc(nm)+' のフォローを外す">✕</button></div>';
+    }).join("")+'</div>';
+  return h;
 }
 /* お気に入りの管理（v106）: 今後の分を最大8件、その場で詳細表示と解除ができる */
 function tlMeFavHTML(){
@@ -9319,11 +9373,11 @@ function renderTlScope(){
   el.classList.remove("hidden");
   var anySel=!!(tlScopeListId||tlScopePreset||tlScopeArtist);
   el.innerHTML='<button type="button" data-tlscope="" class="'+(anySel?"":"on")+'">すべて</button>'
-    + ["fav","want","int","oshi","plan"].map(function(p){ return '<button type="button" data-tlscope="p:'+p+'" class="'+(tlScopePreset===p?"on":"")+'">'+esc(presetLabel(p))+'</button>'; }).join("")
+    + ["fav","want","int","plan"].map(function(p){ return '<button type="button" data-tlscope="p:'+p+'" class="'+(tlScopePreset===p?"on":"")+'">'+esc(presetLabel(p))+'</button>'; }).join("")
     + '<button type="button" data-tlscope="p:follow" class="'+(tlScopePreset==="follow"?"on":"")+'">フォロー中</button>'
     + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("")
     + ((tlScopePreset==="want"||tlScopePreset==="int")? '<button type="button" data-tl-go-plan="'+tlScopePreset+'">回しプランで開く</button>' : '')
-    + (tlScopeArtist? '<button type="button" data-tlscope-artist="1" class="on">推し：'+esc(tlScopeArtist)+' ✕</button>' : '');
+    + (tlScopeArtist? '<button type="button" data-tlscope-artist="1" class="on">フォロー：'+esc(tlScopeArtist)+' ✕</button>' : '');
   renderTlSort();
 }
 function renderTlSort(){
@@ -9662,6 +9716,12 @@ function refreshTlLogin(){
   if(mf) mf.addEventListener("click", function(){ tlSetMode("feed"); });
   var meEl=tlEl("tlMe");
   if(meEl) meEl.addEventListener("click", function(e){
+    var un=e.target.closest("[data-tlme-unoshi]");
+    if(un){ var unm=un.getAttribute("data-tlme-unoshi"); favPerfs.delete(unm); saveSet(LS_OSHI, favPerfs); renderCountsOnly(); toast("フォローを外しました："+unm); if(tlScopeArtist===unm){ tlScopeArtist=null; renderTlScope(); } tlState.items=buildTimelineItems(); tlBuildTicker(); renderTlMe(); return; }
+    var uv=e.target.closest("[data-tlme-unfollow]");
+    if(uv){ var usp=uv.getAttribute("data-tlme-unfollow"); var uk=usp.slice(0, usp.indexOf(":")); var unm2=usp.slice(usp.indexOf(":")+1); var uarr=(uk==="venue")? follows.venues : follows.organizers; var uix=uarr.indexOf(unm2); if(uix>=0) uarr.splice(uix,1); saveFollows(); toast("フォローを外しました："+unm2); tlState.items=buildTimelineItems(); tlBuildTicker(); renderTlMe(); return; }
+    var dr=e.target.closest("[data-tlme-dir]");
+    if(dr){ var dsp=dr.getAttribute("data-tlme-dir"); openDirDetail(dsp.slice(0, dsp.indexOf(":")), dsp.slice(dsp.indexOf(":")+1)); return; }
     var uf=e.target.closest("[data-tlme-unfav]");
     if(uf){ toggleFav(uf.getAttribute("data-tlme-unfav")); toast("お気に入りから外しました"); tlState.items=buildTimelineItems(); tlBuildTicker(); tlApplyMode(); return; }
     var ob=e.target.closest("[data-tlme-open]");
@@ -9679,14 +9739,7 @@ function refreshTlLogin(){
     var b=e.target.closest("[data-tlme]"); if(!b) return;
     var v=b.getAttribute("data-tlme");
     if(v==="feed"){ tlSetMode("feed"); return; }
-    if(v==="follow"){
-      tlResetQuery();
-      tlMePanel=null;
-      tlScopePreset="follow"; tlScopeListId=null; tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode();
-      if(!tlState.items.length) toast("フォロー中の新着はありません");
-      return;
-    }
-    if(v==="oshi"){ tlMePanel=tlMePanel==="oshi"? null : "oshi"; renderTlMe(); return; }
+    if(v==="follow"){ tlMePanel=tlMePanel==="follow"? null : "follow"; renderTlMe(); return; }
     if(v==="fav"){ tlMePanel=tlMePanel==="fav"? null : "fav"; renderTlMe(); return; }
     if(v==="plan"){ tlMePanel=tlMePanel==="plan"? null : "plan"; renderTlMe(); return; }
     if(v==="lists"){ tlMePanel=tlMePanel==="lists"? null : "lists"; renderTlMe(); return; }
