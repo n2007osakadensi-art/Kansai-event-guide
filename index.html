@@ -1030,7 +1030,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v197';
+  window.__kgShell='v198';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -2731,7 +2731,75 @@ function perfGroups(){
   perfGroupSrc=allEvents; perfGroupProf=artistProfiles;
   return perfGroupCache;
 }
-function perfCanonOf(p){ var g=perfGroups(); return g.canonOf[p]||p; }
+function perfCanonOf(p){ var r=resolveArtistStep123(p); if(r) return r; var g=perfGroups(); return g.canonOf[p]||p; }
+/* 出演者名→正式アーティストページへの解決（仕様: docs/specs/artist-page-resolution-spec-20261127.md）。
+   (1) プロフィール正式名と完全一致 (2) 正式名・別名と正規化一致
+   (3) 検索辞書（種別=アーティスト）の正式名・検索ワードと正規化一致
+       → プロフィールがあればそのページ、無ければ正式名で1ページに集約
+   (4) 正規化グループの代表表記（perfGroups）。
+   ページ生成・索引・導線・候補はすべてこの解決を通し、表記ゆれでページを多重にしない */
+var dictKindByName={}, dictDataVer=0;
+var artistResolveCache=null, artistResolveSrc=null, artistResolveProf=null, artistResolveDictVer=-1;
+function buildArtistResolver(){
+  if(artistResolveCache && artistResolveSrc===allEvents && artistResolveProf===artistProfiles && artistResolveDictVer===dictDataVer) return artistResolveCache;
+  var counts={};
+  allEvents.forEach(function(ev){ (ev._perfList||[]).forEach(function(p){ counts[p]=(counts[p]||0)+1; }); });
+  var profNorm={}, aliasNorm={};
+  Object.keys(artistProfiles).forEach(function(k){ var nk=normSearch(k); if(nk && !profNorm[nk]) profNorm[nk]=k; });
+  Object.keys(artistProfiles).forEach(function(k){ (artistProfiles[k].al||[]).forEach(function(a){ var na=normSearch(a); if(na && !aliasNorm[na]) aliasNorm[na]=k; }); });
+  var formalNorm={}, wordNorm={};
+  function formalScore(f){ return (artistProfiles[f]?1000000000:0)+(counts[f]||0); }
+  function addDict(formal, words){
+    var nf=normSearch(formal); if(!nf) return;
+    if(!formalNorm[nf] || formalScore(formal)>formalScore(formalNorm[nf])) formalNorm[nf]=formal;
+    (words||[]).forEach(function(w){ var nw=normSearch(w); if(!nw) return; if(!wordNorm[nw] || formalScore(formal)>formalScore(wordNorm[nw])) wordNorm[nw]=formal; });
+  }
+  Object.keys(dictByName).forEach(function(f){
+    /* 同梱辞書は種別を持たないため、シート辞書で種別=アーティストと分かるものと、
+       正式名自体がアーティストプロフィールのものだけを解決に使う */
+    if(dictKindByName[f]==="アーティスト" || artistProfiles[f]) addDict(f, dictByName[f]);
+  });
+  var R={profNorm:profNorm, aliasNorm:aliasNorm, formalNorm:formalNorm, wordNorm:wordNorm, memo:{}};
+  artistResolveCache=R; artistResolveSrc=allEvents; artistResolveProf=artistProfiles; artistResolveDictVer=dictDataVer;
+  return R;
+}
+function resolveArtistStep123(p){
+  if(!p) return null;
+  if(artistProfiles[p]) return p;
+  var R=buildArtistResolver(), np=normSearch(p);
+  if(!np) return null;
+  if(R.profNorm[np]) return R.profNorm[np];
+  if(R.aliasNorm[np]) return R.aliasNorm[np];
+  var f=R.formalNorm[np] || R.wordNorm[np] || null;
+  if(f) return artistProfiles[f] ? f : (R.profNorm[normSearch(f)] || f);
+  return null;
+}
+function resolveArtistName(p){
+  if(!p) return p;
+  var R=buildArtistResolver();
+  if(Object.prototype.hasOwnProperty.call(R.memo, p)) return R.memo[p];
+  var t=resolveArtistStep123(p);
+  if(!t){ var g=perfGroups(); t=g.canonOf[p]||p; }
+  R.memo[p]=t;
+  return t;
+}
+/* 推しの登録判定は解決先でそろえる（別表記で登録していても正式ページで登録中と出す） */
+function oshiNameHas(name){
+  if(!name) return false;
+  if(favPerfs.has(name)) return true;
+  var t=resolveArtistName(name), hit=false;
+  favPerfs.forEach(function(f){ if(!hit && resolveArtistName(f)===t) hit=true; });
+  return hit;
+}
+function oshiNameToggle(name){
+  var t=resolveArtistName(name);
+  if(oshiNameHas(name)){
+    favPerfs.forEach(function(f){ if(f===name || resolveArtistName(f)===t) favPerfs.delete(f); });
+    return false;
+  }
+  favPerfs.add(t);
+  return true;
+}
 function searchHay(ev){
   if(ev._hay) return ev._hay;
   var parts=[ev.title, ev.venue, ev.vs, ev.performers, ev.category, ev.categories, ev.area, ev.prefecture, ev.organizerName, ev.date];
@@ -2778,6 +2846,7 @@ function exactMatch(ev, t){
   if(t.kind==="artist"){
     if(ev._perfList.indexOf(t.value)>=0) return true;
     if(ev._perfList.some(function(p){ return normSearch(p)===normSearch(t.value); })) return true;
+    if(ev._perfList.some(function(p){ return resolveArtistName(p)===t.value; })) return true;
     if(isOskRelated(ev, t.value)) return true;
     /* 会場と同じく、アーティストDBで同一プロフィールと判定される別名表記も同一視する */
     var tp=artistProfileFor(t.value);
@@ -3371,9 +3440,9 @@ function groupsOfMember(name){
    旧方式は「名前ごとに全イベントを走査」していたため、アーティスト数が増えるほど
    指数的に重くなっていた。索引には直接の出演名に加え、別名の正式名・所属グループの
    メンバー名・OSK特例までを展開して入れる（詳細ページの集計と一致させるため） */
-var perfIndex=null, perfIndexSrc=null, perfIndexProf=null, memberPerfIndex=null;
+var perfIndex=null, perfIndexSrc=null, perfIndexProf=null, perfIndexDictVer=-1, memberPerfIndex=null;
 function buildPerfIndex(){
-  if(perfIndex && perfIndexSrc===allEvents && perfIndexProf===artistProfiles) return perfIndex;
+  if(perfIndex && perfIndexSrc===allEvents && perfIndexProf===artistProfiles && perfIndexDictVer===dictDataVer) return perfIndex;
   /* プロフィール本体→正式名の逆引き。オブジェクトを通常の連想配列のキーにすると
      全て "[object Object]" に潰れて最後の1件に化けるため、必ず Map で持つ
      （v95 の実地確認で発覚: グループ名が別の団体名に化けていた） */
@@ -3387,6 +3456,7 @@ function buildPerfIndex(){
       addTo(p, ev, seen);
       var tp=artistProfileFor(p);
       if(tp && profKey.get(tp)) addTo(profKey.get(tp), ev, seen);
+      addTo(resolveArtistName(p), ev, seen);
       /* 所属グループの公演は、本人の予定とは分けて持つ（v94）。
          旧仕様はグループの全公演を各メンバーの索引にも入れており、出演予定の
          無いメンバーのページに無関係な公演が大量表示されていた。 */
@@ -3401,7 +3471,7 @@ function buildPerfIndex(){
     });
     if(isOskRelated(ev, OSK_BASE)) addTo(OSK_BASE, ev, seen);
   });
-  perfIndex=map; memberPerfIndex=mmap; perfIndexSrc=allEvents; perfIndexProf=artistProfiles;
+  perfIndex=map; memberPerfIndex=mmap; perfIndexSrc=allEvents; perfIndexProf=artistProfiles; perfIndexDictVer=dictDataVer;
   return perfIndex;
 }
 /* 本人ではなく所属グループ名義の公演（グループ名つきで別枠表示する） */
@@ -3623,7 +3693,7 @@ function loadProfiles(){
     if(res[1]){ artistProfiles=res[1]; }
     if(res[2]){ Object.keys(res[2]).forEach(function(rd){ var nm=res[2][rd]; if(nm && !readingByName[nm]) readingByName[nm]=rd; }); }
     if(res[3]){ venueSuppById=res[3]; attachVenueSupp(); }
-    if(res[4]){ dictByName=res[4]; dictWords.memo={}; buildDictRevMap(); }
+    if(res[4]){ dictByName=res[4]; dictWords.memo={}; buildDictRevMap(); dictDataVer++; }
     loadSheetDict();
     loadSheetProfiles();
     if(profSheetState.open) renderProfSheet();
@@ -3688,7 +3758,7 @@ function buildArtists(){
   var idx=buildPerfIndex();
   var map={};
   allEvents.forEach(function(ev){
-    ev._perfList.forEach(function(p){ if(!map[p]) map[p]={name:p,total:0,upcoming:0,cat:""}; });
+    ev._perfList.forEach(function(p){ var t=resolveArtistName(p); if(!map[t]) map[t]={name:t,total:0,upcoming:0,cat:""}; });
   });
   Object.keys(map).forEach(function(name){
     var evs=idx[name]||[];
@@ -3713,6 +3783,7 @@ function buildArtists(){
     (artistProfiles[k].m||[]).forEach(function(mb){
       var mn=(mb && mb.n) ? String(mb.n).trim() : "";
       if(!mn) return;
+      if(resolveArtistName(mn)!==mn) return; /* 別名・辞書で正式ページへ解決されるメンバーはそのページに集約する */
       if(map[mn]){ if(!map[mn].memberOf) map[mn].memberOf=k; return; }
       var hasSuffixed=Object.keys(map).some(function(n){ return n.indexOf(mn+"（")===0 || n.indexOf(mn+"(")===0; });
       if(!hasSuffixed) map[mn]={name:mn,total:0,upcoming:0,cat:"",memberOf:k};
@@ -3863,9 +3934,9 @@ function renderDirInner(){
       var sub = it.cat || (readingByName[it.name]||"");
       if(it.next) sub=(sub? sub+" ・ " : "")+"次の出演 "+fmtDate(it.next.date)+"「"+it.next.title+"」";
       if(it.memberOf && !it.total) sub=(sub? sub+" ・ " : "")+it.memberOf+"のメンバー";
-      var oshiBtn = '<button class="oshi-mini'+(favPerfs.has(it.name)?" on":"")+'" type="button" data-oshi-toggle="'+esc(it.name)+'" aria-label="推し登録">'+(favPerfs.has(it.name)?"★":"☆")+'</button>';
+      var oshiBtn = '<button class="oshi-mini'+(oshiNameHas(it.name)?" on":"")+'" type="button" data-oshi-toggle="'+esc(it.name)+'" aria-label="推し登録">'+(oshiNameHas(it.name)?"★":"☆")+'</button>';
       var counts = '<span class="dir-counts"><strong>'+it.upcoming+'件</strong>開催予定（全'+it.total+'件）</span>';
-      return '<div class="dir-row">'+(it.profile&&it.profile.av?'<img class="dicon" src="'+esc(it.profile.av)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':"")+'<button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">プロフィール</span>':"")+(favPerfs.has(it.name)?'<span style="color:var(--oshi);font-size:12.5px">★ 推し</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+oshiBtn+counts+'</div>';
+      return '<div class="dir-row">'+(it.profile&&it.profile.av?'<img class="dicon" src="'+esc(it.profile.av)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':"")+'<button class="dir-main" type="button" data-dir-open="'+esc(it.name)+'" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer"><span class="dir-name">'+esc(it.name)+(it.profile?' <span class="db-badge">プロフィール</span>':"")+(oshiNameHas(it.name)?'<span style="color:var(--oshi);font-size:12.5px">★ 推し</span>':"")+'</span><span class="dir-sub" style="display:block">'+esc(sub)+'</span></button>'+oshiBtn+counts+'</div>';
     }).join("") + (shownA.length>dirCap ? '<p style="font-size:13px;color:var(--muted);text-align:center">'+(dirArtistSort==="count"?"上位":"先頭")+dirCap+'件まで表示しています。検索や絞り込みで探してください。</p>' : "");
     return;
   }
@@ -3941,6 +4012,7 @@ function renderDirInner(){
   renderVenueSuggest(shown);
 }
 function openDirDetail(kind, name){
+  if(kind==="artist") name=resolveArtistName(name);
   /* タイムライン表示中はデータベースへ飛ばさず、その場にプロフィールシートを開く（v90） */
   if(typeof tlState!=="undefined" && tlState.open){
     if(els.overlay.classList.contains("open")) closeModal();
@@ -4005,7 +4077,7 @@ function renderDetailInner(){
   past.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?1:-1; return 0; });
   var head="";
   if(kind==="artist"){
-    var isOshi=favPerfs.has(name);
+    var isOshi=oshiNameHas(name);
     var aprof0=artistProfileFor(name);
     head='<div class="detail-head prof-artist"><div class="prof-cover"></div><span class="cat-chip" style="background:var(--oshi)">アーティスト</span>'
       +'<div style="display:flex;align-items:center;gap:12px;margin-top:8px">'+(aprof0&&aprof0.av?'<img class="artist-avatar" src="'+esc(aprof0.av)+'" alt="" onerror="this.style.display=\'none\'">':"")+'<h2 style="margin:0">'+esc(name)+'</h2></div>'
@@ -4158,7 +4230,7 @@ function renderDetailInner(){
   });
   var ob=document.getElementById("detailOshiBtn");
   if(ob) ob.addEventListener("click", function(){
-    if(favPerfs.has(name)){ favPerfs.delete(name); toast("推しから外しました："+name); } else { favPerfs.add(name); toast("推しに登録しました："+name); }
+    if(oshiNameToggle(name)){ toast("推しに登録しました："+name); } else { toast("推しから外しました："+name); }
     saveSet(LS_OSHI, favPerfs); renderDetail(); renderCountsOnly(); if(tlState.open || tlState.suspended) renderTlMe();
   });
   els.detailBody.querySelectorAll("[data-team]").forEach(function(b){
@@ -6891,7 +6963,8 @@ function kgOpenHashTarget(forceT){
     var ev=allEvents.find(function(x){ return String(x.id)===String(t.value); });
     if(ev){ kgHashOpened=true; openModal(ev); }
   } else if(t.kind==="artist"){
-    if(artistProfileFor(t.value) || allEvents.some(function(ev){ return (ev._perfList||[]).indexOf(t.value)>=0; })){ kgHashOpened=true; openDirDetail("artist", t.value); }
+    var rn=resolveArtistName(t.value);
+    if(artistProfileFor(rn) || artistEvents(rn).length){ kgHashOpened=true; openDirDetail("artist", rn); }
   } else if(t.kind==="venue"){
     if(venueProfileFor(t.value) || allEvents.some(function(ev){ return (ev.venue||"")===t.value; })){ kgHashOpened=true; openDirDetail("venue", t.value); }
   }
@@ -7295,10 +7368,12 @@ function loadSheetDict(){
   window[cbName]=function(resp){
     try{
       var rows=(resp && resp.table && resp.table.rows)||[];
-      var added=0;
+      var added=0, kindChanged=false;
       rows.forEach(function(r, ri){
         if(ri===0 || !r || !r.c) return;
         var canon=(r.c[0] && r.c[0].v!=null)? String(r.c[0].v).trim() : "";
+        var kind=(r.c[1] && r.c[1].v!=null)? String(r.c[1].v).trim() : "";
+        if(kind && dictKindByName[canon]!==kind){ dictKindByName[canon]=kind; kindChanged=true; }
         var cell=(r.c[2] && r.c[2].v!=null)? String(r.c[2].v) : "";
         if(!canon || !cell) return;
         var words=cell.split(/[、,]/).map(function(w){ return w.trim(); }).filter(Boolean);
@@ -7306,6 +7381,7 @@ function loadSheetDict(){
         var cur=dictByName[canon]||(dictByName[canon]=[]);
         words.forEach(function(w){ if(cur.indexOf(w)<0){ cur.push(w); added++; } });
       });
+      if(added || kindChanged){ dictDataVer++; artistResolveCache=null; perfIndex=null; }
       if(added){
         dictWords.memo={};
         buildDictRevMap();
@@ -7655,7 +7731,7 @@ function loadSheetProfiles(){
   function step(){
     if(--pending>0 || !changed) return;
     indexVenueProfiles();
-    perfIndex=null; artistProfCache={};
+    perfIndex=null; artistResolveCache=null; artistProfCache={};
     artistCatCache={};
     allEvents.forEach(function(ev){ ev._hay=null; });
     if(allEvents.length) render();
@@ -8272,7 +8348,7 @@ els.dirList.addEventListener("click", function(e){
   var ot=e.target.closest("[data-oshi-toggle]");
   if(ot){
     var n=ot.getAttribute("data-oshi-toggle");
-    if(favPerfs.has(n)){ favPerfs.delete(n); toast("推しから外しました："+n); } else { favPerfs.add(n); toast("推しに登録しました："+n); }
+    if(oshiNameToggle(n)){ toast("推しに登録しました："+n); } else { toast("推しから外しました："+n); }
     saveSet(LS_OSHI, favPerfs); render(); return;
   }
   var b=e.target.closest("[data-dir-open]"); if(!b) return;
@@ -9166,6 +9242,7 @@ function psEventsOf(kind, name){
   return allEvents.filter(function(ev){ return sameVenueFacility((ev.venue||"").trim(), name); });
 }
 function openProfSheet(kind, name){
+  if(kind==="artist") name=resolveArtistName(name);
   profSheetState={open:true, kind:kind, name:name, tab:"sched", evs:[], all:[]};
   if(typeof tlState!=="undefined" && tlState.timer) clearTimeout(tlState.timer);
   renderProfSheet();
@@ -9184,14 +9261,14 @@ function closeProfSheet(){
 }
 (function(){ var sh=document.getElementById("profSheet"); if(sh) sh.addEventListener("click", function(e){ if(e.target===sh) closeProfSheet(); }); })();
 function psFollowed(kind, name){
-  if(kind==="artist") return favPerfs.has(name);
+  if(kind==="artist") return oshiNameHas(name);
   if(kind==="venue") return venueFollowed(name);
   return followHas("organizer", name);
 }
 function psToggleFollow(){
   var kind=profSheetState.kind, name=profSheetState.name;
   if(kind==="artist"){
-    if(favPerfs.has(name)){ favPerfs.delete(name); toast("推しから外しました："+name); } else { favPerfs.add(name); toast("推しに登録しました："+name); }
+    if(oshiNameToggle(name)){ toast("推しに登録しました："+name); } else { toast("推しから外しました："+name); }
     saveSet(LS_OSHI, favPerfs); renderCountsOnly();
   } else if(kind==="venue"){
     var vi=-1; follows.venues.forEach(function(f,i){ if(sameVenueFacility(f, name)) vi=i; });

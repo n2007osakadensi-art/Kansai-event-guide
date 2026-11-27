@@ -621,7 +621,70 @@ function feedPerfGroups(){
   feedPerfGroupSrc=allEvents;
   return feedPerfGroupCache;
 }
-function feedPerfCanonOf(p){ var g=feedPerfGroups(); return g.canonOf[p]||p; }
+function feedPerfCanonOf(p){ var r=feedResolveArtistStep123(p); if(r) return r; var g=feedPerfGroups(); return g.canonOf[p]||p; }
+/* 出演者名→正式アーティストページへの解決（本体と同仕様: docs/specs/artist-page-resolution-spec-20261127.md）。
+   (1) プロフィール正式名と完全一致 (2) 正式名・別名と正規化一致
+   (3) 検索辞書（種別=アーティスト）の正式名・検索ワードと正規化一致
+       → プロフィールがあればそのページ、無ければ正式名で1ページに集約
+   (4) 正規化グループの代表表記 */
+var feedDictKindByName={}, feedArtistResolveCache=null, feedArtistResolveSrc=null, feedArtistResolveVer=-1;
+function buildFeedArtistResolver(){
+  if(feedArtistResolveCache && feedArtistResolveSrc===allEvents && feedArtistResolveVer===feedHayVer) return feedArtistResolveCache;
+  var counts={};
+  allEvents.forEach(function(ev){ (ev._perfList||[]).forEach(function(p){ counts[p]=(counts[p]||0)+1; }); });
+  var profNorm={}, aliasNorm={};
+  Object.keys(feedArtistProfiles).forEach(function(k){ var nk=normSearch(k); if(nk && !profNorm[nk]) profNorm[nk]=k; });
+  Object.keys(feedArtistProfiles).forEach(function(k){ (feedArtistProfiles[k].al||[]).forEach(function(a){ var na=normSearch(a); if(na && !aliasNorm[na]) aliasNorm[na]=k; }); });
+  var formalNorm={}, wordNorm={};
+  function formalScore(f){ return (feedArtistProfiles[f]?1000000000:0)+(counts[f]||0); }
+  function addDict(formal, words){
+    var nf=normSearch(formal); if(!nf) return;
+    if(!formalNorm[nf] || formalScore(formal)>formalScore(formalNorm[nf])) formalNorm[nf]=formal;
+    (words||[]).forEach(function(w){ var nw=normSearch(w); if(!nw) return; if(!wordNorm[nw] || formalScore(formal)>formalScore(wordNorm[nw])) wordNorm[nw]=formal; });
+  }
+  Object.keys(feedDictByName).forEach(function(f){
+    if(feedDictKindByName[f]==="アーティスト" || feedArtistProfiles[f]) addDict(f, feedDictByName[f]);
+  });
+  var R={profNorm:profNorm, aliasNorm:aliasNorm, formalNorm:formalNorm, wordNorm:wordNorm, memo:{}};
+  feedArtistResolveCache=R; feedArtistResolveSrc=allEvents; feedArtistResolveVer=feedHayVer;
+  return R;
+}
+function feedResolveArtistStep123(p){
+  if(!p) return null;
+  if(feedArtistProfiles[p]) return p;
+  var R=buildFeedArtistResolver(), np=normSearch(p);
+  if(!np) return null;
+  if(R.profNorm[np]) return R.profNorm[np];
+  if(R.aliasNorm[np]) return R.aliasNorm[np];
+  var f=R.formalNorm[np] || R.wordNorm[np] || null;
+  if(f) return feedArtistProfiles[f] ? f : (R.profNorm[normSearch(f)] || f);
+  return null;
+}
+function feedResolveArtistName(p){
+  if(!p) return p;
+  var R=buildFeedArtistResolver();
+  if(Object.prototype.hasOwnProperty.call(R.memo, p)) return R.memo[p];
+  var t=feedResolveArtistStep123(p);
+  if(!t){ var g=feedPerfGroups(); t=g.canonOf[p]||p; }
+  R.memo[p]=t;
+  return t;
+}
+function feedOshiNameHas(name){
+  if(!name) return false;
+  if(favPerfs.has(name)) return true;
+  var t=feedResolveArtistName(name), hit=false;
+  favPerfs.forEach(function(f){ if(!hit && feedResolveArtistName(f)===t) hit=true; });
+  return hit;
+}
+function feedOshiNameToggle(name){
+  var t=feedResolveArtistName(name);
+  if(feedOshiNameHas(name)){
+    favPerfs.forEach(function(f){ if(f===name || feedResolveArtistName(f)===t) favPerfs.delete(f); });
+    return false;
+  }
+  favPerfs.add(t);
+  return true;
+}
 var feedQuery="", feedDictByName={}, feedReadingByName={}, feedHayVer=0, feedDictStarted=false;
 var feedExactTarget=null;
 function dictWordsFeed(name){
@@ -973,6 +1036,7 @@ if(t.kind==="eventTitle") return normSearch(ev.title).indexOf(normSearch(t.value
 if(t.kind==="artist"){
 if(ev._perfList.indexOf(t.value)>=0) return true;
 if(ev._perfList.some(function(p){ return normSearch(p)===normSearch(t.value); })) return true;
+if(ev._perfList.some(function(p){ return feedResolveArtistName(p)===t.value; })) return true;
 if(feedIsOskRelated(ev, t.value)) return true;
 var tp=feedArtistProfileFor(t.value);
 if(tp) return ev._perfList.some(function(p){ return feedArtistProfileFor(p)===tp;});
@@ -1181,10 +1245,12 @@ function loadFeedDict(){
     window[cbName]=function(resp){
       try{
         var rows=(resp && resp.table && resp.table.rows)||[];
-        var added=0;
+        var added=0, kindChanged=false;
         rows.forEach(function(r, ri){
           if(ri===0 || !r || !r.c) return;
           var canon=(r.c[0] && r.c[0].v!=null)? String(r.c[0].v).trim() : "";
+          var kind=(r.c[1] && r.c[1].v!=null)? String(r.c[1].v).trim() : "";
+          if(kind && feedDictKindByName[canon]!==kind){ feedDictKindByName[canon]=kind; kindChanged=true; }
           var cell=(r.c[2] && r.c[2].v!=null)? String(r.c[2].v) : "";
           if(!canon || !cell) return;
           var words=cell.split(/[、,]/).map(function(w){ return w.trim(); }).filter(Boolean);
@@ -1192,7 +1258,7 @@ function loadFeedDict(){
           var cur=feedDictByName[canon]||(feedDictByName[canon]=[]);
           words.forEach(function(w){ if(cur.indexOf(w)<0){ cur.push(w); added++; } });
         });
-        if(added) bump();
+        if(added || kindChanged) bump();
       }catch(e){}
       finish();
     };
@@ -1946,10 +2012,11 @@ function feedProfHandleOf(url){ var m=String(url||"").match(/(?:x\.com|twitter\.
 function feedProfFor(kind, name){ return kind==="artist"? feedArtistProfileFor(name) : kind==="venue"? feedVenueProfileFor(name) : feedOrganizerProfileFor(name); }
 function feedProfEvents(kind, name){
   if(kind==="organizer") return allEvents.filter(function(ev){ return (ev.organizerName||"").trim()===name; });
+  if(kind==="artist") return allEvents.filter(function(ev){ return (ev._perfList||[]).some(function(p){ return feedResolveArtistName(p)===name; }); });
   return allEvents.filter(function(ev){ return feedExactMatch(ev, {kind:kind, value:name}); });
 }
 function feedProfFollowed(kind, name){
-  if(kind==="artist") return favPerfs.has(name);
+  if(kind==="artist") return feedOshiNameHas(name);
   if(kind==="venue") return feedFollows.venues.some(function(f){ return feedSameVenueFacility(f, name); });
   return feedFollows.organizers.indexOf(name)>=0;
 }
@@ -1961,6 +2028,7 @@ function feedProfStatsHTML(kind, evs, upcoming){
 }
 function openFeedProfile(kind, name){
   if(!kind || !name) return;
+  if(kind==="artist") name=feedResolveArtistName(name);
   feedProfState={open:true, kind:kind, name:name, tab:"sched", all:[], dirty:feedProfState.dirty};
   renderFeedProfile();
   profSheetEl.classList.remove("hidden"); profBackdropEl.classList.remove("hidden");
@@ -1974,7 +2042,7 @@ function closeFeedProfile(){
 function feedProfToggleFollow(){
   var kind=feedProfState.kind, name=feedProfState.name;
   if(kind==="artist"){
-    if(favPerfs.has(name)) favPerfs.delete(name); else favPerfs.add(name);
+    feedOshiNameToggle(name);
     saveSet(LS_OSHI, favPerfs);
   } else if(kind==="venue"){
     var vi=-1; feedFollows.venues.forEach(function(f,i){ if(feedSameVenueFacility(f, name)) vi=i; });
