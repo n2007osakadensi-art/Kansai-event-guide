@@ -676,10 +676,16 @@
       bridge.replace(cloud);
       await memberPushFavorites(member.acct);
       localStorage.setItem('kg_member_selected_v2', member.acct);
-      memberReady=true; pendingMemberCloud=null;
+      memberReady=true; pendingMemberCloud=null; applyMemberChoice.retries=0;
       parts(false, !user, !!user, false);
       text('同期済み（会員コード）。'); udPullMerge();
-    } catch(e){ text('同期に失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。'); }
+    } catch(e){ noteCloudFail(e); text('同期に失敗しました（'+((e&&e.code)||'エラー')+'）。端末内データは保持されています。');
+      /* 一時的な失敗で初回統合が止まると、会員コード経路でも同期が始まら
+         ないままになる。少し待って自動でやり直す（v242、Google経路の
+         v241と同じ自己回復） */
+      var acct0=member.acct, rn=(applyMemberChoice.retries||0);
+      if(rn<3){ applyMemberChoice.retries=rn+1; setTimeout(function(){ if(member && member.acct===acct0 && !memberReady) applyMemberChoice(merge); }, [10000,30000,60000][rn]); }
+    }
   }
   function noBackend(){ return !syncReady() && !client; }
   $('kg-code-issue').onclick=async function(){
