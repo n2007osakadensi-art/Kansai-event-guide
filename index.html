@@ -1113,7 +1113,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v245';
+  window.__kgShell='v246';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1977,6 +1977,11 @@ function parseGvizObject(json){
   /* 関連イベント列（シート列 relatedEventIds・ヘッダー名で取得。列が無い間は空） */
   var relIdx=null;
   Object.keys(idx).forEach(function(k){ if(k.toLowerCase()==="relatedeventids") relIdx=idx[k]; });
+  /* 備考列（シート列 notes・ヘッダー名で取得。events_details の末尾列として
+     2026-11-27 に追加。列が無いタブ／旧データでは空。中止・変更の実施記録が
+     備考だけにあるイベントを拾うために使う） */
+  var notesIdx=null;
+  Object.keys(idx).forEach(function(k){ if(k.toLowerCase()==="notes") notesIdx=idx[k]; });
   /* 複数画像タブ（events_images）用： imageUrls 列（公開URLのJSON配列文字列） */
   var imgUrlsIdx = idx["imageUrls"]!=null ? idx["imageUrls"] : null;
   var events=[];
@@ -1999,6 +2004,7 @@ function parseGvizObject(json){
     ev._impressions = impIdx==null ? null : parseCountCell(c[impIdx]);
     ev.performersNone = pnIdx==null ? false : (parseSheetBool(rawCellValue(c[pnIdx]))===true);
     ev.relatedIds = relIdx==null ? [] : parseRelatedIds(rawCellValue(c[relIdx]));
+    ev.notes = notesIdx==null ? "" : String(rawCellValue(c[notesIdx])||"").trim();
     ev.sheetImageUrls = imgUrlsIdx==null ? null : String(rawCellValue(c[imgUrlsIdx])||"");
     if(!ev.title && !ev.id) return;
     ev.date = normalizeDate(ev.date);
@@ -7689,7 +7695,7 @@ function loadViaJsonp(sheetName, done, fail, opts){
    範囲指定で取り直し、表を結合してから一度だけ解析する。各チャンクは
    小さいので失敗してもその塊だけ取り直せる。範囲外はシート側が
    エラー応答を返すため、1塊でも取れていれば終端として確定する */
-var KG_CHUNK_TABS={"events":"AB","events_lite":"U","events_details":"H"};
+var KG_CHUNK_TABS={"events":"AB","events_lite":"U","events_details":"I"};
 function kgGvizTableFromText(text){
   var s=text.indexOf("{"), e=text.lastIndexOf("}");
   if(s<0||e<s) throw new Error("想定外の応答形式でした");
@@ -8559,6 +8565,7 @@ function mergeDetails(events, detEvents){
     out.performers=d.performers||""; out.description=d.description||"";
     out.linkWeb=d.linkWeb||""; out.linkTicket=d.linkTicket||""; out.linkX=d.linkX||""; out.linkInstagram=d.linkInstagram||"";
     out.organizerName=d.organizerName||"";
+    out.notes=d.notes||"";
     out._perfList=splitPerfs(out.performers);
     out._hay=null;
     return out;
