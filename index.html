@@ -1113,7 +1113,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v235';
+  window.__kgShell='v236';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -3748,7 +3748,8 @@ function renderCalendar(){
   } else if(mine && !Object.keys(myRangeIds).length){
     els.calDayList.innerHTML='<div class="state"><h2>この期間の自分の予定はまだありません</h2><p>自分の予定は、付けた印（お気に入り・行きたい・気になる）、推しの出演、フォロー中の会場・主催者のイベント、回しプランから自動で集まります。カレンダーへの記入は要りません。</p></div>';
   } else if(follow && !Object.keys(myRangeIds).length){
-    els.calDayList.innerHTML='<div class="state"><h2>この期間のフォロー中のイベントはありません</h2><p>アーティストを推しに登録したり、会場・主催者をフォローすると、そのイベントがここに自動で集まります。</p></div>';
+    if(detailsState==="pending" || detailsState==="none"){ els.calDayList.innerHTML='<div class="state"><h2>フォロー中のイベントを読み込み中です</h2><p>出演者情報の取得が終わると自動で表示し直します。</p></div>'; }
+    else els.calDayList.innerHTML='<div class="state"><h2>この期間のフォロー中のイベントはありません</h2><p>アーティストを推しに登録したり、会場・主催者をフォローすると、そのイベントがここに自動で集まります。</p></div>';
   } else if(custom && !Object.keys(myRangeIds).length){
     els.calDayList.innerHTML='<div class="state"><h2>この期間の「'+esc(customCal.name)+'」のイベントはありません</h2><p>カレンダー管理で対象を増やすと、その対象のイベントがここに自動で集まります。</p></div>';
   } else {
@@ -4965,7 +4966,8 @@ function renderInner(){
   var empty = list.length===0;
   els.emptyState.hidden = !empty;
   if(empty){
-    if(view==="lists"){
+    if(!allEvents.length){ els.emptyTitle.textContent="データを読み込み中です"; els.emptyText.textContent="取得が終わると自動で表示し直します。回線が遅いときは少し時間がかかります。"; }
+    else if(view==="lists"){
       if(listPreset){ els.emptyTitle.textContent=presetLabel(listPreset)+"はまだありません"; els.emptyText.textContent="イベントのカードや詳細、タイムラインで印を付けると、ここに集まります。「終了したイベントも表示」をONにすると、終わった分も振り返れます。"; }
       else if(!myLists.length){ els.emptyTitle.textContent="リストがまだありません"; els.emptyText.textContent="上の「＋ 新規リスト」から作るか、イベント詳細の「＋ リスト」、アーティストページの「リストに追加」から入れられます。"; }
       else { els.emptyTitle.textContent="このリストに合うイベントがありません"; els.emptyText.textContent="検索・絞り込みの条件を外すか、イベント詳細の「＋ リスト」やアーティストページの「リストに追加」から追加してください。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
@@ -4981,6 +4983,7 @@ function renderInner(){
     }
     else if(view==="christmas"){ els.emptyTitle.textContent="この種類のクリスマスイベントはまだありません"; els.emptyText.textContent="種類チップを「すべて」に戻すか、検索・絞り込みを外してお試しください。「終了したイベントも表示」をONにすると、終了した開催分も含めて表示されます。"; }
     else if(view==="expo"){ els.emptyTitle.textContent="アフター万博特集のイベントはまだありません"; els.emptyText.textContent="検索・絞り込みを外すか、「終了したイベントも表示」をONにしてお試しください。"; }
+    else if(query && (detailsState==="pending" || detailsState==="none")){ els.emptyTitle.textContent="詳細情報を読み込み中です"; els.emptyText.textContent="出演者・主催者まで含めた結果は、詳細の取得が終わると自動で表示し直します。"; }
     else if(currentTicketUrlQuery()!=null){
       var urlHitHidden = !showEnded && allEvents.some(function(ev){ return isEnded(ev) && eventMatchesTicketUrl(ev.linkTicket, currentTicketUrlQuery()); });
       if(urlHitHidden){ els.emptyTitle.textContent="チケットURLに合うイベントは終了しています"; els.emptyText.textContent="「終了したイベントも表示」をONにすると、そのイベントも表示されます。"; }
