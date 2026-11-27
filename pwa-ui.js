@@ -58,7 +58,7 @@
     '<button type="button" id="kg-pwa-install" hidden style="min-height:44px;padding:8px 14px;border:0;border-radius:9px;background:#c62828;color:#fff;font-weight:700">アプリをインストール</button>'+
     '<p id="kg-pwa-status" role="status" aria-live="polite" style="font-size:13px;line-height:1.6"></p>'+
     '<p style="font-size:13px;line-height:1.65">初回にオンラインで開いた後は、画面の基本部分をこのブラウザに保存し、通信が不安定なときにも開ける場合があります。保存済みイベントが表示できる場合もありますが、最新情報や外部リンク・画像の取得には通信が必要です。</p>'+
-    '<p style="font-size:13px;line-height:1.65"><strong>プッシュ通知とクラウド自動同期は未接続です。</strong>別のブラウザ・URLへ移すときは「データ引っ越し」からバックアップしてください。</p>'+
+    '<p style="font-size:13px;line-height:1.65"><strong>プッシュ通知は未接続です。</strong>別のブラウザ・端末へ移すときは、会員コードでログインするとクラウド同期で引き継げます。手元のファイルで移す場合は「データ引っ越し」からバックアップしてください。</p>'+
     '<p style="font-size:12px;line-height:1.6;color:var(--muted)">PWAはこの端末でのオフライン利用を助ける機能です。公開サービスやURL自体の継続を保証するものではありません。</p>';
   document.body.appendChild(dialog);
 

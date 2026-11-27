@@ -17,6 +17,8 @@
     lists:'kg_trial_lists_v1',
     follows:'kg_trial_follows_v1',
     performers:'kg_trial_fav_performers_v1',
+    calendars:'kg_trial_calendars_v1',
+    words:'kg_trial_saved_words_v1',
     profiles:'kg_filter_profiles_v1',
     preferences:'kg_trial_prefs_v1',
     learned:'kg_trial_learn_v1',
@@ -107,6 +109,34 @@
     });
     return out;
   }
+  function safePlansObj(v){
+    if(!v||typeof v!=='object'||Array.isArray(v)) return {patterns:[],active:null};
+    var pats=Array.isArray(v.patterns)? v.patterns : [];
+    var out=[];
+    pats.slice(0,50).forEach(function(p){
+      if(!p||typeof p!=='object'||!p.id) return;
+      out.push({id:String(p.id), name:String(p.name||'プラン'), ids:stringArray(p.ids||[],'回しプラン',50000)});
+    });
+    return {patterns:out, active:(v.active!=null? String(v.active) : null)};
+  }
+  function safeCals(v){
+    if(!Array.isArray(v)) return [];
+    var out=[];
+    v.slice(0,20).forEach(function(c){
+      if(!c||typeof c!=='object'||!c.id||!c.name) return;
+      out.push({id:String(c.id), name:String(c.name), artists:stringArray(c.artists||[],'カレンダー',5000), venues:stringArray(c.venues||[],'カレンダー',5000), organizers:stringArray(c.organizers||[],'カレンダー',5000), fav:!!c.fav, want:!!c.want, int:!!c.int, plan:!!c.plan});
+    });
+    return out;
+  }
+  function safeWords(v){
+    if(!Array.isArray(v)) return [];
+    var out=[];
+    v.slice(0,50).forEach(function(x){
+      if(!x||typeof x!=='object'||!x.w) return;
+      out.push({w:String(x.w).slice(0,100), on:x.on!==false});
+    });
+    return out;
+  }
   function safeFollows(v){
     if(!v||typeof v!=='object'||Array.isArray(v)) return {venues:[],organizers:[]};
     return { venues:stringArray(v.venues||[],'フォロー中の会場',5000), organizers:stringArray(v.organizers||[],'フォロー中の主催',5000) };
@@ -126,7 +156,11 @@
       filterProfiles:safeProfiles(profiles),
       preferences:safePrefs(preferences),
       learned:safeLearned(learned),
-      showEnded:localStorage.getItem(KEYS.showEnded)==='1'
+      showEnded:localStorage.getItem(KEYS.showEnded)==='1',
+      plan:stringArray(parseStored(KEYS.plan,[]),'回しプラン（単一）',50000),
+      plans:safePlansObj(parseStored(KEYS.plans,null)),
+      calendars:safeCals(parseStored(KEYS.calendars,[])),
+      words:safeWords(parseStored(KEYS.words,[]))
     };
   }
   function normalizeBackup(value){
@@ -148,7 +182,11 @@
       filterProfiles:safeProfiles(d.filterProfiles),
       preferences:safePrefs(d.preferences),
       learned:safeLearned(d.learned),
-      showEnded:d.showEnded
+      showEnded:d.showEnded,
+      plan:Array.isArray(d.plan)?stringArray(d.plan,'回しプラン（単一）',50000):[],
+      plans:(d.plans&&typeof d.plans==='object')?safePlansObj(d.plans):{patterns:[],active:null},
+      calendars:Array.isArray(d.calendars)?safeCals(d.calendars):[],
+      words:Array.isArray(d.words)?safeWords(d.words):[]
     };
   }
   function union(a,b){
@@ -190,6 +228,35 @@
     if(out.length>200) throw new Error('統合後のマイリストが200件を超えます。不要なリストを削除するか、「置き換える」を選んでください。');
     return out;
   }
+  function mergePlansObj(a,b){
+    var out=(a.patterns||[]).map(function(x){return deepClone(x);});
+    (b.patterns||[]).forEach(function(row){
+      var i=out.findIndex(function(x){return String(x.id)===String(row.id);});
+      if(i>=0) out[i].ids=union(out[i].ids||[],row.ids||[]);
+      else out.push(deepClone(row));
+    });
+    if(out.length>50) throw new Error('統合後のプランが50件を超えます。不要なプランを削除するか、「置き換える」を選んでください。');
+    var act=a.active;
+    if(!out.some(function(p){return String(p.id)===String(act);})) act=b.active;
+    return {patterns:out, active:act};
+  }
+  function mergeCals(a,b){
+    var out=(a||[]).map(function(x){return deepClone(x);});
+    (b||[]).forEach(function(row){
+      var i=out.findIndex(function(x){return String(x.id)===String(row.id);});
+      if(i>=0) out[i]=deepClone(row); else out.push(deepClone(row));
+    });
+    return out.slice(0,20);
+  }
+  function mergeWords(a,b){
+    var out=(a||[]).map(function(x){return {w:x.w, on:x.on!==false};});
+    (b||[]).forEach(function(row){
+      var ex=null; out.forEach(function(x){ if(x.w===row.w) ex=x; });
+      if(ex) ex.on=(ex.on||row.on!==false);
+      else out.push({w:row.w, on:row.on!==false});
+    });
+    return out.slice(0,50);
+  }
   function mergeData(a,b){
     return {
       favorites:union(a.favorites,b.favorites),
@@ -201,7 +268,11 @@
       filterProfiles:mergeProfiles(a.filterProfiles,b.filterProfiles),
       preferences:mergePrefs(a.preferences,b.preferences),
       learned:mergeLearned(a.learned,b.learned),
-      showEnded:a.showEnded||b.showEnded
+      showEnded:a.showEnded||b.showEnded,
+      plan:union(a.plan||[],b.plan||[]),
+      plans:mergePlansObj(a.plans||{patterns:[],active:null},b.plans||{patterns:[],active:null}),
+      calendars:mergeCals(a.calendars,b.calendars),
+      words:mergeWords(a.words,b.words)
     };
   }
   function summary(d){
@@ -222,6 +293,10 @@
     values[KEYS.preferences]=JSON.stringify(d.preferences);
     values[KEYS.learned]=JSON.stringify(d.learned);
     values[KEYS.showEnded]=d.showEnded?'1':'0';
+    values[KEYS.plan]=JSON.stringify(d.plan||[]);
+    values[KEYS.plans]=JSON.stringify(d.plans||{patterns:[],active:null});
+    values[KEYS.calendars]=JSON.stringify(d.calendars||[]);
+    values[KEYS.words]=JSON.stringify(d.words||[]);
     var before={};
     Object.keys(values).forEach(function(k){before[k]=localStorage.getItem(k);});
     try{

@@ -17,7 +17,7 @@
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h2 id="kg-account-title" style="font-size:19px;margin:0">ログイン・同期</h2><button id="kg-account-close" type="button" aria-label="閉じる" style="min-width:44px">✕</button></div>' +
     '<p id="kg-account-status" role="status" aria-live="polite"></p>' +
     '<div id="kg-webview-warn" hidden style="border:1px solid #c0392b;border-radius:10px;padding:10px 12px;margin:8px 0"><p style="margin:0 0 6px;font-weight:700">アプリ内ブラウザではログインできません</p><p style="font-size:13px;margin:0 0 8px">Xなどのアプリの中で開いたページでは、Google本人確認が使えません。ログインしても、いつものブラウザに情報は引き継がれません。通常のブラウザ（Safari／Chrome）で開き直してください。</p><p style="margin:0"><button id="kg-webview-copy" type="button">このページのURLをコピー</button> <a id="kg-webview-open" href="#" hidden>ブラウザで開く（Android）</a></p></div>' +
-    '<div id="kg-sync-panel" hidden><p id="kg-sync-last" style="font-size:13px;margin:4px 0"></p><p style="font-size:13px;margin:4px 0">同期は自動でも行われます（変更時・約45秒ごと・アプリを離れる時）。確実に反映したいときは、このボタンで今すぐ同期できます。</p><button id="kg-sync-now" type="button">今すぐ同期する</button></div>' +
+    '<div id="kg-sync-panel" hidden><p id="kg-sync-last" style="font-size:13px;margin:4px 0"></p><p id="kg-sync-cloud" style="font-size:13px;margin:4px 0"></p><p style="font-size:13px;margin:4px 0">同期は自動でも行われます（変更時・約45秒ごと・アプリを離れる時）。確実に反映したいときは、このボタンで今すぐ同期できます。</p><button id="kg-sync-now" type="button">今すぐ同期する</button></div>' +
     '<div id="kg-account-off" hidden><p>ログインの接続設定はまだ完了していません。現在の推し・お気に入りはこの端末だけに保存されます。</p></div>' +
     '<div id="kg-login-form" hidden><p>Googleアカウントでログインします。</p><button id="kg-google-login" type="button">Googleでログイン</button></div>' +
     '<div id="kg-account-user" hidden><p id="kg-email-display"></p><p>推し・お気に入り・マイリスト・行きたい／気になる・フォロー・好みなどをこのアカウントに同期します。回しプランはこの情報から作られます。</p><button id="kg-refresh" type="button">クラウドから再読み込み</button> <button id="kg-signout" type="button">ログアウト</button><span id="kg-signout-confirm" hidden> <span style="font-size:13px">ログアウトすると、この端末内のデータをすべて消去します。アカウントのデータは残ります。</span> <button id="kg-signout-yes" type="button">ログアウトする</button> <button id="kg-signout-no" type="button">やめる</button></span></div>' +
@@ -38,7 +38,37 @@
   function text(s) { $('kg-account-status').textContent = s; }
   function fmtSyncTime(t){ var d=new Date(t); function p2(n){ return (n<10?'0':'')+n; } return (d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }
   function markSynced(){ try{ localStorage.setItem('kg_last_sync_v1', String(Date.now())); }catch(e){} syncPanelRender(); }
-  function syncPanelRender(){ var p=$('kg-sync-panel'); if(!p) return; p.hidden=!(member||user); var el=$('kg-sync-last'); if(el){ var t=0; try{ t=Number(localStorage.getItem('kg_last_sync_v1')||0); }catch(e){} el.textContent = t? ('最終同期：'+fmtSyncTime(t)) : '最終同期：まだ同期されていません'; } }
+  function syncPanelRender(){ var p=$('kg-sync-panel'); if(!p) return; p.hidden=!(member||user); var el=$('kg-sync-last'); if(el){ var t=0; try{ t=Number(localStorage.getItem('kg_last_sync_v1')||0);  syncCloudRender(); }catch(e){} el.textContent = t? ('最終同期：'+fmtSyncTime(t)) : '最終同期：まだ同期されていません'; } }
+  var syncCloudBusy=false;
+  async function syncCloudRender(){
+    var el=$('kg-sync-cloud'); if(!el) return;
+    if(!(member&&memberReady) && !(user&&initialized)){ el.textContent=''; return; }
+    if(syncCloudBusy) return; syncCloudBusy=true;
+    try{
+      var parts2=[], ud=null, upd=null;
+      if(member&&memberReady){
+        try{ docCacheDrop('m:'+member.acct); }catch(_){}
+        var d=await memberDoc(member.acct);
+        if(d){ parts2.push('お気に入り '+((d.events||[]).length)+'件'); parts2.push('推し '+((d.artists||[]).length)+'件'); ud=d.userdata||null; upd=d.udUpdatedAt||d.updatedAt||null; }
+      } else {
+        ud=await udGoogleGet(user.id);
+      }
+      ud=ud||{};
+      var f=ud.follows||{};
+      var pc=0; if(ud.plans&&Array.isArray(ud.plans.patterns)) ud.plans.patterns.forEach(function(p){ pc+=((p&&p.ids)||[]).length; });
+      parts2.push('行きたい '+((ud.want||[]).length)+'件');
+      parts2.push('気になる '+((ud.interest||[]).length)+'件');
+      parts2.push('フォロー '+(((f.venues||[]).length)+((f.organizers||[]).length))+'件');
+      parts2.push('マイリスト '+((ud.lists||[]).length)+'件');
+      parts2.push('回しプラン '+pc+'件');
+      parts2.push('カレンダー '+((ud.cals||[]).length)+'件');
+      parts2.push('キーワード '+((ud.words||[]).length)+'件');
+      var tx='クラウド保存：'+parts2.join('・');
+      if(upd){ var dt=new Date(upd); tx+='（最終保存 '+(dt.getMonth()+1)+'/'+dt.getDate()+' '+('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2)+'）'; }
+      el.textContent=tx;
+    }catch(e){ el.textContent='クラウドの保存内容を確認できませんでした。'; }
+    finally{ syncCloudBusy=false; }
+  }
   function inAppBrowser(){ var ua=navigator.userAgent||''; if(/Twitter|Line\/|Instagram|FBAN|FBAV|FB_IAB|; wv\)/.test(ua)) return true; if(/(iPhone|iPad|iPod)/.test(ua) && !/Safari/.test(ua)) return true; return false; }
   function showModal() { syncPanelRender(); refreshBindBlock(); var wv=$('kg-webview-warn'); if(wv){ wv.hidden=!inAppBrowser(); var op=$('kg-webview-open'); if(op){ if(/Android/.test(navigator.userAgent||'')){ op.hidden=false; op.href='intent://'+location.host+location.pathname+'#Intent;scheme=https;end'; } else { op.hidden=true; } } } if(retryMemberBoot && !member){ try{ retryMemberBoot(); }catch(_){} } if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open',''); } }
   $('kg-account-open').onclick = showModal;
