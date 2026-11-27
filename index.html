@@ -1054,7 +1054,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v206';
+  window.__kgShell='v207';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -6943,6 +6943,7 @@ els.searchInput.addEventListener("input", function(){
   exactTarget=null; /* 手入力に戻ったら候補の完全一致は解除し、入力した語だけで検索する */
   tagFilter="";
   query=els.searchInput.value; els.clearSearch.style.display = query? "block":"none"; renderSuggest();
+  if(query && view==="home") view="all"; /* トップで検索を始めたらイベントタブへ移る（v207。候補から選んだ場合は元々イベントタブへ移る） */
   clearTimeout(searchRenderTimer); searchRenderTimer=setTimeout(render, 110);
 });
 els.clearSearch.addEventListener("click", function(){ els.searchInput.value=""; query=""; exactTarget=null; els.clearSearch.style.display="none"; render(); els.searchInput.focus(); });
