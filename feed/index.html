@@ -189,6 +189,16 @@
   .fp-chip em{font-style:normal;opacity:.65;margin-left:4px;font-size:11.5px}
   .fp-note{font-size:12px;opacity:.6;line-height:1.6;margin-top:14px}
   .fp-mem{font-size:14px;margin:5px 0}
+  .mtabs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+  .mtab{min-height:40px;border-radius:999px;padding:6px 16px;font-size:14px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+  .mtab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .mfacets{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0}
+  .mfacets-label{font-size:12px;font-weight:700;color:var(--muted)}
+  .mfacet{min-height:36px;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+  .mfacet.on{background:#0d9488;border-color:#0d9488;color:#fff}
+  .mfacet-clear{min-height:36px;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;border:1px solid var(--line);background:none;color:var(--muted);text-decoration:underline;cursor:pointer}
+  .mfacets-note{margin:6px 0;font-size:12px;color:var(--muted)}
+  .mmempty{margin:8px 0;font-size:14px;color:var(--muted)}
   .fp-mem a{color:#9ecbff}
 
   .lp-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -685,6 +695,102 @@ function feedOshiNameToggle(name){
   favPerfs.add(t);
   return true;
 }
+/* メンバーの所属タブ＋学年・チーム・組ファセット（本体・スペース版と同仕様:
+   docs/specs/member-division-display-spec-20261127.md） */
+var FEED_FACET_POSITION_SUFFIXES=["副キャプテン","キャプテン","サブリーダー","副リーダー","リーダー","副部長","部長"];
+function feedMemberRoleFacets(role){
+  var out=[];
+  String(role||"").split(/[・･]/).forEach(function(rawSegment){
+    var segment=rawSegment.replace(/（[^）]*）/g,"").replace(/\([^)]*\)/g,"").trim();
+    if(!segment) return;
+    var stripped=true;
+    while(stripped && segment){
+      stripped=false;
+      for(var si=0; si<FEED_FACET_POSITION_SUFFIXES.length; si++){
+        var suffix=FEED_FACET_POSITION_SUFFIXES[si];
+        if(segment.length>=suffix.length && segment.slice(segment.length-suffix.length)===suffix){ segment=segment.slice(0, segment.length-suffix.length).trim(); stripped=true; break; }
+      }
+    }
+    if(!segment) return;
+    var tokens=segment.split(/[\s　]+/).filter(Boolean);
+    if(!tokens.length) return;
+    if(tokens.some(function(t){ return /[A-Za-z]/.test(t) && /[^\x00-\x7F]/.test(t); })){
+      out.push(tokens.join(" "));
+      return;
+    }
+    var asciiRun=[];
+    function flush(){ if(asciiRun.length){ out.push(asciiRun.join(" ")); asciiRun=[]; } }
+    tokens.forEach(function(token){
+      if(/^[\x00-\x7F]+$/.test(token)) asciiRun.push(token);
+      else { flush(); out.push(token); }
+    });
+    flush();
+  });
+  return out.filter(function(f, i){ return out.indexOf(f)===i; });
+}
+var feedMemberTab={artist:"", tab:""}, feedMemberFacets={artist:"", facets:[]};
+function feedMemberSectionHTML(name, prof){
+  var allMembers=(prof && prof.m)||[];
+  if(!allMembers.length) return "";
+  var groupLabels=[];
+  allMembers.forEach(function(m){ var g=String((m && m.g)||"").trim(); if(g && groupLabels.indexOf(g)<0) groupLabels.push(g); });
+  var hasUngrouped=allMembers.some(function(m){ return !String((m && m.g)||"").trim(); });
+  var showTabs=groupLabels.length>=2;
+  var selectedTab=(feedMemberTab.artist===name)? feedMemberTab.tab : "";
+  var activeTab="";
+  if(showTabs){
+    if(selectedTab==="__ungrouped__") activeTab=hasUngrouped? "__ungrouped__" : "";
+    else if(groupLabels.indexOf(selectedTab)>=0) activeTab=selectedTab;
+  }
+  var tabMembers=activeTab===""? allMembers : activeTab==="__ungrouped__"? allMembers.filter(function(m){ return !String((m && m.g)||"").trim(); }) : allMembers.filter(function(m){ return String((m && m.g)||"").trim()===activeTab; });
+  var facetSets=tabMembers.map(function(m){ return feedMemberRoleFacets(m && m.r); });
+  var facetLabels=[];
+  facetSets.forEach(function(set){ set.forEach(function(f){ if(facetLabels.indexOf(f)<0) facetLabels.push(f); }); });
+  function facetCount(f){ return facetSets.filter(function(set){ return set.indexOf(f)>=0; }).length; }
+  var showFacetRow=facetLabels.length>=2 || (facetLabels.length===1 && facetCount(facetLabels[0])<tabMembers.length);
+  var selectedFacets=(feedMemberFacets.artist===name)? feedMemberFacets.facets.filter(function(f){ return facetLabels.indexOf(f)>=0; }) : [];
+  var visibleMembers=selectedFacets.length===0? tabMembers : tabMembers.filter(function(m, i){ return selectedFacets.every(function(f){ return (facetSets[i]||[]).indexOf(f)>=0; }); });
+  var h="";
+  if(showTabs){
+    function tabBtn(value, label, count){
+      return '<button type="button" class="mtab'+(activeTab===value?" on":"")+'" data-mtab="'+esc(value)+'" data-martist="'+esc(name)+'" aria-selected="'+(activeTab===value)+'">'+esc(label)+'（'+count+'）</button>';
+    }
+    h+='<div class="mtabs" role="tablist" aria-label="所属チーム・区分でメンバーを絞り込む">'+tabBtn("", "すべて", allMembers.length)
+      + groupLabels.map(function(g){ return tabBtn(g, g, allMembers.filter(function(m){ return String((m && m.g)||"").trim()===g; }).length); }).join("")
+      + (hasUngrouped? tabBtn("__ungrouped__", "その他", allMembers.filter(function(m){ return !String((m && m.g)||"").trim(); }).length) : "")
+      + '</div>';
+  }
+  if(showFacetRow){
+    h+='<div class="mfacets"><span class="mfacets-label">学年・チーム・組</span>'
+      + facetLabels.map(function(f){
+          var sel=selectedFacets.indexOf(f)>=0;
+          return '<button type="button" class="mfacet'+(sel?" on":"")+'" data-mfacet="'+esc(f)+'" data-martist="'+esc(name)+'" aria-pressed="'+sel+'">'+esc(f)+'（'+facetCount(f)+'）</button>';
+        }).join("")
+      + (selectedFacets.length? '<button type="button" class="mfacet-clear" data-mfacet-clear="1" data-martist="'+esc(name)+'">絞り込みを解除</button>' : "")
+      + '</div>'
+      + (selectedFacets.length? '<p class="mfacets-note">'+esc(selectedFacets.join("・"))+'に当てはまるメンバーを'+visibleMembers.length+'人表示しています</p>' : "");
+  }
+  if(visibleMembers.length===0){
+    h+='<p class="mmempty">選択した条件に合うメンバーはいません。上の「絞り込みを解除」から条件を外してください。</p>';
+  } else {
+    h+=visibleMembers.map(function(mb){ var ml=""; if(mb.x) ml+=' <a href="'+esc(mb.x)+'" target="_blank" rel="noopener">X</a>'; if(mb.i) ml+=' <a href="'+esc(mb.i)+'" target="_blank" rel="noopener">Instagram</a>'; return '<p class="fp-mem">'+esc(mb.n||"")+(mb.r? '（'+esc(mb.r)+'）' : "")+((showTabs && String(mb.g||"").trim())? ' ・ '+esc(mb.g) : "")+ml+'</p>'; }).join("");
+  }
+  return h;
+}
+document.addEventListener("click", function(e){
+  var tb=e.target.closest("[data-mtab]");
+  if(tb){ feedMemberTab={artist:tb.getAttribute("data-martist"), tab:tb.getAttribute("data-mtab")}; renderFeedProfile(); return; }
+  var fc=e.target.closest("[data-mfacet]");
+  if(fc){
+    var an=fc.getAttribute("data-martist"), f=fc.getAttribute("data-mfacet");
+    var cur=(feedMemberFacets.artist===an)? feedMemberFacets.facets.slice() : [];
+    var ix=cur.indexOf(f); if(ix>=0) cur.splice(ix,1); else cur.push(f);
+    feedMemberFacets={artist:an, facets:cur};
+    renderFeedProfile(); return;
+  }
+  var cl=e.target.closest("[data-mfacet-clear]");
+  if(cl){ feedMemberFacets={artist:cl.getAttribute("data-martist"), facets:[]}; renderFeedProfile(); return; }
+});
 var feedQuery="", feedDictByName={}, feedReadingByName={}, feedHayVer=0, feedDictStarted=false;
 var feedExactTarget=null;
 function dictWordsFeed(name){
@@ -2137,7 +2243,7 @@ function feedProfInfoHTML(kind, name, prof, upcoming, evs){
       if(prof.t) links+='<a href="'+esc(prof.t)+'" target="_blank" rel="noopener">TikTok</a>';
       if(links) h+='<div class="dt-links">'+links+'</div>';
       if(prof.m && prof.m.length){
-        h+='<p class="fp-sec">メンバー</p>'+prof.m.map(function(mb){ var ml=""; if(mb.x) ml+=' <a href="'+esc(mb.x)+'" target="_blank" rel="noopener">X</a>'; if(mb.i) ml+=' <a href="'+esc(mb.i)+'" target="_blank" rel="noopener">Instagram</a>'; return '<p class="fp-mem">'+esc(mb.n||"")+(mb.r? '（'+esc(mb.r)+'）' : "")+(mb.g? ' ・ '+esc(mb.g) : "")+ml+'</p>'; }).join("");
+        h+='<p class="fp-sec">メンバー</p>'+feedMemberSectionHTML(name, prof);
       }
     }
   } else if(kind==="venue"){
