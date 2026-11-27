@@ -636,6 +636,11 @@
   .cal-cond[hidden]{display:none}
   .cal-cond button{border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 12px;font-weight:800;font-size:12.5px;min-height:36px;cursor:pointer;font-family:inherit}
   .cal-mode .cal-ws{flex:0 0 auto;font-size:12.5px;padding:9px 10px}
+  .cal-refl{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
+  .cal-refl-title{font-size:12.5px;font-weight:800;color:var(--muted);margin:0 0 8px}
+  .cal-refl-row{margin:0 0 8px}
+  .cal-refl-cals{display:flex;flex-wrap:wrap;gap:6px}
+  .cal-refl-cals:empty{display:none}
   .cal-plan-link{display:inline-block;margin:0 0 10px;border:1.5px solid var(--accent);color:var(--accent);background:transparent;border-radius:999px;padding:8px 14px;font-weight:800;font-size:13.5px;min-height:40px;cursor:pointer;font-family:inherit}
   .cal-overlap{margin:6px 0 0;border-radius:8px;background:#fef3c7;color:#92400e;padding:6px 10px;font-size:12.5px;font-weight:700}
   .cal-day.hasmine{box-shadow:inset 0 0 0 2px var(--gold)}
@@ -1098,7 +1103,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v214';
+  window.__kgShell='v215';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1413,6 +1418,14 @@
       <button type="button" data-cal-mode="week" role="tab" aria-selected="false">週間</button>
       <button type="button" data-cal-mode="2week" role="tab" aria-selected="false">2週間</button>
       <button type="button" id="calWeekStart" class="cal-ws" aria-label="週の始まりを切り替える">日曜始まり</button>
+    </div>
+    <div class="cal-refl">
+      <div class="cal-refl-title">トップの週間カレンダーへの反映</div>
+      <div class="cal-scope cal-refl-row">
+        <button type="button" id="calReflAll">全イベントの件数</button>
+        <button type="button" id="calReflMine">自分のスケジュール</button>
+      </div>
+      <div class="cal-refl-cals" id="calReflCals"></div>
     </div>
     </div>
     <div class="cal-mgr" id="calMgr" hidden>
@@ -3577,6 +3590,7 @@ function renderCalendar(){
   if(pvB) pvB.textContent=prevLabel; if(nxB) nxB.textContent=nextLabel;
   document.querySelectorAll("[data-cal-mode]").forEach(function(b){ var on=b.getAttribute("data-cal-mode")===mode; b.classList.toggle("on", on); b.setAttribute("aria-selected", on?"true":"false"); });
   var wsBtn=document.getElementById("calWeekStart"); if(wsBtn) wsBtn.textContent=(ws?"月曜始まり":"日曜始まり");
+  renderCalRefl();
   var ctlSum=document.getElementById("calCtlSummary");
   if(ctlSum){ var scTxt=mine? "自分の予定" : mix? "ミックス" : follow? "フォロー中" : custom? "マイカレンダー「"+customCal.name+"」" : "全イベント";
     var mdTxt=mode==="week"? "週間" : mode==="2week"? "2週間" : "月間";
@@ -3703,6 +3717,24 @@ function renderCalendar(){
   } else {
     els.calDayList.innerHTML="";
   }
+}
+function renderCalRefl(){
+  var a=document.getElementById("calReflAll"), m=document.getElementById("calReflMine"), box=document.getElementById("calReflCals");
+  if(a) a.classList.toggle("on", prefs.weekShowAll!==false);
+  if(m) m.classList.toggle("on", prefs.weekShowMine!==false);
+  if(box){
+    var cur=prefs.weekCalId||"";
+    if(cur && !myCalendars.some(function(c){ return c.id===cur; })) cur="";
+    var h='<button type="button" class="cal-chip'+(cur===""?" on":"")+'" data-refl-cal="">自分の予定（標準）</button>'
+      + myCalendars.map(function(c){ return '<button type="button" class="cal-chip'+(cur===c.id?" on":"")+'" data-refl-cal="'+esc(c.id)+'">'+esc(c.name)+'</button>'; }).join("");
+    if(box._h!==h){ box.innerHTML=h; box._h=h; }
+  }
+}
+function weekStripCal(){
+  var id=prefs.weekCalId||"";
+  if(!id) return null;
+  for(var i=0;i<myCalendars.length;i++){ if(myCalendars[i].id===id) return myCalendars[i]; }
+  return null;
 }
 function calMove(dir){
   var mode=calModeNow();
@@ -6329,7 +6361,7 @@ function renderListPicker(){
    おすすめはスコア式で、適用先はホームの棚「あなたへのおすすめ」と
    並び替え「おすすめ順」だけ。一覧の並び順・絞り込みの初期値には干渉しない */
 var LS_PREFS="kg_trial_prefs_v1", LS_LEARN="kg_trial_learn_v1";
-function emptyPrefs(){ return {onboarded:false, cats:[], artists:[], prefs:[], areas:[], free:false, weekend:false, collab:false, dismissed:[], recoOff:false, featOff:false, tlMode:"slide", startView:"list", calMode:"month", weekStart:0, topBand:"both"}; }
+function emptyPrefs(){ return {onboarded:false, cats:[], artists:[], prefs:[], areas:[], free:false, weekend:false, collab:false, dismissed:[], recoOff:false, featOff:false, tlMode:"slide", startView:"list", calMode:"month", weekStart:0, topBand:"both", weekShowAll:true, weekShowMine:true, weekCalId:""}; }
 function loadPrefs(){
   try{
     var o=JSON.parse(localStorage.getItem(LS_PREFS)||"null");
@@ -6339,7 +6371,7 @@ function loadPrefs(){
       p.onboarded=!!o.onboarded; p.free=!!o.free; p.weekend=!!o.weekend; p.collab=!!o.collab;
       /* 表示設定（v56）: おすすめ棚とトップの特集バナーのオン／オフ。旧データに無い場合は初期値オン（=Offフラグfalse） */
       p.recoOff=!!o.recoOff; p.featOff=!!o.featOff;
-      p.calMode=["month","week","2week"].indexOf(o.calMode)>=0? o.calMode : "month"; p.weekStart=o.weekStart===1?1:0; p.topBand=["both","ticker","week","none"].indexOf(o.topBand)>=0? o.topBand : "both";
+      p.calMode=["month","week","2week"].indexOf(o.calMode)>=0? o.calMode : "month"; p.weekStart=o.weekStart===1?1:0; p.topBand=["both","ticker","week","none"].indexOf(o.topBand)>=0? o.topBand : "both"; p.weekShowAll=o.weekShowAll!==false; p.weekShowMine=o.weekShowMine!==false; p.weekCalId=typeof o.weekCalId==="string"? o.weekCalId : "";
       /* タイムラインの表示方法（v57）: "slide"（サイネージ型）／"feed"（縦スクロール）。端末内に保持 */
       p.tlMode = o.tlMode==="feed" ? "feed" : "slide";
       /* 最初のページ（v66）: "list"（通常のイベント一覧）／"feed"（タイムラインを自動で開く）。既定は通常 */
@@ -8787,6 +8819,9 @@ document.getElementById("calPrev").addEventListener("click", function(){ calMove
 document.getElementById("calNext").addEventListener("click", function(){ calMove(1); });
 document.querySelectorAll("[data-cal-mode]").forEach(function(b){ b.addEventListener("click", function(){ prefs.calMode=b.getAttribute("data-cal-mode"); savePrefs(); renderCalendar(); }); });
 var calWsBtn=document.getElementById("calWeekStart"); if(calWsBtn) calWsBtn.addEventListener("click", function(){ prefs.weekStart=calWsNow()?0:1; savePrefs(); renderCalendar(); });
+var calReflAllBtn=document.getElementById("calReflAll"); if(calReflAllBtn) calReflAllBtn.addEventListener("click", function(){ prefs.weekShowAll=!(prefs.weekShowAll!==false); savePrefs(); renderCalendar(); toast(prefs.weekShowAll? "トップの週間に全イベントの件数を出します" : "トップの週間に全イベントの件数を出しません"); });
+var calReflMineBtn=document.getElementById("calReflMine"); if(calReflMineBtn) calReflMineBtn.addEventListener("click", function(){ prefs.weekShowMine=!(prefs.weekShowMine!==false); savePrefs(); renderCalendar(); toast(prefs.weekShowMine? "トップの週間に自分のスケジュールを出します" : "トップの週間に自分のスケジュールを出しません"); });
+var calReflCalsBox=document.getElementById("calReflCals"); if(calReflCalsBox) calReflCalsBox.addEventListener("click", function(e){ var b=e.target.closest("[data-refl-cal]"); if(!b) return; prefs.weekCalId=b.getAttribute("data-refl-cal")||""; savePrefs(); renderCalendar(); toast("トップの週間に反映するカレンダーを変更しました"); });
 var calCcBtn=document.getElementById("calCondClear"); if(calCcBtn) calCcBtn.addEventListener("click", function(){ calClearConditions(); });
 els.calDayList.addEventListener("click", function(e){ var b=e.target.closest("[data-cal-plan]"); if(!b) return; e.stopPropagation(); view="plan"; render(); window.scrollTo({top:0}); });
 /* カレンダーの左右スワイプで月移動（v56、Kotaの方針：スマホらしいスワイプは合う場所に取り入れる）。
@@ -9185,6 +9220,7 @@ function buildHomeWeek(){
   var show = view==="home" && allEvents.length>0 && band!=="ticker" && band!=="none";
   wrap.classList.toggle("hidden", !show);
   if(!show) return;
+  var showAll=prefs.weekShowAll!==false, showMine=prefs.weekShowMine!==false, wcal=showMine? weekStripCal() : null;
   var today=todayStr(), ws=calWsNow();
   var dowT=new Date(today+"T00:00:00").getDay();
   var start=addDays(today, -((dowT-ws+7)%7));
@@ -9196,8 +9232,7 @@ function buildHomeWeek(){
     while(ds<=e2 && g++<400){
       if(ds>=start && ds<=end){
         counts[ds]=(counts[ds]||0)+1;
-        if(kinds===null) kinds=myCalKinds(ev);
-        if(kinds.length) myCounts[ds]=(myCounts[ds]||0)+1;
+        if(showMine){ if(kinds===null) kinds=wcal? calCustomKinds(ev, wcal) : myCalKinds(ev); if(kinds.length) myCounts[ds]=(myCounts[ds]||0)+1; }
       }
       ds=addDays(ds,1);
     }
@@ -9206,7 +9241,7 @@ function buildHomeWeek(){
   var html="";
   for(var i=0;i<7;i++){
     var ds2=addDays(start,i), dt=new Date(ds2+"T00:00:00"), dw=dt.getDay();
-    html+='<button type="button" class="hw-cell'+(ds2===today?" today":"")+'" data-hw-day="'+ds2+'" aria-label="'+(dt.getMonth()+1)+'月'+dt.getDate()+'日（'+DOWK[dw]+'）のカレンダーを開く"><span class="hw-dow'+(dw===0?" sun":dw===6?" sat":"")+'">'+DOWK[dw]+'</span><span class="hw-num">'+dt.getDate()+'</span><span class="hw-cnt">'+(counts[ds2]||0)+'件</span>'+(myCounts[ds2]? '<span class="hw-my">自分'+myCounts[ds2]+'</span>':"")+'</button>';
+    html+='<button type="button" class="hw-cell'+(ds2===today?" today":"")+'" data-hw-day="'+ds2+'" aria-label="'+(dt.getMonth()+1)+'月'+dt.getDate()+'日（'+DOWK[dw]+'）のカレンダーを開く"><span class="hw-dow'+(dw===0?" sun":dw===6?" sat":"")+'">'+DOWK[dw]+'</span><span class="hw-num">'+dt.getDate()+'</span>'+(showAll? '<span class="hw-cnt">'+(counts[ds2]||0)+'件</span>' : "")+((showMine&&myCounts[ds2])? '<span class="hw-my">自分'+myCounts[ds2]+'</span>':"")+'</button>';
   }
   if(wrap._hwSig!==html){ wrap.innerHTML=html; wrap._hwSig=html; }
 }
