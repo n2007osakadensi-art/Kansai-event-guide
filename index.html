@@ -657,6 +657,16 @@
   .cal-mgr-opts label{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:12.5px;cursor:pointer}
   .cal-mgr-actions{display:flex;gap:8px;margin-top:14px}
   .cal-mgr-note{font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.6}
+  .home-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:0 0 10px}
+  .home-week.hidden{display:none}
+  .hw-cell{display:flex;flex-direction:column;align-items:center;gap:1px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:7px 2px 6px;cursor:pointer}
+  .hw-cell.today{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+  .hw-dow{font-size:11px;font-weight:700;color:var(--muted)}
+  .hw-dow.sun{color:#dc2626}
+  .hw-dow.sat{color:#2563eb}
+  .hw-num{font-size:16px;font-weight:800;line-height:1.15}
+  .hw-cnt{font-size:10.5px;color:var(--muted)}
+  .hw-my{font-size:10px;font-weight:800;color:#b45309}
   .cal-ctl-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;margin:0 0 10px}
   .cal-ctl-caret{color:var(--muted);font-size:12px}
   .cal-ctl-panel{border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:10px 10px 2px;margin:0 0 12px}
@@ -1088,7 +1098,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v211';
+  window.__kgShell='v212';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1297,6 +1307,7 @@
   </div>
 
   <main id="listMain" class="">
+    <div class="home-week hidden" id="homeWeek" aria-label="今週のカレンダー"></div>
     <div class="home-ticker" id="homeTicker" role="marquee" aria-label="近日開催のイベント（自動で流れます）">
       <span class="sg-ticker-label">UPCOMING</span>
       <div class="sg-ticker-view"><div class="sg-ticker-track" id="homeTickerTrack" style="animation-duration: 623s;"><div class="sg-ticker-seq"><strong>9月18日（金）</strong> 「ATOM SHOP」期間限定POP UP SHOP（宝塚北SA） <span class="sg-tick-venue">＠ 宝塚北サービスエリア</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 神戸メリケンパークオリエンタルホテル イルミネーション <span class="sg-tick-venue">＠ 神戸メリケンパークオリエンタルホテル（神戸市中央区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 千のRockYou!! 2026 <span class="sg-tick-venue">＠ 大泉緑地 大芝生広場（堺市北区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 東寺 弘法市 <span class="sg-tick-venue">＠ 東寺（京都市南区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 四天王寺骨董市 <span class="sg-tick-venue">＠ 四天王寺境内 西重門前広場（大阪市天王寺区四天王寺1-11-18）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 木津川市2026秋の特別公開（岩船寺） <span class="sg-tick-venue">＠ 岩船寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> わくわくいちょう体操 <span class="sg-tick-venue">＠ 天理駅前広場コフフン</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 西明寺の紅葉と国宝本堂後陣仏像群 特別拝観 <span class="sg-tick-venue">＠ 西明寺（甲良町）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 鶏足寺（旧飯福寺）紅葉 <span class="sg-tick-venue">＠ 鶏足寺（長浜市）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 第39回浜坂みなとカニ祭り <span class="sg-tick-venue">＠ 浜坂漁港せり市場（新温泉町）</span><span class="sg-tick-sep">／</span><strong>8月1日（土）</strong> 歴史リアル謎解きゲーム「謎の城」in 郡山城「豊臣秀長 大和大納言と呼ばれた名君」 <span class="sg-tick-venue">＠ 郡山城および城下町エリア（大和郡山市）</span><span class="sg-tick-sep">／</span><strong>9月6日（日）</strong> 第11回 六甲山のキノコ展 in 森林植物園 <span class="sg-tick-venue">＠ 神戸市立森林植物園 森林展示館2階</span><span class="sg-tick-sep">／</span><strong>9月19日（土）</strong> 恐竜パーク（四季の郷公園） <span class="sg-tick-venue">＠ 四季の郷公園（和歌山市）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 木津川市2026秋の特別公開（浄瑠璃寺） <span class="sg-tick-venue">＠ 浄瑠璃寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 第6回特別展「尼崎の古墳」 <span class="sg-tick-venue">＠ 尼崎市立歴史博物館（尼崎市）</span><span class="sg-tick-sep">／</span><strong>10月2日（金）</strong> 歴史リアル謎解きゲーム「謎の城」in大阪城「豊臣秀吉と黄金の城 大坂城からはじまる天下人への道」 <span class="sg-tick-venue">＠ 大阪城公園（大阪市中央区）</span><span class="sg-tick-sep">／</span><strong>10月3日（土）</strong> 秋季特別展「銅鐸礼賛ー地宝を訪ねて 和歌山ー」 <span class="sg-tick-venue">＠ 南あわじ市滝川記念美術館 玉青館</span><span class="sg-tick-sep">／</span><strong>10月3日（土）</strong> 秋期企画展「湖・川が育む水との暮らし」 <span class="sg-tick-venue">＠ 野洲市歴史民俗博物館（野洲市）</span><span class="sg-tick-sep">／</span><strong>10月9日（金）</strong> 飛鳥資料館秋期特別展「世界遺産『飛鳥・藤原の宮都』と奈文研」 <span class="sg-tick-venue">＠ 飛鳥資料館（明日香村）</span><span class="sg-tick-sep">／</span><strong>10月10日（土）</strong> 大阪城天守閣 特別展「戦国のきょうだい」 <span class="sg-tick-venue">＠ 大阪城天守閣（大阪市中央区）</span><span class="sg-tick-sep">／</span><strong>10月24日（土）</strong> 筆跡でたどる田辺聖子 <span class="sg-tick-venue">＠ 田辺聖子文学館（東大阪市）</span><span class="sg-tick-sep">／</span><strong>10月27日（火）</strong> 日本の鬼の交流博物館秋季特別展「書だ！妖怪だ！展－妖怪書家 逢香展－」 <span class="sg-tick-venue">＠ 日本の鬼の交流博物館（福知山市）</span><span class="sg-tick-sep">／</span><strong>10月30日（金）</strong> 第72回堺市菊花大会 <span class="sg-tick-venue">＠ 大仙公園（堺市堺区）</span><span class="sg-tick-sep">／</span><strong>10月30日（金）</strong> 秋めく相楽宴2026 <span class="sg-tick-venue">＠ 相楽園（神戸市中央区）</span><span class="sg-tick-sep">／</span><strong>10月31日（土）</strong> 海住山寺 国宝五重塔の開扉と文化財特別公開 <span class="sg-tick-venue">＠ 海住山寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>10月31日（土）</strong> 和歌山市立博物館 特別展「川合小梅の世界 ―時代を記し、日々を描く―」 <span class="sg-tick-venue">＠ 和歌山市立博物館（和歌山市）</span><span class="sg-tick-sep">／</span><strong>11月1日（日）</strong> 如意輪寺 菊まつり <span class="sg-tick-venue">＠ 如意輪寺（吉野町）</span><span class="sg-tick-sep">／</span><strong>11月1日（日）</strong> 日吉大社もみじまつり <span class="sg-tick-venue">＠ 日吉大社（大津市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 第17回 やぶ紅葉まつり <span class="sg-tick-venue">＠ 養父神社（養父市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 【日本天台三総本山】秋の特別公開（比叡山延暦寺、西教寺、三井寺） <span class="sg-tick-venue">＠ 総本山 三井寺（中院エリア）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 第17回 やぶもみじまつり <span class="sg-tick-venue">＠ 養父神社（養父市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 秋の植木市（鶴見緑地） <span class="sg-tick-venue">＠ 花博記念公園鶴見緑地（大阪市鶴見区）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 源氏ろまん2026 宇治十帖スタンプラリー ～スマホで巡る～ <span class="sg-tick-venue">＠ 宇治市内21箇所（宇治市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 平城遷都－「飛鳥・藤原の宮都」から平城へ－（秋期特別展） <span class="sg-tick-venue">＠ 平城宮跡歴史公園（奈良市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 特別展「源氏物語 王朝のかがやき」 <span class="sg-tick-venue">＠ 京都国立博物館 平成知新館</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 北野天満宮 史跡御土居のもみじ苑公開・ライトアップ <span class="sg-tick-venue">＠ 北野天満宮（京都市上京区）</span><span class="sg-tick-sep">／</span><strong>11月12日（木）</strong> 大阪梅田ツインタワーズ・ノース コンコース クリスマスイルミネーション「Lumiere Ribbon Illumination」 <span class="sg-tick-venue">＠ 大阪梅田ツインタワーズ・ノース 1Fコンコース（大阪市北区）</span><span class="sg-tick-sep">／</span><strong>11月13日（金）</strong> 當麻寺中之坊 特別公開「村上裕二 龍游殿および太子殿 大障壁画」 <span class="sg-tick-venue">＠ 當麻寺 中之坊（葛城市・奈良）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 東福寺塔頭 天得院 秋の特別拝観（ライトアップ） <span class="sg-tick-venue">＠ 天得院（京都市東山区）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 秋の洋ラン展 <span class="sg-tick-venue">＠ 姫路市立手柄山温室植物園</span></div><div class="sg-ticker-seq" aria-hidden="true"><strong>9月18日（金）</strong> 「ATOM SHOP」期間限定POP UP SHOP（宝塚北SA） <span class="sg-tick-venue">＠ 宝塚北サービスエリア</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 神戸メリケンパークオリエンタルホテル イルミネーション <span class="sg-tick-venue">＠ 神戸メリケンパークオリエンタルホテル（神戸市中央区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 千のRockYou!! 2026 <span class="sg-tick-venue">＠ 大泉緑地 大芝生広場（堺市北区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 東寺 弘法市 <span class="sg-tick-venue">＠ 東寺（京都市南区）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 四天王寺骨董市 <span class="sg-tick-venue">＠ 四天王寺境内 西重門前広場（大阪市天王寺区四天王寺1-11-18）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 木津川市2026秋の特別公開（岩船寺） <span class="sg-tick-venue">＠ 岩船寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> わくわくいちょう体操 <span class="sg-tick-venue">＠ 天理駅前広場コフフン</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 西明寺の紅葉と国宝本堂後陣仏像群 特別拝観 <span class="sg-tick-venue">＠ 西明寺（甲良町）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 鶏足寺（旧飯福寺）紅葉 <span class="sg-tick-venue">＠ 鶏足寺（長浜市）</span><span class="sg-tick-sep">／</span><strong>11月21日（土）</strong> 第39回浜坂みなとカニ祭り <span class="sg-tick-venue">＠ 浜坂漁港せり市場（新温泉町）</span><span class="sg-tick-sep">／</span><strong>8月1日（土）</strong> 歴史リアル謎解きゲーム「謎の城」in 郡山城「豊臣秀長 大和大納言と呼ばれた名君」 <span class="sg-tick-venue">＠ 郡山城および城下町エリア（大和郡山市）</span><span class="sg-tick-sep">／</span><strong>9月6日（日）</strong> 第11回 六甲山のキノコ展 in 森林植物園 <span class="sg-tick-venue">＠ 神戸市立森林植物園 森林展示館2階</span><span class="sg-tick-sep">／</span><strong>9月19日（土）</strong> 恐竜パーク（四季の郷公園） <span class="sg-tick-venue">＠ 四季の郷公園（和歌山市）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 木津川市2026秋の特別公開（浄瑠璃寺） <span class="sg-tick-venue">＠ 浄瑠璃寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>10月1日（木）</strong> 第6回特別展「尼崎の古墳」 <span class="sg-tick-venue">＠ 尼崎市立歴史博物館（尼崎市）</span><span class="sg-tick-sep">／</span><strong>10月2日（金）</strong> 歴史リアル謎解きゲーム「謎の城」in大阪城「豊臣秀吉と黄金の城 大坂城からはじまる天下人への道」 <span class="sg-tick-venue">＠ 大阪城公園（大阪市中央区）</span><span class="sg-tick-sep">／</span><strong>10月3日（土）</strong> 秋季特別展「銅鐸礼賛ー地宝を訪ねて 和歌山ー」 <span class="sg-tick-venue">＠ 南あわじ市滝川記念美術館 玉青館</span><span class="sg-tick-sep">／</span><strong>10月3日（土）</strong> 秋期企画展「湖・川が育む水との暮らし」 <span class="sg-tick-venue">＠ 野洲市歴史民俗博物館（野洲市）</span><span class="sg-tick-sep">／</span><strong>10月9日（金）</strong> 飛鳥資料館秋期特別展「世界遺産『飛鳥・藤原の宮都』と奈文研」 <span class="sg-tick-venue">＠ 飛鳥資料館（明日香村）</span><span class="sg-tick-sep">／</span><strong>10月10日（土）</strong> 大阪城天守閣 特別展「戦国のきょうだい」 <span class="sg-tick-venue">＠ 大阪城天守閣（大阪市中央区）</span><span class="sg-tick-sep">／</span><strong>10月24日（土）</strong> 筆跡でたどる田辺聖子 <span class="sg-tick-venue">＠ 田辺聖子文学館（東大阪市）</span><span class="sg-tick-sep">／</span><strong>10月27日（火）</strong> 日本の鬼の交流博物館秋季特別展「書だ！妖怪だ！展－妖怪書家 逢香展－」 <span class="sg-tick-venue">＠ 日本の鬼の交流博物館（福知山市）</span><span class="sg-tick-sep">／</span><strong>10月30日（金）</strong> 第72回堺市菊花大会 <span class="sg-tick-venue">＠ 大仙公園（堺市堺区）</span><span class="sg-tick-sep">／</span><strong>10月30日（金）</strong> 秋めく相楽宴2026 <span class="sg-tick-venue">＠ 相楽園（神戸市中央区）</span><span class="sg-tick-sep">／</span><strong>10月31日（土）</strong> 海住山寺 国宝五重塔の開扉と文化財特別公開 <span class="sg-tick-venue">＠ 海住山寺（木津川市）</span><span class="sg-tick-sep">／</span><strong>10月31日（土）</strong> 和歌山市立博物館 特別展「川合小梅の世界 ―時代を記し、日々を描く―」 <span class="sg-tick-venue">＠ 和歌山市立博物館（和歌山市）</span><span class="sg-tick-sep">／</span><strong>11月1日（日）</strong> 如意輪寺 菊まつり <span class="sg-tick-venue">＠ 如意輪寺（吉野町）</span><span class="sg-tick-sep">／</span><strong>11月1日（日）</strong> 日吉大社もみじまつり <span class="sg-tick-venue">＠ 日吉大社（大津市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 第17回 やぶ紅葉まつり <span class="sg-tick-venue">＠ 養父神社（養父市）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 【日本天台三総本山】秋の特別公開（比叡山延暦寺、西教寺、三井寺） <span class="sg-tick-venue">＠ 総本山 三井寺（中院エリア）</span><span class="sg-tick-sep">／</span><strong>11月7日（土）</strong> 第17回 やぶもみじまつり <span class="sg-tick-venue">＠ 養父神社（養父市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 秋の植木市（鶴見緑地） <span class="sg-tick-venue">＠ 花博記念公園鶴見緑地（大阪市鶴見区）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 源氏ろまん2026 宇治十帖スタンプラリー ～スマホで巡る～ <span class="sg-tick-venue">＠ 宇治市内21箇所（宇治市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 平城遷都－「飛鳥・藤原の宮都」から平城へ－（秋期特別展） <span class="sg-tick-venue">＠ 平城宮跡歴史公園（奈良市）</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 特別展「源氏物語 王朝のかがやき」 <span class="sg-tick-venue">＠ 京都国立博物館 平成知新館</span><span class="sg-tick-sep">／</span><strong>11月8日（日）</strong> 北野天満宮 史跡御土居のもみじ苑公開・ライトアップ <span class="sg-tick-venue">＠ 北野天満宮（京都市上京区）</span><span class="sg-tick-sep">／</span><strong>11月12日（木）</strong> 大阪梅田ツインタワーズ・ノース コンコース クリスマスイルミネーション「Lumiere Ribbon Illumination」 <span class="sg-tick-venue">＠ 大阪梅田ツインタワーズ・ノース 1Fコンコース（大阪市北区）</span><span class="sg-tick-sep">／</span><strong>11月13日（金）</strong> 當麻寺中之坊 特別公開「村上裕二 龍游殿および太子殿 大障壁画」 <span class="sg-tick-venue">＠ 當麻寺 中之坊（葛城市・奈良）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 東福寺塔頭 天得院 秋の特別拝観（ライトアップ） <span class="sg-tick-venue">＠ 天得院（京都市東山区）</span><span class="sg-tick-sep">／</span><strong>11月14日（土）</strong> 秋の洋ラン展 <span class="sg-tick-venue">＠ 姫路市立手柄山温室植物園</span></div></div></div>
@@ -6316,7 +6327,7 @@ function renderListPicker(){
    おすすめはスコア式で、適用先はホームの棚「あなたへのおすすめ」と
    並び替え「おすすめ順」だけ。一覧の並び順・絞り込みの初期値には干渉しない */
 var LS_PREFS="kg_trial_prefs_v1", LS_LEARN="kg_trial_learn_v1";
-function emptyPrefs(){ return {onboarded:false, cats:[], artists:[], prefs:[], areas:[], free:false, weekend:false, collab:false, dismissed:[], recoOff:false, featOff:false, tlMode:"slide", startView:"list", calMode:"month", weekStart:0}; }
+function emptyPrefs(){ return {onboarded:false, cats:[], artists:[], prefs:[], areas:[], free:false, weekend:false, collab:false, dismissed:[], recoOff:false, featOff:false, tlMode:"slide", startView:"list", calMode:"month", weekStart:0, topBand:"both"}; }
 function loadPrefs(){
   try{
     var o=JSON.parse(localStorage.getItem(LS_PREFS)||"null");
@@ -6326,7 +6337,7 @@ function loadPrefs(){
       p.onboarded=!!o.onboarded; p.free=!!o.free; p.weekend=!!o.weekend; p.collab=!!o.collab;
       /* 表示設定（v56）: おすすめ棚とトップの特集バナーのオン／オフ。旧データに無い場合は初期値オン（=Offフラグfalse） */
       p.recoOff=!!o.recoOff; p.featOff=!!o.featOff;
-      p.calMode=["month","week","2week"].indexOf(o.calMode)>=0? o.calMode : "month"; p.weekStart=o.weekStart===1?1:0;
+      p.calMode=["month","week","2week"].indexOf(o.calMode)>=0? o.calMode : "month"; p.weekStart=o.weekStart===1?1:0; p.topBand=["both","ticker","week","none"].indexOf(o.topBand)>=0? o.topBand : "both";
       /* タイムラインの表示方法（v57）: "slide"（サイネージ型）／"feed"（縦スクロール）。端末内に保持 */
       p.tlMode = o.tlMode==="feed" ? "feed" : "slide";
       /* 最初のページ（v66）: "list"（通常のイベント一覧）／"feed"（タイムラインを自動で開く）。既定は通常 */
@@ -6731,6 +6742,12 @@ function renderPrefsView(){
     + '<button type="button" class="pf-flag'+(!prefs.recoOff?" on":"")+'" data-pf-disp="reco" aria-pressed="'+(!prefs.recoOff)+'"><span class="pf-flag-text"><span class="pf-flag-main">あなたへのおすすめを表示</span><span class="pf-flag-sub">トップページの初期表示のときだけ出ます</span></span><span class="pf-switch" aria-hidden="true"></span></button>'
     + '<button type="button" class="pf-flag'+(!prefs.featOff?" on":"")+'" data-pf-disp="feat" aria-pressed="'+(!prefs.featOff)+'"><span class="pf-flag-text"><span class="pf-flag-main">特集バナーを表示</span><span class="pf-flag-sub">トップページの特集バナーです。オフでも上のタブから特集を開けます</span></span><span class="pf-switch" aria-hidden="true"></span></button>'
     + '</div>'
+    + '<div class="pf-startview"><span class="pf-sv-label">トップページの帯</span><div class="cal-scope pf-sv-scope" role="group" aria-label="トップページの帯の切り替え">'
+    + '<button type="button" data-pf-band="both" class="'+((prefs.topBand||"both")==="both"?"on":"")+'" aria-pressed="'+((prefs.topBand||"both")==="both")+'">両方</button>'
+    + '<button type="button" data-pf-band="ticker" class="'+(prefs.topBand==="ticker"?"on":"")+'" aria-pressed="'+(prefs.topBand==="ticker")+'">流れる文字のみ</button>'
+    + '<button type="button" data-pf-band="week" class="'+(prefs.topBand==="week"?"on":"")+'" aria-pressed="'+(prefs.topBand==="week")+'">週間カレンダーのみ</button>'
+    + '<button type="button" data-pf-band="none" class="'+(prefs.topBand==="none"?"on":"")+'" aria-pressed="'+(prefs.topBand==="none")+'">両方出さない</button>'
+    + '</div><p class="pf-sv-note">トップページ上部の帯です。週間カレンダーは今週の件数と自分の予定の印が出て、タップするとその日のカレンダーが開きます。</p></div>'
     + '<div class="pf-startview"><span class="pf-sv-label">最初のページ</span><div class="cal-scope pf-sv-scope" role="group" aria-label="最初のページの切り替え">'
     + '<button type="button" data-pf-start="list" class="'+(prefs.startView!=="feed"?"on":"")+'" aria-pressed="'+(prefs.startView!=="feed")+'">通常（イベント一覧）</button>'
     + '<button type="button" data-pf-start="feed" class="'+(prefs.startView==="feed"?"on":"")+'" aria-pressed="'+(prefs.startView==="feed")+'">タイムライン</button>'
@@ -6748,6 +6765,7 @@ document.getElementById("prefsBody").addEventListener("click", function(e){
   var f=e.target.closest("[data-pf-flag]"); if(f){ var k=f.getAttribute("data-pf-flag"); prefs[k]=!prefs[k]; savePrefs(); renderPrefsView(); return; }
   var dsp=e.target.closest("[data-pf-disp]"); if(dsp){ var dk=dsp.getAttribute("data-pf-disp"); if(dk==="reco") prefs.recoOff=!prefs.recoOff; else if(dk==="feat") prefs.featOff=!prefs.featOff; savePrefs(); renderPrefsView(); render(); return; }
   var svw=e.target.closest("[data-pf-start]"); if(svw){ prefs.startView = svw.getAttribute("data-pf-start")==="feed" ? "feed" : "list"; savePrefs(); renderPrefsView(); toast(prefs.startView==="feed" ? "最初のページをタイムラインにしました" : "最初のページを通常（イベント一覧）にしました"); return; }
+  var bd=e.target.closest("[data-pf-band]"); if(bd){ var bv=bd.getAttribute("data-pf-band"); prefs.topBand=["both","ticker","week","none"].indexOf(bv)>=0? bv : "both"; savePrefs(); renderPrefsView(); render(); toast("トップページの帯を変更しました"); return; }
   if(e.target.closest("#pfRedo")){ obOpen(); return; }
   if(e.target.closest("#pfReset")){
     prefs.cats=[]; prefs.artists=[]; prefs.prefs=[]; prefs.areas=[]; prefs.free=false; prefs.weekend=false; prefs.collab=false;
@@ -8933,6 +8951,7 @@ function renderSignageChrome(){
     }
   }
   buildHomeTicker();
+  buildHomeWeek();
 }
 function sgIdNum(ev){ var n=parseInt(ev.id,10); return isNaN(n)?-1:n; }
 function sgByDate(a,b){
@@ -9140,9 +9159,11 @@ function sgBuildTicker(d){
    開いた時点から近日開催のイベントが流れ続ける。内容が変わったときだけ中身を作り直し、
    検索や絞り込みの再描画ではアニメーションを最初からにしない */
 var homeTickerSig="";
+(function(){ var hw=document.getElementById("homeWeek"); if(hw) hw.addEventListener("click", function(e){ var b=e.target.closest("[data-hw-day]"); if(!b) return; var ds=b.getAttribute("data-hw-day"); view="calendar"; calSel=ds; calCursor=ds.slice(0,7); calAnchor=ds; render(); window.scrollTo(0,0); }); })();
 function buildHomeTicker(){
   var wrap=sgEl("homeTicker"); if(!wrap) return;
-  var show = view==="home" && allEvents.length>0;
+  var band=(typeof prefs!=="undefined" && prefs.topBand)||"both";
+  var show = view==="home" && allEvents.length>0 && band!=="week" && band!=="none";
   wrap.classList.toggle("hidden", !show);
   if(!show) return;
   var track=sgEl("homeTickerTrack"); if(!track) return;
@@ -9155,6 +9176,37 @@ function buildHomeTicker(){
     track.style.animationDuration="";
   }
   sgFitTickerDuration(track);
+}
+function buildHomeWeek(){
+  var wrap=sgEl("homeWeek"); if(!wrap) return;
+  var band=(typeof prefs!=="undefined" && prefs.topBand)||"both";
+  var show = view==="home" && allEvents.length>0 && band!=="ticker" && band!=="none";
+  wrap.classList.toggle("hidden", !show);
+  if(!show) return;
+  var today=todayStr(), ws=calWsNow();
+  var dowT=new Date(today+"T00:00:00").getDay();
+  var start=addDays(today, -((dowT-ws+7)%7));
+  var end=addDays(start,6);
+  var counts={}, myCounts={};
+  allEvents.forEach(function(ev){
+    if(ev._pending || isLongRun(ev)) return;
+    var ds=ev.date, e2=ev.dateEnd||ev.date, g=0, kinds=null;
+    while(ds<=e2 && g++<400){
+      if(ds>=start && ds<=end){
+        counts[ds]=(counts[ds]||0)+1;
+        if(kinds===null) kinds=myCalKinds(ev);
+        if(kinds.length) myCounts[ds]=(myCounts[ds]||0)+1;
+      }
+      ds=addDays(ds,1);
+    }
+  });
+  var DOWK=["日","月","火","水","木","金","土"];
+  var html="";
+  for(var i=0;i<7;i++){
+    var ds2=addDays(start,i), dt=new Date(ds2+"T00:00:00"), dw=dt.getDay();
+    html+='<button type="button" class="hw-cell'+(ds2===today?" today":"")+'" data-hw-day="'+ds2+'" aria-label="'+(dt.getMonth()+1)+'月'+dt.getDate()+'日（'+DOWK[dw]+'）のカレンダーを開く"><span class="hw-dow'+(dw===0?" sun":dw===6?" sat":"")+'">'+DOWK[dw]+'</span><span class="hw-num">'+dt.getDate()+'</span><span class="hw-cnt">'+(counts[ds2]||0)+'件</span>'+(myCounts[ds2]? '<span class="hw-my">自分'+myCounts[ds2]+'</span>':"")+'</button>';
+  }
+  if(wrap._hwSig!==html){ wrap.innerHTML=html; wrap._hwSig=html; }
 }
 function sgShow(i){
   if(!sgState.slides.length) return;
