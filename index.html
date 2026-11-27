@@ -33,6 +33,7 @@
   .site-in h1 .trial{font-size:12px;font-weight:700;color:var(--accent);border:1.5px solid var(--accent);border-radius:999px;padding:2px 8px;vertical-align:3px;margin-left:6px;white-space:nowrap}
   .meta-line{margin-top:6px;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
   .meta-line strong{color:var(--ink);font-weight:600}
+  .meta-toggle{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:2px 10px;min-height:32px;font-size:12px;cursor:pointer;font-family:inherit}
 
   .controls{position:sticky;top:0;z-index:30;background:var(--bg);padding:12px 0 8px}
   .search-row{display:flex;gap:8px}
@@ -1112,7 +1113,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v222';
+  window.__kgShell='v223';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1259,7 +1260,8 @@
       <span><button type="button" id="kg-account-open" style="border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px;min-height:40px">ログイン / 同期</button></span>
       <span><button type="button" id="kg-editor-open" style="border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px;min-height:40px">＋ 新規登録・修正</button></span>
       <span id="totalCount">掲載 <strong>7,803件</strong>（開催予定・開催中 5,150件／終了 2,653件は既定で非表示）</span>
-      <span>データ：Googleスプレッドシート（開くたびに取得、会場補足を含む）＋ 会場DB・アーティストプロフィール（ガイドのデータベース）／ お気に入り・推しはこの端末内に保存</span>
+      <span id="metaData">データ：Googleスプレッドシート（開くたびに取得、会場補足を含む）＋ 会場DB・アーティストプロフィール（ガイドのデータベース）／ お気に入り・推しはこの端末内に保存</span>
+      <span><button type="button" id="metaToggle" class="meta-toggle" aria-expanded="true">情報 ▾</button></span>
     </div>
   </div>
 </header>
@@ -7261,6 +7263,14 @@ document.addEventListener("click", function(e){
 els.searchInput.addEventListener("keydown", function(e){
   if(e.key==="Enter"){ e.preventDefault(); els.suggest.classList.remove("show"); els.searchInput.blur(); }
 });
+/* ヘッダーの情報（件数・データ説明）の表示切替（v223）。状態は端末内に保持する */
+(function(){
+  var btn=document.getElementById("metaToggle"); if(!btn) return;
+  var open=true; try{ open=localStorage.getItem("kg_trial_meta_open_v1")!=="0"; }catch(e){}
+  function applyMeta(){ var d=open? "" : "none"; if(els.totalCount) els.totalCount.style.display=d; var md=document.getElementById("metaData"); if(md) md.style.display=d; btn.textContent=open? "情報 ▾" : "情報 ▸"; btn.setAttribute("aria-expanded", open? "true" : "false"); }
+  btn.addEventListener("click", function(){ open=!open; try{ localStorage.setItem("kg_trial_meta_open_v1", open? "1" : "0"); }catch(e){} applyMeta(); });
+  applyMeta();
+})();
 window.addEventListener("scroll", function(){
   if(document.activeElement!==els.searchInput) els.suggest.classList.remove("show");
 }, {passive:true});
