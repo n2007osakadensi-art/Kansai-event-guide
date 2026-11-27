@@ -834,6 +834,7 @@
   .rank-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
   .rank-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px 10px;cursor:pointer;text-align:left}
   .rank-no{font-size:17px;font-weight:900;color:var(--muted);min-width:22px;text-align:center}
+  .rank-no.pickup-pin{font-size:13px}
   .rank-no.top{color:var(--accent)}
   .rank-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;flex:none}
   .rank-thumb.rank-ph{display:block}
@@ -1141,7 +1142,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v262';
+  window.__kgShell='v263';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1424,6 +1425,10 @@
     <section class="rank-shelf hidden" id="followShelf" aria-label="おすすめフォロー">
       <h2 class="reco-title">おすすめフォロー<span>あなたの推し・印から、端末内で選んでいます</span></h2>
       <div class="follow-list" id="followList"></div>
+    </section>
+    <section class="rank-shelf hidden" id="pickupShelf" aria-label="ピックアップ">
+      <h2 class="reco-title">ピックアップ<span>埋もれやすい現場と、あなたに合う現場を、理由つきで選んでいます</span></h2>
+      <div class="rank-list" id="pickupList"></div>
     </section>
     <div id="listsBar" class="lists-bar hidden"></div>
     <p class="result-line" id="resultLine"><strong>5,150件</strong> のイベント（全7,803件中） ・ 終了した2,653件は非表示中</p>
@@ -2685,7 +2690,7 @@ var dirCatFilter="すべて", dirEventsOnly=false;
 var venueGenres=new Set(), venueGenreSubs=new Set(), venueGenreGroups=new Set(), venueGenreClosed={}, venueSugDismissed="";
 try{ showEnded = localStorage.getItem("kg_trial_show_ended")==="1"; }catch(e){}
 var els={};
-["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calScopeMix","calScopeFollow","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","cancelOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope","rankShelf","rankList","followShelf","followList","tlSort","searchRow","searchHint"].forEach(function(id){ els[id]=document.getElementById(id); });
+["updatedAt","totalCount","controls","loadingState","errorState","errorDetail","grid","emptyState","emptyTitle","emptyText","resultLine","catChips","searchInput","clearSearch","oshiBar","oshiList","oshiEmpty","favCnt","oshiCnt","listMain","planView","planBody","planEmpty","overlay","modal","toast","suggest","filterPanel","filterBadge","showEndedChk","sortSel","prefOpts","areaOpts","areaSearch","priceOpts","themeOpts","venueOpts","venueSearch","dateFrom","dateTo","hideLongBtn","endedBtn","calView","calGrid","calTitle","calNote","calDayList","calScopeAll","calScopeMine","calScopeMix","calScopeFollow","calLegend","dirView","dirSearch","dirCount","dirList","dirEmpty","detailView","detailBody","dirFilters","venueSuggest","dirVenueNote","moreWrap","moreBtn","moreInfo","activeFilters","loadHint","topBtn","perfOpts","perfSearch","dowOpts","timeOpts","durOpts","organizerOpts","organizerSearch","imgOnlyBtn","ticketOnlyBtn","ongoingOnlyBtn","cancelOnlyBtn","filterBackdrop","filterScroll","filterCloseBtn","filterResultCount","catOpts","vgenreOpts","maxPriceOpts","webOnlyBtn","xOnlyBtn","igOnlyBtn","descOnlyBtn","favOnlyBtn","wantOnlyBtn","intOnlyBtn","oshiOnlyBtn","xmasCnt","xmasBanner","xmasBannerText","xmasHero","xmasStats","xmasSubs","expoCnt","expoBanner","expoBannerText","expoHero","expoStats","prefsView","prefsCta","genreSuggest","recoShelf","recoGrid","routeView","routeBody","routeFitBtn","routeBack","rfGpsBtn","rfOriginSel","rfMaxSel","rfCatSel","rfFreeChk","rfOriginInfo","listsBar","listsCnt","lpBackdrop","lpSheet","lpTitle","lpBody","lpClose","tlScope","rankShelf","rankList","followShelf","followList","pickupShelf","pickupList","tlSort","searchRow","searchHint"].forEach(function(id){ els[id]=document.getElementById(id); });
 
 var toastTimer=null;
 function toast(msg){
@@ -2736,6 +2741,61 @@ function vsChipHTML(ev){
   if(!ev || !ev.vs) return "";
   if(ev.venue && ev.venue.indexOf(ev.vs)>=0) return "";
   return '<span class="vschip">'+esc(ev.vs)+'</span>';
+}
+/* ピックアップ（v263、A+B+C）: 広告ではなく、埋もれやすい現場と
+   その人に合う現場を「理由つき」でしれっと目立たせる仕組み。
+   A 見落とし防止（ガイド側ルール）＋ B 公平ローテーション（日替わり）
+   ＋ C その人向け（フォロー・推し）。検索結果には割り込まない */
+function pickupHash(s){ var h=0; for(var i=0;i<s.length;i++){ h=((h*31)+s.charCodeAt(i))>>>0; } return h; }
+function pickupReasonsGuide(ev, vCount, oCount){
+  var rs=[];
+  var txt=String(ev.title||"")+" "+String(ev.notes||"");
+  if(/(解散|ラストライブ|ラスト公演|最終公演|閉店|活動終了|活動休止)/.test(txt)) rs.push("最後の機会");
+  if(ev.venue && (vCount[ev.venue]||0)<=3) rs.push("まだ掲載の少ない会場");
+  if(ev.organizerName && (oCount[ev.organizerName]||0)<=2) rs.push("まだ掲載の少ない主催");
+  if((ev.linkX || ev.linkInstagram) && !ev.linkTicket && !ev.linkWeb) rs.push("SNSのみで告知");
+  return rs;
+}
+function pickupReasonsPersonal(ev){
+  var rs=[];
+  if(hasOshi(ev)) rs.push("推しが出演");
+  if(ev.venue && follows.venues.indexOf(ev.venue)>=0) rs.push("フォロー中の会場");
+  if(ev.organizerName && follows.organizers.indexOf(ev.organizerName)>=0) rs.push("フォロー中の主催");
+  return rs;
+}
+function buildPickups(){
+  var today=todayStr(), d7=addDays(today,7), d14=addDays(today,14);
+  var vCount={}, oCount={};
+  allEvents.forEach(function(e){ if(e.venue) vCount[e.venue]=(vCount[e.venue]||0)+1; if(e.organizerName) oCount[e.organizerName]=(oCount[e.organizerName]||0)+1; });
+  var poolA=[];
+  allEvents.forEach(function(ev){
+    if(isEnded(ev) || (ev.dateEnd||ev.date)<today || ev.date>d7) return;
+    var rs=pickupReasonsGuide(ev, vCount, oCount);
+    if(rs.length) poolA.push({ev:ev, why:rs, h:pickupHash(today+":"+ev.id)});
+  });
+  poolA.sort(function(a,b){ return a.h-b.h; });
+  var picks=poolA.slice(0,4), used={};
+  picks.forEach(function(p){ used[String(p.ev.id)]=1; });
+  var poolC=[];
+  allEvents.forEach(function(ev){
+    if(isEnded(ev) || (ev.dateEnd||ev.date)<today || ev.date>d14 || used[String(ev.id)]) return;
+    var rs=pickupReasonsPersonal(ev);
+    if(rs.length) poolC.push({ev:ev, why:rs, s:rankScore(ev).s});
+  });
+  poolC.sort(function(a,b){ if(b.s!==a.s) return b.s-a.s; return a.ev.date<b.ev.date?-1:1; });
+  return picks.concat(poolC.slice(0,4));
+}
+function pickupRowHTML(ev, why){
+  var img=ev.imageUrl
+    ? '<img class="rank-thumb" src="'+esc(ev.imageUrl)+'" alt="" loading="lazy" data-fbk="'+esc(ev.id)+':0" data-fbmode="remove" onerror="evImgErr(this)">'
+    : '<span class="rank-thumb rank-ph" style="background:'+catColor(ev.category)+'"></span>';
+  return '<div class="rank-row" data-id="'+esc(ev.id)+'" role="button" tabindex="0" aria-label="'+esc(ev.title)+'">'
+    + '<span class="rank-no pickup-pin">📌</span>'
+    + img
+    + '<div class="rank-main"><div class="rank-title">'+esc(ev.title)+'</div>'
+    + '<div class="rank-meta">'+esc(fmtDate(ev.date))+(ev.timeLabel?" "+esc(ev.timeLabel):"")+(ev.venue?" ・ "+esc(ev.venue)+vsChipHTML(ev):"")+'</div>'
+    + '<div class="rank-why">'+why.map(function(w){ return '<span class="reco-chip">'+esc(w)+'</span>'; }).join("")+'</div>'
+    + '</div></div>';
 }
 function cardHTML(ev){
   var isFav=favEvents.has(String(ev.id));
@@ -7357,6 +7417,14 @@ function renderHomeExtras(){
     els.followShelf.classList.toggle("hidden", !showFollow);
     if(showFollow) els.followList.innerHTML=sugs.map(followRowHTML).join("");
   }
+  if(els.pickupShelf){
+    /* ピックアップもトップページの初期表示だけ（検索・絞り込み中は出さない） */
+    var showPickup = isHome && !searching && activeCat==="すべて" && selCats.size===0;
+    var picks = showPickup ? buildPickups() : [];
+    showPickup = showPickup && picks.length>0;
+    els.pickupShelf.classList.toggle("hidden", !showPickup);
+    if(showPickup) els.pickupList.innerHTML=picks.map(function(p){ return pickupRowHTML(p.ev, p.why); }).join("");
+  }
 }
 if(els.prefsCta){
   /* CTAは好み画面ではなく、アンケート本体を直接開く */
@@ -7372,6 +7440,11 @@ if(els.genreSuggest){
 }
 if(els.recoGrid) els.recoGrid.addEventListener("click", gridCardClick);
 if(els.rankList) els.rankList.addEventListener("click", function(e){
+  var row=e.target.closest(".rank-row"); if(!row) return;
+  var ev=allEvents.find(function(x){ return String(x.id)===row.getAttribute("data-id"); });
+  if(ev) openModal(ev);
+});
+if(els.pickupList) els.pickupList.addEventListener("click", function(e){
   var row=e.target.closest(".rank-row"); if(!row) return;
   var ev=allEvents.find(function(x){ return String(x.id)===row.getAttribute("data-id"); });
   if(ev) openModal(ev);
