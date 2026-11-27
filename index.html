@@ -1098,7 +1098,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v212';
+  window.__kgShell='v213';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -1588,7 +1588,7 @@
   <div class="tl-search-note hidden" id="tlSearchNote"></div>
   <div class="tl-me" id="tlMe"></div>
   <div class="tl-scope hidden" id="tlScope" role="group" aria-label="タイムラインに流すリストの切り替え"></div>
-  <div class="tl-scope hidden" id="tlSort" role="group" aria-label="フォロー中の並び替え"></div>
+  <div class="tl-scope hidden" id="tlSort" role="group" aria-label="タイムラインの並び替え"></div>
   <div class="tl-ptr hidden" id="tlPtr" aria-hidden="true">↓ 引っ張って更新</div>
   <div class="tl-stage" id="tlStage"></div>
   <div class="tl-feed hidden" id="tlFeed"></div>
@@ -9344,7 +9344,7 @@ function buildTimelineItems(){
     var hits=filtered();
     tlSearchTotal=hits.length; tlSearchRescued=endedRescue;
     query=sQ; exactTarget=sE; view=sV; endedRescue=sR;
-    hits.sort(tlByDate);
+    tlApplySort(hits);
     return hits.slice(0,120);
   }
   return buildTimelineItemsRaw();
@@ -9360,20 +9360,21 @@ function buildTimelineItemsRaw(){
   /* 推し1組の範囲（v109）: その推しが出るイベントだけを日付順に流す */
   if(tlScopeArtist){
     up=up.filter(function(ev){ return oshiFocusHit(ev, tlScopeArtist); });
-    up.sort(tlByDate);
+    tlApplySort(up);
     return up.slice(0,60);
   }
   /* 推しが出る／回しプランの範囲（v109） */
   if(tlScopePreset==="oshi"){
     up=up.filter(function(ev){ return hasOshi(ev); });
-    up.sort(tlByDate);
+    tlApplySort(up);
     return up.slice(0,60);
   }
   if(tlScopePreset==="plan"){
     var slots=buildPlanSlots(), ord={};
     slots.forEach(function(s){ var k=String(s.id); var tm=/(\d{1,2}):(\d{2})/.exec(s.time||""); var key=s.date+"_"+(tm? (+tm[1])*60+(+tm[2]) : 9999); if(!(k in ord) || key<ord[k]) ord[k]=key; });
     up=up.filter(function(ev){ return String(ev.id) in ord; });
-    up.sort(function(a,b){ var ka=ord[String(a.id)], kb=ord[String(b.id)]; return ka<kb? -1 : (ka>kb? 1 : tlByDate(a,b)); });
+    if(prefs.tlFollowSort==="new"){ up.sort(function(a,b){ return tlIdNum(b)-tlIdNum(a); }); }
+    else up.sort(function(a,b){ var ka=ord[String(a.id)], kb=ord[String(b.id)]; return ka<kb? -1 : (ka>kb? 1 : tlByDate(a,b)); });
     return up.slice(0,60);
   }
   /* 固定スコープ（お気に入り・行きたい・気になる・フォロー中）もタイムラインに流せる（v80/v81） */
@@ -9394,21 +9395,12 @@ function buildTimelineItemsRaw(){
     else up.sort(tlByDate);
     return up.slice(0,60);
   }
-  var mine=[], favs=[], oshi=[], scored=[], rest=[];
-  up.forEach(function(ev){
-    if(ev._pending) mine.push(ev);
-    else if(favEvents.has(String(ev.id))) favs.push(ev);
-    else if(hasOshi(ev)) oshi.push(ev);
-    else {
-      var s=scoreEvent(ev);
-      if(s>0) scored.push({ev:ev, s:s});
-      else rest.push(ev);
-    }
-  });
-  mine.sort(tlByDate); favs.sort(tlByDate); oshi.sort(tlByDate);
-  scored.sort(function(a,b){ if(b.s!==a.s) return b.s-a.s; return tlByDate(a.ev,b.ev); });
-  rest.sort(tlByDate);
-  return mine.concat(favs, oshi, scored.map(function(x){ return x.ev; }), rest).slice(0,60);
+  /* v213: 「すべて」と固定スコープ・リストは、選んだ並び順そのもので流す。
+     以前は お気に入り→推し→おすすめ の優先バケツ混ぜ順で、「日時順」と
+     言える並びではなかった（Kota指摘）。日時順=開催日時そのまま、
+     新着順=採番（登録順）の新しい順。反映待ちは新着順で先頭（tlIdNum） */
+  tlApplySort(up);
+  return up.slice(0,60);
 }
 function tlChipsHTML(ev){
   var chips=[];
@@ -9728,12 +9720,17 @@ function renderTlScope(){
 }
 function renderTlSort(){
   var el=tlEl("tlSort"); if(!el) return;
-  var show = tlScopePreset==="follow";
-  el.classList.toggle("hidden", !show);
-  if(!show){ el.innerHTML=""; return; }
+  /* 並び替えは全スコープ共通（v213）。以前はフォロー中だけに出ていて、
+     「すべて」では切り替えられなかった（Kota指摘 2026-11-27） */
+  el.classList.remove("hidden");
   var cur = prefs.tlFollowSort==="new" ? "new" : "date";
-  el.innerHTML='<button type="button" data-tlsort="date" class="'+(cur==="date"?"on":"")+'">開催日順</button>'
+  el.innerHTML='<button type="button" data-tlsort="date" class="'+(cur==="date"?"on":"")+'">日時順</button>'
     + '<button type="button" data-tlsort="new" class="'+(cur==="new"?"on":"")+'">新着順</button>';
+}
+function tlApplySort(arr){
+  if(prefs.tlFollowSort==="new") arr.sort(function(a,b){ return tlIdNum(b)-tlIdNum(a); });
+  else arr.sort(tlByDate);
+  return arr;
 }
 function openTimeline(){
   if(!allEvents.length){ toast("データの読み込みが終わってから開始できます"); return; }
