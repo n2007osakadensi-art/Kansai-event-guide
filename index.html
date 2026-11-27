@@ -1054,7 +1054,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v205';
+  window.__kgShell='v206';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -6859,7 +6859,7 @@ function collectSuggestItems(text){
         for(var mi=0; mi<mems.length; mi++){
           var mk="m|"+mems[mi];
           if(seenA[mk]) continue;
-          if(normSearch(mems[mi]).indexOf(text)>=0){ seenA[mk]=1; artists.push({kind:"artist", klabel:"アーティスト", color:"var(--oshi)", label:mems[mi], value:mems[mi], sub:p+"のメンバー", score:score(mems[mi])}); }
+          if(normSearch(mems[mi]).indexOf(text)>=0){ seenA[mk]=1; artists.push({kind:"artist", klabel:"アーティスト", color:"var(--oshi)", label:mems[mi], value:perfCanonOf(p), sub:p+"のメンバー", score:score(mems[mi])}); }
         }
       }
     });

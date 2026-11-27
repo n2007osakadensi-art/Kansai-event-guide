@@ -1182,7 +1182,7 @@ var mems=feedGroupMembers(p);
 for(var mi=0; mi<mems.length; mi++){
 var mk="m|"+mems[mi];
 if(seenA[mk]) continue;
-if(normSearch(mems[mi]).indexOf(text)>=0){ seenA[mk]=1; artists.push({kind:"artist", klabel:"アーティスト", color:"#e88bb0", label:mems[mi], value:mems[mi], sub:p+"のメンバー", score:score(mems[mi])});}
+if(normSearch(mems[mi]).indexOf(text)>=0){ seenA[mk]=1; artists.push({kind:"artist", klabel:"アーティスト", color:"#e88bb0", label:mems[mi], value:resolveArtistName(p), sub:p+"のメンバー", score:score(mems[mi])});}
 }
 }
 });
