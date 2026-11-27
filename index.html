@@ -1040,7 +1040,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v202';
+  window.__kgShell='v203';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -3737,6 +3737,7 @@ function refreshEventImages(){
   }catch(e){}
   try{ refreshNotices(); }catch(e){}
   try{ refreshTags(); }catch(e){}
+  try{ refreshProfileImages(); }catch(e){}
 }
 document.addEventListener("visibilitychange", function(){ if(!document.hidden) refreshEventImages(); });
 window.addEventListener("pageshow", function(){ refreshEventImages(); });
@@ -7612,6 +7613,63 @@ function loadTagNg(){
   document.head.appendChild(script);
 }
 function refreshTags(){ tagsStarted=false; loadTags(); tagNgStarted=false; loadTagNg(); }
+/* プロフィール画像（v203、Kota指示 2026-11-27）: シート「プロフィール画像」タブが
+   編集フォームから設定されたアイコン／ヘッダー／メンバーアイコンの表示用URLの置き場。
+   write_sheets の同期対象外（タグタブと同じ）。読み込み時にプロフィールへ上書きマージする */
+var profImgStarted=false, profImgRows=[];
+function applyProfileImages(){
+  if(!profImgRows.length) return;
+  var changed=false;
+  profImgRows.forEach(function(r){
+    var kind=r[0], name=r[1], member=r[2], url=r[3];
+    if(!name || !url) return;
+    if(kind==="artist"){
+      var ap=(typeof artistProfiles!=="undefined")? artistProfiles[name] : null;
+      if(ap && ap.av!==url){ ap.av=url; changed=true; }
+    } else if(kind==="venue"){
+      var vp=(typeof venueProfiles!=="undefined")? venueProfiles[name] : null;
+      if(vp && vp.hi!==url){ vp.hi=url; changed=true; }
+    } else if(kind==="member"){
+      var mp=(typeof artistProfiles!=="undefined")? artistProfiles[name] : null;
+      if(!mp || !mp.m) return;
+      for(var i=0;i<mp.m.length;i++){ if(mp.m[i].n===member && mp.m[i].ic!==url){ mp.m[i].ic=url; changed=true; } }
+    }
+  });
+  if(changed){
+    try{ if(typeof allEvents!=="undefined" && allEvents && allEvents.length) render(); }catch(e){}
+    try{ if(typeof detailCtx!=="undefined" && detailCtx) renderDetail(); }catch(e){}
+    try{ if(typeof profSheetState!=="undefined" && profSheetState.open) renderProfSheet(); }catch(e){}
+  }
+}
+function loadProfileImages(){
+  if(profImgStarted) return; profImgStarted=true;
+  var cbName="__kgProfImgCb"+(++loadSeq);
+  var settled=false;
+  var script=document.createElement("script");
+  var timer=setTimeout(function(){ finish(); }, 30000);
+  function finish(){ if(settled) return; settled=true; clearTimeout(timer); try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); }
+  window[cbName]=function(resp){
+    try{
+      var rows=(resp && resp.table && resp.table.rows)||[];
+      var out=[];
+      rows.forEach(function(r){
+        if(!r || !r.c) return;
+        function cv(i){ var c=r.c[i]; if(!c) return ""; if(c.v!=null) return c.v; return ""; }
+        var kind=String(cv(0)||"").trim(), name=String(cv(1)||"").trim(), member=String(cv(2)||"").trim(), url=String(cv(3)||"").trim();
+        if(kind==="種別" || !kind || !name || !url) return;
+        out.push([kind,name,member,url]);
+      });
+      profImgRows=out;
+      applyProfileImages();
+    }catch(e){}
+    finish();
+  };
+  script.onerror=function(){ finish(); };
+  script.async=true;
+  script.src=sheetJsonpBase("プロフィール画像")+cbName+"&_="+Date.now();
+  document.head.appendChild(script);
+}
+function refreshProfileImages(){ profImgStarted=false; loadProfileImages(); }
 function tagLoggedIn(){
   try{ if(localStorage.getItem("kg_admin_mode_v1")==="1") return "admin"; }catch(e){}
   try{ var s=JSON.parse(localStorage.getItem("kg_member_session_v2")||"null"); if(s && s.acct) return "member:"+String(s.acct).slice(0,12); }catch(e){}
@@ -7800,6 +7858,7 @@ function refreshNotices(){ loadNotices(true); }
 loadNotices();
 loadTags();
 loadTagNg();
+loadProfileImages();
 /* プロフィールの自動反映（v92）: シートの artists / venues / readings タブを読み、
    同梱データへマージする。ガイドへ追加・修正してシート同期されれば、再pushなしで反映される。
    マージ方針はデータを失わない側: シートの非空値が勝ち、シートに無い項目（アイコン等）は同梱を保持。 */
@@ -7848,6 +7907,7 @@ function loadSheetProfiles(){
   function step(){
     if(--pending>0 || !changed) return;
     indexVenueProfiles();
+    try{ applyProfileImages(); }catch(e){}
     perfIndex=null; artistResolveCache=null; artistProfCache={};
     artistCatCache={};
     allEvents.forEach(function(ev){ ev._hay=null; });

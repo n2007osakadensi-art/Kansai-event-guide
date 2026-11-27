@@ -29,7 +29,15 @@
     + '.kp-mrow label{margin-top:10px}'
     + '.kp-madd{width:100%;min-height:44px;margin-top:10px;border-radius:10px;border:1px dashed var(--border,#bbb);background:transparent;color:inherit;font-size:14px;cursor:pointer}'
     + '.kp-mbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}'
-    + '.kp-mbtns button{flex:1;min-height:40px;border-radius:10px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-size:13.5px;cursor:pointer;min-width:150px}';
+    + '.kp-mbtns button{flex:1;min-height:40px;border-radius:10px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-size:13.5px;cursor:pointer;min-width:150px}'
+    + '.kp-img{border:1px solid var(--border,#bbb);border-radius:10px;padding:10px 12px 12px;margin-top:6px}'
+    + '.kp-img-prev{display:block;max-width:100%;height:auto;border-radius:8px;margin:6px 0}'
+    + '.kp-img-prev.round{width:72px;height:72px;object-fit:cover;border-radius:50%}'
+    + '.kp-img-prev.wide{max-height:140px;object-fit:cover;width:100%}'
+    + '.kp-img-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}'
+    + '.kp-img-btns button{flex:1;min-width:104px;min-height:40px;border-radius:10px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-size:13px;cursor:pointer;padding:0 6px}'
+    + '.kp-img-state{font-size:12.5px;color:var(--muted,#777);margin-top:8px;line-height:1.5}'
+    + '.kp-img input[type="text"]{margin-top:6px}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   var ov = document.createElement('div');
   ov.className = 'kp-overlay';
@@ -57,6 +65,7 @@
       + '<label>X<input type="text" class="kp-m-x" value="' + esc(mb.x || '') + '"></label>'
       + '<label>Instagram<input type="text" class="kp-m-i" value="' + esc(mb.i || '') + '"></label>'
       + '<label>所属グループ（任意）<input type="text" class="kp-m-g" value="' + esc(mb.g || '') + '"></label>'
+      + imgWidgetHTML('mem-' + idx, 'アイコン画像', mb.ic || '', true, true)
       + '</div>';
   }
   var mTextManual = false;
@@ -67,11 +76,89 @@
     }).filter(function (mb) { return mb.n; });
   }
   function memberLine(mb) { return [mb.n || '', mb.r || '', mb.x || '', mb.i || '', mb.g || ''].join(' | '); }
+  /* プロフィール画像の設定（v203、Kota指示 2026-11-27）: 添付／URL／X・Instagramのアイコン引用。
+     ここでは「どう変えるか」の指示だけを作り、実際の取得・反映は受付（取り込み）が行う */
+  var imgState = {};
+  var memSeq = 1000;
+  function imgModeText(st) {
+    if (!st || st.mode === 'keep') return '変更しません';
+    if (st.mode === 'url') return 'このURLの画像を設定します';
+    if (st.mode === 'x') return 'Xのアイコンを設定します（送信時に公式アカウントから取得）';
+    if (st.mode === 'instagram') return 'Instagramのアイコンを設定します（送信時に公式アカウントから取得）';
+    if (st.mode === 'upload') return '添付した画像を設定します';
+    if (st.mode === 'clear') return '画像を外します';
+    return '';
+  }
+  function imgWidgetHTML(id, label, curUrl, allowSNS, round) {
+    var h = '<label>' + label + '</label><div class="kp-img" data-imgbox="' + id + '">';
+    if (curUrl) h += '<img class="kp-img-prev ' + (round ? 'round' : 'wide') + '" data-imgprev src="' + esc(curUrl) + '" alt="">';
+    else h += '<p class="kp-img-state" style="margin-top:0">現在、画像は設定されていません。</p>';
+    h += '<input type="text" data-imgurl placeholder="画像のURLを貼る">'
+      + '<div class="kp-img-btns">'
+      + '<button type="button" data-imgact="url" data-imgid="' + id + '">URLで設定</button>'
+      + (allowSNS ? '<button type="button" data-imgact="x" data-imgid="' + id + '">Xのアイコンを使う</button><button type="button" data-imgact="instagram" data-imgid="' + id + '">Instagramのアイコンを使う</button>' : '')
+      + '<button type="button" data-imgact="file" data-imgid="' + id + '">画像を添付</button>'
+      + '<button type="button" data-imgact="clear" data-imgid="' + id + '">外す</button>'
+      + '<button type="button" data-imgact="keep" data-imgid="' + id + '">変更しない</button>'
+      + '</div>'
+      + '<input type="file" accept="image/*" data-imgfile="' + id + '" style="display:none">'
+      + '<p class="kp-img-state" data-imgstate>' + imgModeText(imgState[id]) + '</p></div>';
+    return h;
+  }
+  function imgSetState(id, st) {
+    imgState[id] = st;
+    var box = ov.querySelector('[data-imgbox="' + id + '"]');
+    if (!box) return;
+    var line = box.querySelector('[data-imgstate]');
+    if (line) line.textContent = imgModeText(st);
+    var prev = box.querySelector('[data-imgprev]');
+    var src = st && st.mode === 'url' ? st.url : (st && st.mode === 'upload' ? st.dataUrl : '');
+    if (src) {
+      if (!prev) {
+        prev = document.createElement('img');
+        prev.setAttribute('data-imgprev', '');
+        prev.className = 'kp-img-prev wide';
+        box.insertBefore(prev, box.firstChild);
+      }
+      prev.src = src;
+      prev.style.display = '';
+    } else if (prev && st && st.mode === 'clear') {
+      prev.style.display = 'none';
+    }
+  }
+  function imgDownscale(file, cb) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      var w = img.naturalWidth || 1, h = img.naturalHeight || 1;
+      var sc = Math.min(1, 1024 / Math.max(w, h));
+      (function attempt(s2) {
+        var cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.round(w * s2)); cv.height = Math.max(1, Math.round(h * s2));
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        var du = cv.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.92);
+        if (du.length > 1900000 && s2 > 0.12) { attempt(s2 * 0.7); return; }
+        URL.revokeObjectURL(url); cb(du);
+      })(sc);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); cb(null); };
+    img.src = url;
+  }
+  function imgInstruction(id) {
+    var st = imgState[id];
+    if (!st || st.mode === 'keep') return null;
+    var out = { mode: st.mode };
+    if (st.mode === 'url') out.url = st.url;
+    if (st.mode === 'upload') out.dataUrl = st.dataUrl;
+    return out;
+  }
   function rowsToMembers() {
     var out = [];
     ov.querySelectorAll('.kp-mrow').forEach(function (row) {
       function rv(cls) { var el = row.querySelector(cls); return el ? el.value.trim() : ''; }
       var mb = { n: rv('.kp-m-n'), r: rv('.kp-m-r'), x: rv('.kp-m-x'), i: rv('.kp-m-i'), g: rv('.kp-m-g') };
+      var wEl = row.querySelector('[data-imgid]');
+      if (wEl) { var ins = imgInstruction(wEl.getAttribute('data-imgid')); if (ins) mb.iconImg = ins; }
       if (mb.n) out.push(mb);
     });
     return out;
@@ -119,11 +206,13 @@
     }
     var sb2 = $('kp-send'); sb2.disabled = false; sb2.style.opacity = '';
     cur = { kind: kind, name: name };
+    imgState = {};
     var data = kind === 'artist' ? bridge.getArtistProfile(name) : bridge.getVenueProfile(name);
     var p = data.profile || {};
     $('kp-title').textContent = (kind === 'artist' ? 'アーティスト' : '会場') + 'プロフィールの追加・修正';
     var h = '<p style="margin:6px 0 0;font-size:15px;font-weight:700">' + esc(name) + '</p>';
     if (kind === 'artist') {
+      h += imgWidgetHTML('avatar', 'アイコン画像', p.av || '', true, true);
       h += '<label for="kp-f-cat">カテゴリ</label><select id="kp-f-cat"><option value="">（未設定）</option>' + ['アイドル','メンズアイドル','ユニドル','音楽','バンド','ガールズバンド','ダンス','ダンスボーカル','食フェス','バル','マルシェ','ハンドメイド','学祭','文化祭','お笑い','地域まつり','舞台・その他','スポーツ','イルミネーション','展示・展覧会','体験・ワークショップ','コスプレ','DJ','アニクラ','歌い手','踊り手','ファッションショー','撮影会'].map(function (c) { return '<option value="' + c + '"' + (c === (p.c || data.cat || '') ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select>';
       h += field('読み（カタカナ）', 'kp-f-rd', data.reading || '');
       h += field('公式サイト', 'kp-f-w', p.w || '');
@@ -144,6 +233,7 @@
         + '<div class="kp-mbtns"><button type="button" id="kp-m2rows">テキストを行形式に反映</button><button type="button" id="kp-m2text">行形式をテキストに書き出す</button></div>'
         + '<p class="kp-note">1行に1人「名前 | 役割 | X | Instagram | 所属グループ」の形式です。テンプレートを作って貼り付けるのに使えます。テキストを書き換えた場合は、そのまま送信するとテキスト側の内容が優先されます。</p>';
     } else {
+      h += imgWidgetHTML('header', 'ヘッダー画像', p.hi || '', false, false);
       h += field('住所', 'kp-f-ad', p.ad || '');
       h += field('ジャンル', 'kp-f-gn', p.gn || '');
       h += field('施設種別', 'kp-f-tp', p.tp || '');
@@ -165,9 +255,35 @@
     ov.classList.add('open');
   }
   $('kp-fields').addEventListener('click', function (e) {
+    var ia = e.target && e.target.closest ? e.target.closest('[data-imgact]') : null;
+    if (ia) {
+      var iid = ia.getAttribute('data-imgid'), act = ia.getAttribute('data-imgact');
+      var ibox = ov.querySelector('[data-imgbox="' + iid + '"]');
+      function setNote(t) { var ln = ibox ? ibox.querySelector('[data-imgstate]') : null; if (ln) ln.textContent = t; }
+      if (act === 'keep') imgSetState(iid, { mode: 'keep' });
+      else if (act === 'clear') imgSetState(iid, { mode: 'clear' });
+      else if (act === 'file') { var fi = ibox ? ibox.querySelector('[data-imgfile]') : null; if (fi) fi.click(); }
+      else if (act === 'url') {
+        var ui = ibox ? ibox.querySelector('[data-imgurl]') : null;
+        var uv = ui ? ui.value.trim() : '';
+        if (!/^https?:\/\//.test(uv)) { setNote('画像のURLを貼ってから「URLで設定」を押してください'); return; }
+        imgSetState(iid, { mode: 'url', url: uv });
+      } else if (act === 'x' || act === 'instagram') {
+        var link = '';
+        if (iid === 'avatar') link = val(act === 'x' ? 'kp-f-x' : 'kp-f-i');
+        else {
+          var mrow = ia.closest('.kp-mrow');
+          var li = mrow ? mrow.querySelector(act === 'x' ? '.kp-m-x' : '.kp-m-i') : null;
+          link = li ? li.value.trim() : '';
+        }
+        if (!link) { setNote('先に' + (act === 'x' ? 'X' : 'Instagram') + 'のリンクを入力してください'); return; }
+        imgSetState(iid, { mode: act });
+      }
+      return;
+    }
     if (e.target && e.target.id === 'kp-madd') {
       var box = $('kp-members'); if (!box) return;
-      box.insertAdjacentHTML('beforeend', memberRow({}, box.querySelectorAll('.kp-mrow').length));
+      box.insertAdjacentHTML('beforeend', memberRow({}, memSeq++));
       renumberMembers();
       return;
     }
@@ -189,6 +305,20 @@
       if (row) { row.remove(); renumberMembers(); }
     }
   });
+  $('kp-fields').addEventListener('change', function (e) {
+    var fi = e.target && e.target.closest ? e.target.closest('[data-imgfile]') : null;
+    if (!fi || !fi.files || !fi.files[0]) return;
+    var fid = fi.getAttribute('data-imgfile');
+    imgDownscale(fi.files[0], function (du) {
+      if (du) imgSetState(fid, { mode: 'upload', dataUrl: du });
+      else {
+        var bx = ov.querySelector('[data-imgbox="' + fid + '"]');
+        var ln = bx ? bx.querySelector('[data-imgstate]') : null;
+        if (ln) ln.textContent = '画像を読み込めませんでした。別の画像でお試しください';
+      }
+      fi.value = '';
+    });
+  });
   function close() { ov.classList.remove('open'); }
   $('kp-close').addEventListener('click', close);
   $('kp-cancel').addEventListener('click', close);
@@ -200,7 +330,7 @@
     var payload;
     if (cur.kind === 'artist') {
       var srcMembers = (mTextManual && $('kp-f-mtext')) ? parseMemberLines($('kp-f-mtext').value) : rowsToMembers();
-      var members = srcMembers.map(function (mb) { return { name: mb.n, role: mb.r, x: mb.x, instagram: mb.i, group: mb.g }; });
+      var members = srcMembers.map(function (mb) { var o = { name: mb.n, role: mb.r, x: mb.x, instagram: mb.i, group: mb.g }; if (mb.iconImg) o.iconImage = mb.iconImg; return o; });
       var membersText = members.map(function (mb) { return [mb.name, mb.role, mb.x, mb.instagram, mb.group].join('｜'); }).join('\n');
       payload = {
         kind: 'artistProfile', targetName: cur.name,
@@ -212,6 +342,8 @@
         fanNames: val('kp-f-fn') ? val('kp-f-fn').split(/[、,，]/).map(function (x) { return x.trim(); }).filter(Boolean) : [],
         members: members, membersText: membersText, source: val('kp-f-src'), notes: val('kp-f-note')
       };
+      var avIns = imgInstruction('avatar');
+      if (avIns) payload.avatarImage = avIns;
     } else {
       payload = {
         kind: 'venueProfile', targetName: cur.name,
@@ -220,6 +352,8 @@
         access: val('kp-f-ac'), capacity: val('kp-f-cp'), hours: val('kp-f-hr'),
         summary: val('kp-f-sm'), source: val('kp-f-src'), notes: val('kp-f-note')
       };
+      var hdIns = imgInstruction('header');
+      if (hdIns) payload.headerImage = hdIns;
     }
     payload.submitter = (function () { try { return localStorage.getItem('kg_admin_mode_v1') === '1' ? 'admin' : 'guest'; } catch (e) { return 'guest'; } })();
     payload._subject = '【プロフィール修正】' + (cur.kind === 'artist' ? 'アーティスト' : '会場') + '：' + cur.name;
