@@ -147,6 +147,10 @@
   .heat-btn .heat-emoji{font-size:19px;line-height:1.15}
   .heat-btn .heat-name{font-size:10.5px;font-weight:700}
   .heat-btn.on{border-color:var(--accent);background:var(--accent);color:#fff}
+  .memo-box{margin:14px 0 2px}
+  .memo-input{width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:9px 10px;font-size:13.5px;font-family:inherit;resize:vertical}
+  .memo-row{margin-top:6px;text-align:right}
+  .memo-note{font-size:12px;color:var(--muted);font-weight:700}
 
   /* Christmas feature （クリスマス特集） */
   .xmas-banner{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;background:var(--surface);border:1.5px solid var(--gold);border-radius:12px;padding:12px 14px;margin:0 0 14px;box-shadow:var(--shadow)}
@@ -1137,7 +1141,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v260';
+  window.__kgShell='v261';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1918,6 +1922,18 @@ function setHeat(id, lv){
   if(fev && lv>=2) learnFromEvent(fev, 2); else if(fev && lv>=1) learnFromEvent(fev, 1);
   if(lv>=1) toast(HEAT_LEVELS[lv].e+" 「"+HEAT_LEVELS[lv].label+"」にしました");
   else toast("気持ちの度合いを外しました");
+}
+/* 個人メモ（v261）: イベントごとの自由記入（行く理由・行かない理由など）。
+   本人の端末とアカウント同期の中だけ。公開データには出ない。
+   「行けない」を印や区分にはしない（評価に見えるため）——理由はメモで分かる形 */
+var LS_MEMOS="kg_trial_memos_v1";
+var memos=(function(){ try{ var o=JSON.parse(localStorage.getItem(LS_MEMOS)||"{}"); return (o && typeof o==="object" && !Array.isArray(o))? o : {}; }catch(e){ return {}; } })();
+function memoOf(id){ var m=memos[String(id)]; return (m && typeof m.t==="string")? m.t : ""; }
+function saveMemo(id, text){
+  id=String(id); text=String(text||"").trim();
+  if(text) memos[id]={t:text, at:Date.now()}; else delete memos[id];
+  try{ localStorage.setItem(LS_MEMOS, JSON.stringify(memos)); }catch(e){}
+  try{ window.dispatchEvent(new CustomEvent("kg:favorites-change",{detail:{key:LS_MEMOS}})); }catch(e){}
 }
 /* 移行＋整合: heat 未設定の旧データは interest→段階1、want→段階3（want優先）。
    他端末から来た heat と集合の食い違いも、起動時の導出でここで回復する */
@@ -2733,6 +2749,7 @@ function cardHTML(ev){
     + guideBadgeFor(ev)
     + (isFav?'<span class="fav-note">♥ お気に入り</span>':"")
     + (heatOf(ev.id)? '<span class="heat-note">'+HEAT_LEVELS[heatOf(ev.id)].e+' '+HEAT_LEVELS[heatOf(ev.id)].label+'</span>' : "")
+    + (memoOf(ev.id)? '<span class="memo-note">📝 メモあり</span>' : "")
     + (oshi?'<span style="font-size:12px;color:var(--oshi);font-weight:700">★ '+esc(oshiIn(ev).join("、"))+'</span>':"")
     + '</div></div></article>';
 }
@@ -5946,6 +5963,9 @@ function openModal(ev){
     + '<div class="heat-box"><div class="heat-title">気持ちの度合い（もう一度押すと解除）</div><div class="heat-row" role="group" aria-label="気持ちの度合い">'
     + [1,2,3,4,5].map(function(lv){ var H=HEAT_LEVELS[lv]; var on=heatOf(ev.id)===lv; return '<button type="button" class="heat-btn'+(on?" on":"")+'" data-heat="'+lv+'" aria-pressed="'+on+'"><span class="heat-emoji">'+H.e+'</span><span class="heat-name">'+H.label+'</span></button>'; }).join("")
     + '</div></div>'
+    + '<div class="memo-box"><div class="heat-title">メモ（自分だけが見えます）</div>'
+    + '<textarea id="modalMemo" class="memo-input" rows="2" placeholder="行く理由・行かない理由など（例：仕事で行けない／推しの生誕と重なった）">'+esc(memoOf(ev.id))+'</textarea>'
+    + '<div class="memo-row"><button type="button" class="mini-btn" id="modalMemoSave">メモを保存</button></div></div>'
     + '<div class="mini-acts-row">'
     + '<button class="mini-btn'+(isFav?" on":"")+'" type="button" id="modalFav">'+(isFav?"♥ お気に入り中":"♡ お気に入り")+'</button>'
     + '<button class="mini-btn" type="button" id="modalShare">共有</button>'
@@ -5964,6 +5984,8 @@ function openModal(ev){
   var mbb=document.getElementById("modalBackBar"); if(mbb) mbb.addEventListener("click", closeModal);
   document.getElementById("modalFav").addEventListener("click", function(){ toggleFav(String(ev.id)); openModal(ev); render(); });
   els.modal.querySelectorAll("[data-heat]").forEach(function(b){ b.addEventListener("click", function(){ var lv=Number(b.getAttribute("data-heat")); setHeat(ev.id, heatOf(ev.id)===lv? 0 : lv); openModal(ev); render(); }); });
+  var mmSave=document.getElementById("modalMemoSave");
+  if(mmSave) mmSave.addEventListener("click", function(){ var ta=document.getElementById("modalMemo"); saveMemo(ev.id, ta? ta.value : ""); toast(memoOf(ev.id)? "メモを保存しました" : "メモを消しました"); openModal(ev); render(); });
   /* 共有は開くたびに必ず同じ場所に出す（v53）。Web Share が無い環境では
      タイトルと日時をコピーする */
   document.getElementById("modalShare").addEventListener("click", function(){
