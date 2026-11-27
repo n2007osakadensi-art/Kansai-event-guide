@@ -657,6 +657,7 @@
   .cal-chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer}
   .cal-chip.on{background:var(--gold);border-color:var(--gold);color:#231a04}
   .cal-mgr{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:14px;margin:0 0 14px}
+  .cal-mgr.cal-mgr-in-tl{position:relative;z-index:6;max-height:62vh;overflow:auto;margin:8px 10px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
   .cal-mgr-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
   .cal-mgr-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line)}
   .cal-mgr-row .nm{font-weight:700;flex:1}
@@ -1114,7 +1115,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v250';
+  window.__kgShell='v251';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1459,7 +1460,7 @@
     <button type="button" class="cal-panel-close" id="calCtlClose">閉じる</button>
     </div>
     <div class="cal-mgr" id="calMgr" hidden>
-      <div class="cal-mgr-head"><strong>マイカレンダーの管理</strong><button type="button" class="cal-chip" id="calMgrClose">閉じる</button></div>
+      <div class="cal-mgr-head"><strong>タブ・カレンダーの管理</strong><button type="button" class="cal-chip" id="calMgrClose">閉じる</button></div>
       <div id="calMgrList"></div>
       <label class="name-row" for="calMgrName">カレンダーの名前</label>
       <input type="text" id="calMgrName" placeholder="例：推しだけ／近所の会場／週末プラン">
@@ -1486,7 +1487,7 @@
         <button type="button" class="cal-chip" id="calMgrNew">新規（入力を空に）</button>
       </div>
       <button type="button" class="cal-panel-close" id="calMgrCloseB">閉じる</button>
-      <p class="cal-mgr-note">選んだ対象のイベントだけが、このカレンダーに集まります。同じ設定はタイムラインのタブとしても使えます（タイムラインの「タブを管理」からもここへ来られます）。端末に保存され、ログイン中はアカウントにも同期されます。</p>
+      <p class="cal-mgr-note">選んだ対象のイベントだけが集まります。この設定はカレンダーとタイムラインのタブで共通です（タイムラインの「タブを追加・編集」からも、タイムラインを離れずに開けます）。端末に保存され、ログイン中はアカウントにも同期されます。</p>
     </div>
     <div id="calCondRow" class="cal-cond" hidden><span>検索・絞り込みの条件に合う件数で表示中です</span><button type="button" id="calCondClear">条件を外す</button></div>
     <div class="cal-legend" id="calLegend" hidden>
@@ -9125,9 +9126,9 @@ if(els.calScopeFollow) els.calScopeFollow.addEventListener("click", function(){ 
   var openBtn=document.getElementById("calMgrOpen");
   if(openBtn && mgr) openBtn.addEventListener("click", function(){ mgr.hidden=false; calDraft=null; calMgrRender(); mgr.scrollIntoView({block:"nearest"}); });
   var closeBtn=document.getElementById("calMgrClose");
-  if(closeBtn && mgr) closeBtn.addEventListener("click", function(){ mgr.hidden=true; });
+  if(closeBtn && mgr) closeBtn.addEventListener("click", function(){ mgr.hidden=true; if(mgr.classList.contains("cal-mgr-in-tl")) calMgrRestoreHome(); });
   var closeBtnB=document.getElementById("calMgrCloseB");
-  if(closeBtnB && mgr) closeBtnB.addEventListener("click", function(){ mgr.hidden=true; });
+  if(closeBtnB && mgr) closeBtnB.addEventListener("click", function(){ mgr.hidden=true; if(mgr.classList.contains("cal-mgr-in-tl")) calMgrRestoreHome(); });
   if(mgr) mgr.addEventListener("click", function(e){
     var ed=e.target.closest("[data-cal-edit]"), del=e.target.closest("[data-cal-del]");
     if(ed){ calEditId=ed.getAttribute("data-cal-edit"); calDraft=null; calMgrRender(); return; }
@@ -9136,7 +9137,7 @@ if(els.calScopeFollow) els.calScopeFollow.addEventListener("click", function(){ 
       myCalendars=myCalendars.filter(function(c){ return c.id!==did; });
       if(calEditId===did){ calEditId=""; calDraft=null; }
       if(calActiveId===did){ calActiveId=""; if(calScope==="custom") calScope="all"; }
-      saveMyCalendars(); calMgrRender(); renderCalendar();
+      saveMyCalendars(); calMgrRender(); renderCalendar(); tlRefreshIfOpen();
       toast("カレンダーを削除しました");
       return;
     }
@@ -9175,8 +9176,8 @@ if(els.calScopeFollow) els.calScopeFollow.addEventListener("click", function(){ 
     if(cur){ Object.keys(data).forEach(function(k){ cur[k]=data[k]; }); }
     else { data.id="cal"+Date.now().toString(36); myCalendars.push(data); calEditId=data.id; }
     saveMyCalendars(); calDraft=null; calMgrRender();
-    calScope="custom"; calActiveId=calEditId; renderCalendar();
-    toast("カレンダー「"+name+"」を保存しました");
+    calScope="custom"; calActiveId=calEditId; renderCalendar(); tlRefreshIfOpen();
+    toast("「"+name+"」を保存しました（タブとカレンダー共通）");
   });
 })();
 document.getElementById("calPrev").addEventListener("click", function(){ calMove(-1); });
@@ -10126,6 +10127,28 @@ function tlUpdateClock(){
   var p=todayStr().split("-");
   el.textContent=(+p[1])+"/"+(+p[2])+"（"+"日月火水木金土".charAt(now.getDay())+"） "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
 }
+/* 管理パネルをタイムラインの中で開くための受け渡し（v251）。
+   パネル本体はカレンダー画面にある1つを使い回し、開くときだけ
+   タイムライン側へ移す。タイムラインを閉じたら元の場所へ戻す */
+var calMgrHome=null;
+function openCalMgrInTimeline(){
+  var mgr=document.getElementById("calMgr"); if(!mgr) return;
+  if(!calMgrHome) calMgrHome={ parent:mgr.parentNode, next:mgr.nextSibling };
+  var sortEl=tlEl("tlSort");
+  if(sortEl && sortEl.parentNode) sortEl.parentNode.insertBefore(mgr, sortEl.nextSibling);
+  mgr.classList.add("cal-mgr-in-tl");
+  mgr.hidden=false; calDraft=null; calMgrRender();
+  mgr.scrollIntoView({block:"nearest"});
+}
+function calMgrRestoreHome(){
+  var mgr=document.getElementById("calMgr"); if(!mgr || !calMgrHome) return;
+  mgr.classList.remove("cal-mgr-in-tl");
+  if(calMgrHome.next && calMgrHome.next.parentNode===calMgrHome.parent) calMgrHome.parent.insertBefore(mgr, calMgrHome.next);
+  else calMgrHome.parent.appendChild(mgr);
+}
+function tlRefreshIfOpen(){
+  if(typeof tlState!=="undefined" && tlState.open){ renderTlScope(); tlState.items=buildTimelineItems(); tlState.idx=0; tlBuildTicker(); tlApplyMode(); }
+}
 function renderTlScope(){
   var el=tlEl("tlScope"); if(!el) return;
   if(tlScopeListId && !findList(tlScopeListId)){ tlScopeListId=null; }
@@ -10138,7 +10161,7 @@ function renderTlScope(){
     + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("")
     + myCalendars.map(function(c){ return '<button type="button" data-tlcal="'+esc(c.id)+'" class="'+(tlCalId===c.id?"on":"")+'">'+esc(c.name)+'</button>'; }).join("")
     + (tlCalId? '<button type="button" data-tlcal-open="1">📅 カレンダーで見る</button>' : '')
-    + '<button type="button" data-tlcal-mgr="1">タブを管理</button>'
+    + '<button type="button" data-tlcal-mgr="1">タブを追加・編集</button>'
     + ((tlScopePreset==="want"||tlScopePreset==="int")? '<button type="button" data-tl-go-plan="'+tlScopePreset+'">回しプランで開く</button>' : '')
     + (tlScopeArtist? '<button type="button" data-tlscope-artist="1" class="on">フォロー：'+esc(tlScopeArtist)+' ✕</button>' : '');
   renderTlSort();
@@ -10187,6 +10210,10 @@ function openTimeline(){
   }catch(e){}
 }
 function closeTimeline(){
+  /* 管理パネルをタイムライン内に移したまま閉じると、カレンダー側で
+     パネルが消えたままになるため、元の場所へ戻して隠す（v251） */
+  var mg=document.getElementById("calMgr");
+  if(mg && mg.classList.contains("cal-mgr-in-tl")){ mg.hidden=true; calMgrRestoreHome(); }
   tlState.open=false;
   if(typeof syncBnav==="function") syncBnav();
   if(tlState.timer) clearTimeout(tlState.timer);
@@ -10535,7 +10562,7 @@ function refreshTlLogin(){
     var co=e.target.closest("[data-tlcal-open]");
     if(co){ var cid=tlCalId; closeTimeline(); view="calendar"; calScope="custom"; calActiveId=cid||""; render(); window.scrollTo(0,0); return; }
     var cm=e.target.closest("[data-tlcal-mgr]");
-    if(cm){ closeTimeline(); view="calendar"; render(); window.scrollTo(0,0); setTimeout(function(){ var ob=document.getElementById("calMgrOpen"); if(ob) ob.click(); var mp=document.getElementById("calMgr"); if(mp) mp.scrollIntoView({block:"nearest"}); },80); return; }
+    if(cm){ openCalMgrInTimeline(); return; }
     var cb2=e.target.closest("[data-tlcal]");
     if(cb2){ tlResetQuery(); tlScopeArtist=null; tlScopePreset=null; tlScopeListId=null; tlCalId=cb2.getAttribute("data-tlcal"); tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode(); if(!tlState.items.length) toast("このタブには表示できるイベントがありません"); return; }
     var b=e.target.closest("[data-tlscope]"); if(!b) return;
