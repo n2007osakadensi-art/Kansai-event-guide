@@ -1103,7 +1103,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v215';
+  window.__kgShell='v216';
   var st=read()||{};
   var fails=(st.pending && (Date.now()-st.pending)<120000) ? (st.fails||0)+1 : 0;
   save({pending:Date.now(), fails:fails});
@@ -9362,9 +9362,15 @@ var TL_INTERVAL=8000;
 var tlState={open:false, idx:0, items:[], timer:null, clockTimer:null, suspended:false, feedScroll:0, baseView:null};
 function tlEl(id){ return document.getElementById(id); }
 function tlByDate(a,b){
-  if(a.date!==b.date) return a.date<b.date?-1:1;
+  /* 日時順のキーは本体一覧の「近い順」と同じ max(開始日, 今日)（v216）。
+     開催中の長期イベントが開始日の古さで先頭に来ないようにする */
+  var t=todayStr();
+  var ka=a.date<t? t : a.date, kb=b.date<t? t : b.date;
+  if(ka!==kb) return ka<kb?-1:1;
   var as=a.startMin==null?99999:a.startMin, bs=b.startMin==null?99999:b.startMin;
-  return as-bs;
+  if(as!==bs) return as-bs;
+  if(a.date!==b.date) return a.date<b.date?-1:1;
+  return 0;
 }
 /* 新着順（掲載順）用：ガイドの採番が大きいほど新しい。採番のない反映待ちは先頭 */
 function tlIdNum(ev){ var n=parseInt(ev.id,10); return isNaN(n)? Number.MAX_SAFE_INTEGER : n; }
