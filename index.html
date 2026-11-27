@@ -1114,7 +1114,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v249';
+  window.__kgShell='v250';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -3606,9 +3606,13 @@ function renderCalChips(){
    不足を解消し、気になるアーティスト・全プロフィール・全イベントの
    出演者／会場／主催者から検索で追加できるようにする。選択は下書き（Set）
    で保持し、検索の再描画で消えないようにする */
-var calDraft=null, calDraftFor=null, calPoolCache=null;
+var calDraft=null, calDraftFor=null, calPoolCache=null, calPoolKey="";
 function calMgrPools(){
-  if(calPoolCache) return calPoolCache;
+  /* 候補プールは読み込みの進み具合で増えるため、件数が変わったら作り直す
+     （v250: 初回にデータ未着のまま固定され、アーティスト検索が全滅した） */
+  var key=allEvents.length+"/"+Object.keys(artistProfiles).length+"/"+Object.keys(venueProfiles).length+"/"+Object.keys(organizerProfiles).length;
+  if(calPoolCache && calPoolKey===key) return calPoolCache;
+  calPoolKey=key;
   var A=new Set(), V=new Set(), O=new Set();
   favPerfs.forEach(function(n){ A.add(n); });
   ((typeof prefs!=="undefined" && prefs.artists)||[]).forEach(function(n){ A.add(n); });
@@ -10162,7 +10166,9 @@ function openTimeline(){
   tlCalId=tlPendingCalId||null; tlPendingCalId=null;
   renderTlScope();
   tlState.items=buildTimelineItems();
-  if(!tlState.items.length){ toast("表示できるイベントがありません"); return; }
+  /* タブ（マイカレンダー）指定で開くときは0件でも開く（v250）。空のタブを
+     見て切り替えられるようにするためで、通常の開き方は従来どおり */
+  if(!tlState.items.length && !tlCalId){ toast("表示できるイベントがありません"); return; }
   refreshTlLogin();
   var ov=tlEl("tlOverlay"); if(!ov) return;
   ov.classList.add("open");
@@ -10527,9 +10533,9 @@ function refreshTlLogin(){
     var gp=e.target.closest("[data-tl-go-plan]");
     if(gp){ var ptab=gp.getAttribute("data-tl-go-plan"); closeTimeline(); view="plan"; planPickTab=ptab; planPickOpen=""; render(); setTimeout(function(){ var pk=document.getElementById("planPick"); if(pk) pk.scrollIntoView({behavior:"smooth", block:"start"}); }, 60); return; }
     var co=e.target.closest("[data-tlcal-open]");
-    if(co){ var cid=tlCalId; closeTimeline(); view="cal"; calScope="custom"; calActiveId=cid||""; render(); window.scrollTo(0,0); return; }
+    if(co){ var cid=tlCalId; closeTimeline(); view="calendar"; calScope="custom"; calActiveId=cid||""; render(); window.scrollTo(0,0); return; }
     var cm=e.target.closest("[data-tlcal-mgr]");
-    if(cm){ closeTimeline(); view="cal"; render(); window.scrollTo(0,0); setTimeout(function(){ var ob=document.getElementById("calMgrOpen"); if(ob) ob.click(); var mp=document.getElementById("calMgr"); if(mp) mp.scrollIntoView({block:"nearest"}); },80); return; }
+    if(cm){ closeTimeline(); view="calendar"; render(); window.scrollTo(0,0); setTimeout(function(){ var ob=document.getElementById("calMgrOpen"); if(ob) ob.click(); var mp=document.getElementById("calMgr"); if(mp) mp.scrollIntoView({block:"nearest"}); },80); return; }
     var cb2=e.target.closest("[data-tlcal]");
     if(cb2){ tlResetQuery(); tlScopeArtist=null; tlScopePreset=null; tlScopeListId=null; tlCalId=cb2.getAttribute("data-tlcal"); tlState.items=buildTimelineItems(); tlState.idx=0; renderTlScope(); tlBuildTicker(); tlApplyMode(); if(!tlState.items.length) toast("このタブには表示できるイベントがありません"); return; }
     var b=e.target.closest("[data-tlscope]"); if(!b) return;
