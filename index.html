@@ -312,9 +312,9 @@
   /* Image viewer (lightbox): full-size view + save */
   .zoom-btn{position:absolute;right:8px;bottom:8px;z-index:3;border:0;border-radius:999px;background:rgba(15,15,18,.8);color:#fff;font-size:12.5px;font-weight:700;padding:8px 13px;min-height:36px;cursor:pointer}
   .zoom-btn:active{background:rgba(15,15,18,.96)}
-  .gal-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;height:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x}
+  .gal-track{display:flex;overflow-x:auto;-webkit-scroll-snap-type:x mandatory;scroll-snap-type:x mandatory;height:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x}
   .gal-track::-webkit-scrollbar{display:none}
-  .gal-slide{flex:0 0 100%;scroll-snap-align:start;position:relative;height:100%;overflow:hidden}
+  .gal-slide{flex:0 0 100%;-webkit-scroll-snap-align:start;scroll-snap-align:start;position:relative;height:100%;overflow:hidden}
   .gal-slide img{width:100%;height:100%;object-fit:contain;display:block;position:relative;cursor:zoom-in}
   .gal-ui{position:absolute;left:8px;bottom:8px;z-index:3;display:flex;align-items:center;gap:8px;pointer-events:none}
   .gal-nav{pointer-events:auto;width:34px;height:34px;border-radius:50%;border:none;background:rgba(15,15,18,.6);color:#fff;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
@@ -1113,10 +1113,10 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v234';
+  window.__kgShell='v235';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
-  /* 遅いだけの起動を「失敗」と数えない（v234）: 前回に処理段階の形跡
+  /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
      （busy マーカー）が残っていたら、固まったのではなく時間がかかって
      いただけとみなし、自動消去の数えに含めない。遅い端末で「警告→
      自動消去→冷えた状態から再読み込み→さらに遅い」の悪循環を断つ */
@@ -1244,7 +1244,7 @@
   var params=null; try{ params=new URLSearchParams(location.search); }catch(e){}
   if(params && params.get('reset')==='1'){ wipeAll().then(function(){ save({pending:0,fails:0}); location.replace(cleanUrl()); }); return; }
   if(fails>=2){ wipeDerived().then(function(){ save({pending:Date.now(),fails:0}); location.reload(); }); return; }
-  /* 起動の見張り（v234で進行連動に変更）: 以前は20秒固定だったため、
+  /* 起動の見張り（v235で進行連動に変更）: 以前は20秒固定だったため、
      遅い端末では正常に読み込み中でも警告が出ていた。処理段階
      （busy マーカー）が進んでいる間は出さず、段階が45秒止まった時か、
      開始から150秒を超えた時だけ出す。起動が完了したら自動で消える */
@@ -4785,7 +4785,21 @@ function renderExpoChrome(){
       + '<div class="xmas-stat"><strong>'+cc.toLocaleString()+'</strong><span>万博記念公園・EXPOCITY系</span></div>';
   }
 }
+
+/* aspect-ratio 非対応ブラウザ（古い iOS Safari 等）では .card-media /
+   .modal-media の高さが決まらず、特に横スクロールのギャラリー
+   （.gal-track{height:100%}）が潰れて複数画像が表示されない。
+   対応ブラウザでは何もしない（v235） */
+var kgAspectOk = !!(window.CSS && CSS.supports && CSS.supports("aspect-ratio", "1/1"));
+function kgFixAspectBoxes(scope){
+  if(kgAspectOk || !scope) return;
+  try{
+    scope.querySelectorAll(".card-media").forEach(function(el){ if(el.clientWidth) el.style.height=Math.round(el.clientWidth*3/4)+"px"; });
+    scope.querySelectorAll(".modal-media").forEach(function(el){ if(el.clientWidth) el.style.height=Math.round(el.clientWidth*9/16)+"px"; });
+  }catch(e){}
+}
 function wireCardImages(root){
+  kgFixAspectBoxes(root);
   root.querySelectorAll("img[data-fallback]").forEach(function(img){
     img.setAttribute("data-fbmode","card");
     img.addEventListener("error", function(){ evImgErr(img); });
@@ -5653,7 +5667,7 @@ function openModal(ev){
     /* 複数画像: 横スワイプのギャラリー（スナップ＋ドット＋カウンタ）。
        タップでその画像をライトボックスで開く */
     media='<div class="gal-track" id="galTrack">'
-      + imgList.map(function(u,i){ return '<div class="gal-slide">'+phHTML+'<img src="'+esc(u)+'" alt="'+esc(ev.title)+' のフライヤー画像（'+(i+1)+'枚目）" data-lbopen="'+i+'" draggable="false"'+(i?' loading="lazy"':"")+' data-fbk="'+esc(ev.id)+':'+i+'" data-fbmode="remove" onerror="evImgErr(this)"></div>'; }).join("")
+      + imgList.map(function(u,i){ return '<div class="gal-slide">'+phHTML+'<img src="'+esc(u)+'" alt="'+esc(ev.title)+' のフライヤー画像（'+(i+1)+'枚目）" data-lbopen="'+i+'" draggable="false"'+""+' data-fbk="'+esc(ev.id)+':'+i+'" data-fbmode="remove" onerror="evImgErr(this)"></div>'; }).join("")
       + '</div>'
       + '<div class="gal-ui"><button class="gal-nav" type="button" id="galPrev" aria-label="前の画像" disabled>‹</button><span class="gal-dots">'+imgList.map(function(_,i){ return '<span class="gal-dot'+(i===0?" on":"")+'"></span>'; }).join("")+'</span><span class="gal-count" id="galCount">1/'+imgList.length+'</span><button class="gal-nav" type="button" id="galNext" aria-label="次の画像">›</button></div>';
   } else if(imgList.length===1){
@@ -5747,6 +5761,7 @@ function openModal(ev){
       openLightbox(ev, url);
     });
   });
+  kgFixAspectBoxes(els.modal);
   var galTrack=els.modal.querySelector("#galTrack");
   if(galTrack){
     /* マウスでも横へ引っ張って切り替えられるように（タッチは標準の横スクロールに任せる） */
@@ -7589,7 +7604,7 @@ function showError(err){
 }
 function loadViaFetch(sheetName, done, fail, opts){
   /* 打ち切りは「回線の半死で永遠に終わらない」状態の防止（v53）。上限は
-     v234 で 40 秒に延長した: 容量の大きいタブ（events_details 等）を遅い
+     v235 で 40 秒に延長した: 容量の大きいタブ（events_details 等）を遅い
      回線で取るには 15 秒では足りず、正しく届く応答まで失敗にしていた */
   var timeoutMs=(opts && opts.timeoutMs) || 40000;
   var ctl=("AbortController" in window) ? new AbortController() : null;
@@ -7643,7 +7658,7 @@ function loadViaJsonp(sheetName, done, fail, opts){
   script.src=sheetJsonpBase(sheetName)+cbName+"&_="+Date.now();
   document.head.appendChild(script);
 }
-/* ---------- 範囲分割の取得（v234） ----------
+/* ---------- 範囲分割の取得（v235） ----------
    大きなタブは1回の応答が数MBになり、遅い回線・古い端末では JSONP／
    fetch ともに途中で落ちることがある。落ちた場合は 2,500 行ずつの
    範囲指定で取り直し、表を結合してから一度だけ解析する。各チャンクは
@@ -8484,7 +8499,7 @@ function loadSheetRace(sheetName, ok, failAll){
     if(settled) return;
     if(jsonpFailed && fetchFailed){
       /* 両経路が落ちたら、大きなタブは範囲分割で取り直し、それでも
-         駄目なら従来どおり JSONP をもう一度試す（v234） */
+         駄目なら従来どおり JSONP をもう一度試す（v235） */
       if(KG_CHUNK_TABS[sheetName]){
         loadViaFetchChunks(sheetName, done, function(){
           loadViaJsonp(sheetName, done, function(e2){ fail(e2||err); });
