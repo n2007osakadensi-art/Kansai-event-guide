@@ -66,20 +66,49 @@ function findRow_(sh, key) {
   return -1;
 }
 
+// 値の読み書き（2026-11-28 改訂）: スプレッドシートのセルは1つ最大
+// 50,000文字までしか入らない。従来はアカウント文書の JSON 全体を
+// B列の1セルに書いていたため、文書が 50,000文字を超えた利用者は
+// 書き込みが恒常的に失敗していた（お気に入り等の小さい更新は通るのに、
+// 「気になる」「行きたい」を含む大きな userdata が書き込めない症状）。
+// 対策として JSON を 45,000文字ごとに分割し、B列→D列→E列…へ
+// 並べる（C列は updatedAt のまま）。旧形式（B列のみ）の行もそのまま読める。
+var CHUNK_LEN = 45000;
+
 function getVal_(sh, row) {
   if (row < 0) return null;
-  var s = sh.getRange(row, 2).getValue();
+  var ncols = Math.max(sh.getMaxColumns(), 3);
+  var cells = sh.getRange(row, 1, 1, ncols).getValues()[0];
+  var s = cells[1] ? String(cells[1]) : '';
   if (!s) return null;
+  for (var i = 3; i < cells.length; i++) {
+    if (!cells[i]) break;
+    s += String(cells[i]);
+  }
   try { return JSON.parse(s); } catch (e) { return null; }
 }
 
 function setVal_(sh, row, key, obj) {
   var s = JSON.stringify(obj);
   if (s.length > MAX_VALUE) throw new Error('value too large');
+  var pieces = [];
+  for (var i = 0; i < s.length; i += CHUNK_LEN) pieces.push(s.slice(i, i + CHUNK_LEN));
+  if (!pieces.length) pieces.push('');
+  var ts = new Date().toISOString();
+  var needCols = pieces.length + 3; // A=key, B=piece0, C=updatedAt, D以降=続き
+  if (sh.getMaxColumns() < needCols) sh.insertColumnsAfter(sh.getMaxColumns(), needCols - sh.getMaxColumns());
   if (row < 0) {
-    sh.appendRow([key, s, new Date().toISOString()]);
+    var arr = [key, pieces[0], ts];
+    for (var j = 1; j < pieces.length; j++) arr.push(pieces[j]);
+    sh.appendRow(arr);
   } else {
-    sh.getRange(row, 2, 1, 2).setValues([[s, new Date().toISOString()]]);
+    // 行全体を書き直し、縮んだ場合の残骸セルも空で消す
+    var width = Math.max(sh.getMaxColumns(), needCols);
+    var out = [];
+    for (var k = 0; k < width; k++) out.push('');
+    out[0] = key; out[1] = pieces[0]; out[2] = ts;
+    for (var m = 1; m < pieces.length; m++) out[m + 2] = pieces[m];
+    sh.getRange(row, 1, 1, width).setValues([out]);
   }
 }
 
