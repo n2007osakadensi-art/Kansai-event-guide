@@ -9,6 +9,9 @@
 var PROJECT_ID = 'kansai-event-guide';
 var SHEET_NAME = 'kv';
 var MAX_VALUE = 900000;
+// Firebase ウェブ API キー（サイト側 account-config.js と同じ公開キー）。
+// トークン検証を tokeninfo から Firebase Auth 本体の照会へ切り替えるために使う。
+var FIREBASE_API_KEY = 'AIzaSyAeqWGn1jg4LpErCcxA8ERqgMF9F0AFxpA';
 
 function doGet() {
   return ContentService.createTextOutput('kg-account-sync endpoint ok');
@@ -88,6 +91,34 @@ function sha256hex_(text) {
   }).join('');
 }
 
+// Google ログインのトークンを検証し、uid を返す。検証できなければ null。
+// 2026-11-27 改訂: 従来の tokeninfo 照会が、新しいトークンでも
+// 'invalid token' を返す事象が複数端末で続いたため、Firebase Auth 本体の
+// 照会（accounts:lookup、このプロジェクトのキーで照会するので発行元も
+// 同時に確認できる）を主経路にし、tokeninfo は予備に回した。
+function verifyGoogleToken_(token) {
+  try {
+    var resp = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + FIREBASE_API_KEY, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ idToken: token }),
+      muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() === 200) {
+      var body = JSON.parse(resp.getContentText());
+      if (body.users && body.users.length && body.users[0].localId) return String(body.users[0].localId);
+    }
+  } catch (e) { /* 予備経路へ */ }
+  try {
+    var r2 = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token), { muteHttpExceptions: true });
+    if (r2.getResponseCode() === 200) {
+      var claims = JSON.parse(r2.getContentText());
+      if (claims.aud === PROJECT_ID && claims.sub) return String(claims.sub);
+    }
+  } catch (e2) { /* 検証失敗として扱う */ }
+  return null;
+}
+
 // 鍵の形式チェック。g: の行は Google ログインのトークン検証も行う。
 function checkKey_(req, key) {
   var m = String(key || '').match(/^([mcrg]):([a-f0-9]{64})$/);
@@ -95,11 +126,9 @@ function checkKey_(req, key) {
   if (m[1] === 'g') {
     var token = String(req.token || '');
     if (!token) throw new Error('token required');
-    var resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token), { muteHttpExceptions: true });
-    if (resp.getResponseCode() !== 200) throw new Error('invalid token');
-    var claims = JSON.parse(resp.getContentText());
-    if (claims.aud !== PROJECT_ID) throw new Error('bad aud');
-    if (sha256hex_('kg-google:' + claims.sub) !== m[2]) throw new Error('uid mismatch');
+    var uid = verifyGoogleToken_(token);
+    if (!uid) throw new Error('invalid token');
+    if (sha256hex_('kg-google:' + uid) !== m[2]) throw new Error('uid mismatch');
   }
 }
 
