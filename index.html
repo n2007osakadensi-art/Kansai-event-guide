@@ -1142,7 +1142,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v264';
+  window.__kgShell='v265';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -8039,18 +8039,23 @@ function loadViaJsonp(sheetName, done, fail, opts){
   script.src=sheetJsonpBase(sheetName)+cbName+"&_="+Date.now();
   document.head.appendChild(script);
 }
-/* ---------- 範囲分割の取得（v235） ----------
+/* ---------- 範囲分割の取得（v235、v265で完了判定を厳密化） ----------
    大きなタブは1回の応答が数MBになり、遅い回線・古い端末では JSONP／
    fetch ともに途中で落ちることがある。落ちた場合は 2,500 行ずつの
    範囲指定で取り直し、表を結合してから一度だけ解析する。各チャンクは
-   小さいので失敗してもその塊だけ取り直せる。範囲外はシート側が
-   エラー応答を返すため、1塊でも取れていれば終端として確定する */
+   小さいので失敗してもその塊だけ取り直せる。
+   終端の確定は「シート側のエラー応答（範囲外）」か「行数が塊サイズ未満」
+   の時だけ。通信失敗や壊れた応答は終端ではない（v264まで通信失敗でも
+   取れている分で完了扱いにしており、新しいイベントほど末尾の塊に
+   集まるため、失敗すると最新分が丸ごと見えなくなっていた）。
+   失敗は失敗として呼び出し側へ返し、表示は端末内の控えのまま、
+   自動再試行に委ねる */
 var KG_CHUNK_TABS={"events":"AB","events_lite":"U","events_details":"I"};
 function kgGvizTableFromText(text){
   var s=text.indexOf("{"), e=text.lastIndexOf("}");
   if(s<0||e<s) throw new Error("想定外の応答形式でした");
   var j=JSON.parse(text.slice(s,e+1));
-  if(!j || j.status==="error") throw new Error("シート側でエラーが返されました");
+  if(!j || j.status==="error"){ var se=new Error("シート側でエラーが返されました"); se.kgStatusError=true; throw se; }
   if(!j.table || !j.table.rows) throw new Error("イベント表が見つかりませんでした");
   return j;
 }
@@ -8066,7 +8071,7 @@ function kgFetchText(url, timeoutMs, done, fail){
 function loadViaFetchChunks(sheetName, done, fail){
   var lastCol=KG_CHUNK_TABS[sheetName];
   if(!lastCol){ fail(new Error("分割取得に対応していないタブです")); return; }
-  var CH=2500, MAXCH=6, merged=null, start=1, chunks=0, settled=false;
+  var CH=2500, MAXCH=8, merged=null, start=1, chunks=0, settled=false;
   function finishOk(){
     if(settled) return; settled=true;
     try{ done(parseGvizObject(merged)); }catch(e){ fail(e); }
@@ -8074,15 +8079,18 @@ function loadViaFetchChunks(sheetName, done, fail){
   function finishFail(e){ if(settled) return; settled=true; fail(e); }
   function next(attempt){
     if(settled) return;
-    if(chunks>=MAXCH){ finishOk(); return; }
+    /* 塊の上限まで全部満杯なら、まだ先にデータがある＝未完了として失敗扱い */
+    if(chunks>=MAXCH){ finishFail(new Error("分割取得の上限を超えました")); return; }
     var end=start+CH-1;
     var url=SHEET_BASE+"?tqx=out:json&sheet="+sheetName+"&range=A"+start+":"+lastCol+end;
     kgFetchText(url, 30000, function(text){
       var j;
       try{ j=kgGvizTableFromText(text); }
       catch(e){
-        if(merged){ finishOk(); }
-        else if(attempt<2){ next(attempt+1); }
+        /* シート側のエラー応答＝範囲外＝本当の終端（既に塊が取れている場合のみ）。
+           それ以外の壊れた応答は通信失敗と同じ扱いで、取り直すか失敗で返す */
+        if(e && e.kgStatusError && merged){ finishOk(); return; }
+        if(attempt<3){ next(attempt+1); }
         else finishFail(e);
         return;
       }
@@ -8094,8 +8102,9 @@ function loadViaFetchChunks(sheetName, done, fail){
       start=end+1;
       next(1);
     }, function(e){
-      if(attempt<2) next(attempt+1);
-      else if(merged) finishOk();
+      /* 通信失敗は終端ではない。同じ塊を取り直し、それでも駄目なら
+         部分データで完了にせず失敗として返す（v265） */
+      if(attempt<3) next(attempt+1);
       else finishFail(e);
     });
   }
@@ -8375,6 +8384,22 @@ function startNetworkLoad(background){
         }
         var allDet=[];
         detResults.forEach(function(l){ if(l) allDet=allDet.concat(l); });
+        /* 件数照合（v265）: 詳細タブは全イベント分そろっているのが前提。
+           軽量側の id を詳細がカバーしきれていない＝詳細の読み込みが
+           部分的なので、結合済みとして表示・保存に使わず、未完了として
+           自動再試行に委ねる（軽量表示はそのまま維持） */
+        var detIdSeen={};
+        allDet.forEach(function(d){ if(d && d.id!=null && String(d.id)!=="") detIdSeen[String(d.id)]=1; });
+        var detCovered=0;
+        liteEvents.forEach(function(ev){ if(detIdSeen[String(ev.id)]) detCovered++; });
+        if(detCovered < liteEvents.length){
+          detailsState="failed";
+          clearTimers();
+          kgScheduleLoadRetry(true);
+          if(!background){ els.updatedAt.textContent += "（詳細情報を取得できませんでした）"; }
+          if(allEvents.length) render();
+          return;
+        }
         var merged=mergeDetails(liteEvents, allDet);
         detailsState="merged";
         clearTimers();
