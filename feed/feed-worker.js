@@ -1,7 +1,7 @@
 /* Kansai Event Guide - feed app dedicated service worker.
    Scope: /feed/ only. The main app's pwa-worker.js is not used here,
    so the feed works as its own standalone app. */
-var CACHE_NAME = "kg-feed-v64";
+var CACHE_NAME = "kg-feed-v65";
 var SHELL = [
   "./",
   "./index.html",

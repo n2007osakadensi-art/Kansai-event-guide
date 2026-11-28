@@ -1037,6 +1037,27 @@
      スライド表示と縦フィード表示を切り替えられ、選択は端末内に保持する */
   .tl-overlay{position:fixed;inset:0;z-index:120;background:#0e0f12;color:#f4f2ec;display:none;flex-direction:column}
   .tl-overlay.open{display:flex}
+  /* 使い方・サンプル見本（v268）: 明るいページ型オーバーレイ */
+  .page-overlay{position:fixed;inset:0;z-index:110;background:var(--bg);color:var(--ink);display:none;flex-direction:column}
+  .page-overlay.open{display:flex}
+  .page-top{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface)}
+  .page-top h2{font-size:17px;margin:0;flex:1}
+  .page-close{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 14px;min-height:40px;font-weight:700}
+  .page-scroll{flex:1;overflow-y:auto;padding:16px 14px 40px;-webkit-overflow-scrolling:touch}
+  .page-inner{max-width:680px;margin:0 auto}
+  .help-sec{margin:0 0 26px}
+  .help-sec h3{font-size:16px;margin:0 0 8px;padding-bottom:6px;border-bottom:2px solid var(--accent)}
+  .help-sec p,.help-sec li{font-size:15px;line-height:1.75}
+  .help-sec ul{margin:6px 0;padding-left:20px}
+  .help-sec .big-btn{display:block;width:100%;margin:10px 0;padding:14px;border-radius:12px;border:1px solid var(--accent);background:var(--surface);color:var(--ink);font-size:15px;font-weight:700;text-align:center}
+  .sample-chips{display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 0}
+  .sample-chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 13px;min-height:38px;font-size:14px;font-weight:700}
+  .sample-chip[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .sample-note{padding:8px 14px 0;font-size:13px;color:var(--muted);line-height:1.6}
+  .sample-feed{padding:12px 14px 40px;display:flex;flex-direction:column;gap:10px;max-width:760px;margin:0 auto;width:100%}
+  .sample-heat-cap{font-size:13px;font-weight:700;color:var(--muted);margin:2px 0 -4px}
+  .sample-col-row{display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:700;text-align:left}
+  .sample-col-row .cnt{font-size:13px;color:var(--accent)}
   .tl-top{flex-wrap:wrap;padding:8px 12px;row-gap:6px;column-gap:8px}
   .tl-top-break{flex:0 0 100%;height:0}
   .tl-top .tl-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -1142,7 +1163,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v267';
+  window.__kgShell='v268';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -1303,7 +1324,7 @@
     <h1>関西イベントガイド<span class="trial">（シート＋Notion試作）</span></h1>
     <div class="meta-line">
       <span>最終更新：<strong id="updatedAt">2026年11月21日 07:23</strong></span>
-      <span><button type="button" id="kg-account-open" style="border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px;min-height:40px">ログイン / 同期</button></span>
+      <span><button type="button" data-open-help style="border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px;min-height:40px;margin-right:6px">使い方</button><button type="button" id="kg-account-open" style="border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px;min-height:40px">ログイン / 同期</button></span>
       <span><button type="button" id="kg-editor-open" style="border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px;min-height:40px">＋ 新規登録・修正</button></span>
       <span id="totalCount">掲載 <strong>7,803件</strong>（開催予定・開催中 5,150件／終了 2,653件は既定で非表示）</span>
       <span id="metaData">データ：Googleスプレッドシート（開くたびに取得、会場補足を含む）＋ 会場DB・アーティストプロフィール（ガイドのデータベース）／ お気に入り・推しはこの端末内に保存</span>
@@ -1601,6 +1622,7 @@
       <a class="contact-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdtDfeYaOzT9zeOT2knIVMUPOHG2yjSD_ATrekJbIuadvtwhg/viewform" target="_blank" rel="noopener noreferrer">掲載・修正依頼フォームを開く</a>
       <p class="contact-mail" style="margin:0"><span>メール：</span> <a href="/cdn-cgi/l/email-protection#2348424d50424a0e4655464d570e4a4d454c634e5650460d424a"><span class="__cf_email__" data-cfemail="402b212e3321296d2536252e346d292e262f002d3533256e2129">[email&#160;protected]</span></a></p>
     </div>
+    <p style="margin:14px 0 0"><button type="button" data-open-help style="border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 16px;min-height:40px;font-weight:700">使い方・サンプルアカウントを見る</button></p>
     <p id="kg-diag-line" style="font-size:11px;color:#888;margin-top:14px">動作記録を確認中…</p>
   </footer>
 </div>
@@ -1651,6 +1673,76 @@
     <span class="sg-ticker-label">UPCOMING</span>
     <div class="sg-ticker-view"><div class="sg-ticker-track" id="sgTicker"></div></div>
   </div>
+</div>
+<div class="page-overlay" id="helpOverlay" role="dialog" aria-modal="true" aria-label="使い方">
+  <div class="page-top"><h2>使い方</h2><button class="page-close" type="button" data-close-help>閉じる</button></div>
+  <div class="page-scroll"><div class="page-inner">
+    <div class="help-sec"><h3>このサイトについて</h3>
+      <p>関西イベントガイドは、大阪・京都・兵庫・滋賀・奈良・和歌山で開かれるイベントをまとめた案内サイトです。ライブ、お祭り、マルシェ、舞台、お笑いなど、ジャンルを問わず載せています。</p>
+      <p>見るだけなら、登録も料金もいりません。気になるイベントに印を付けて、自分だけの予定表のように使えます。</p>
+      <button type="button" class="big-btn" data-open-sample>サンプルアカウントを見る（こんな感じで使えます）</button>
+    </div>
+    <div class="help-sec"><h3>イベントの探し方</h3>
+      <ul>
+        <li>上の検索欄に、イベント名・出演者名・会場名などを入れて探せます。読み方や別の書き方でも見つかるようにしています。</li>
+        <li>「ジャンル」のボタンで、アイドル・音楽・食フェスなどに絞れます。</li>
+        <li>日付や場所（都道府県・エリア・沿線）での絞り込みもできます。</li>
+        <li>カレンダーの画面では、月ごとにまとめて見られます。</li>
+      </ul>
+    </div>
+    <div class="help-sec"><h3>印の付け方</h3>
+      <p>イベントの詳しい画面で、気持ちに合わせて印を付けられます。印は自分だけに見えるもので、他の人には分かりません。</p>
+      <ul>
+        <li>♥ お気に入り：あとで見返したいイベントに。</li>
+        <li>★ 推し：応援している出演者を登録すると、その人の公演が見つけやすくなります。</li>
+        <li>👀 気になる：なんとなく目に留まったものに。</li>
+        <li>🔥 行きたい：行ってみたい候補に。</li>
+        <li>🌱 行けたら行く：用事がなければ行くつもりのものに。</li>
+        <li>🏃 行く：行くことに決めたものに。</li>
+        <li>💯 絶対行く：何より優先したいものに。</li>
+      </ul>
+      <p>メモも書けます。行く理由や行けない理由など、自分用の覚え書きに使ってください。メモは自分だけが見られます。</p>
+    </div>
+    <div class="help-sec"><h3>タイムライン</h3>
+      <p>フォローした出演者・会場・主催者の公演が、新しい順に流れてくる画面です。推しや会場をフォローしておくと、次の公演を見落としにくくなります。</p>
+    </div>
+    <div class="help-sec"><h3>回しプラン</h3>
+      <p>同じ日にいくつかのイベントをはしごしたいときの計画表です。行きたいイベントを入れておくと、時間の重なりや移動の目安を見ながら組み立てられます。</p>
+    </div>
+    <div class="help-sec"><h3>リストとマイタブ</h3>
+      <p>リストは、イベントを自分でまとめる入れ物です。マイタブは、フォローや印の条件を保存した、自分専用の絞り込みです。よく見る組み合わせを作っておくと便利です。</p>
+    </div>
+    <div class="help-sec"><h3>ピックアップ</h3>
+      <p>見落としやすいイベントをそっと目立たせる仕組みです。広告ではありません。お金をもらって載せることも、人気順に偏らせることもしていません。最後の機会になりそうな公演や、告知がSNSだけの公演などを、理由と一緒に表示します。</p>
+    </div>
+    <div class="help-sec"><h3>ログインと同期</h3>
+      <p>ログインすると、印やフォローが他の端末でも同じように見られます。ログインには「会員コード」を使います。メールアドレスを集めることはしていません。</p>
+      <ul>
+        <li>会員コードは、あなた専用の鍵です。他の人に教えないでください。</li>
+        <li>コードを入れた端末同士で、印やフォローが自動でそろいます。</li>
+        <li>ログインしなくても、見ることと端末内に印を付けることはできます。</li>
+      </ul>
+    </div>
+    <div class="help-sec"><h3>掲載と更新について</h3>
+      <p>このサイトの情報は、主催者・会場・出演者の公式の発表と、チケットの販売情報を照らし合わせて掲載しています。正しい情報のもとは、あくまで公式の発表です。</p>
+      <ul>
+        <li>イベントの情報は、段階を追って発表されることが多いものです。開催のお知らせのあとに出演者、タイムテーブル、料金の詳しい内容と、順番に出てきます。このサイトでは、出たものから順に反映しています。</li>
+        <li>そのため、載ったばかりのイベントは情報が少なく、後から詳しくなっていく場合があります。</li>
+        <li>当日の急な中止や変更は、公式のSNSだけで知らされることも少なくありません。出かける前に、イベントの詳しい画面から公式のページもあわせて確認してください。</li>
+        <li>間違いや変更に気づいたときは、ページ下の「掲載・修正依頼」から教えてください。公式の発表と照らして直します。</li>
+      </ul>
+    </div>
+    <div class="help-sec"><h3>お問い合わせ</h3>
+      <p>掲載・修正の依頼は、ページ下のフォームかメールで受け付けています。メール：kansai-event-info@muse.ai</p>
+      <button type="button" class="big-btn" data-open-sample>サンプルアカウントを見る（こんな感じで使えます）</button>
+    </div>
+  </div></div>
+</div>
+<div class="page-overlay" id="sampleOverlay" role="dialog" aria-modal="true" aria-label="サンプルアカウント">
+  <div class="page-top"><h2>サンプルアカウント（見本）</h2><button class="page-close" type="button" data-close-sample>閉じる</button></div>
+  <p class="sample-note">これは使い方の見本です。サンプルアカウントがフォローした出演者・会場や、付けた印をもとに作られています。見るだけでは、あなたのデータは変わりません。</p>
+  <div class="sample-chips" id="sampleChips"></div>
+  <div class="page-scroll"><div class="sample-feed" id="sampleFeed"><p style="color:var(--muted)">読み込み中…</p></div></div>
 </div>
 <div class="psheet" id="profSheet" role="dialog" aria-modal="true" aria-label="プロフィール"><div class="psheet-panel" id="profSheetPanel"></div></div>
 <div class="tl-overlay" id="tlOverlay" role="dialog" aria-modal="true" aria-label="タイムライン">
@@ -11381,4 +11473,113 @@ load();
 
 <script src="./pwa-ui.js"></script>
 <script src="./device-transfer.js"></script>
+<script>
+/* 使い方ページとサンプルアカウント見本（v268）。見本は読み取り専用で、
+   見る人の端末データ・同期には一切触れない（localStorageへ書かない） */
+(function(){
+  "use strict";
+  function $(id){ return document.getElementById(id); }
+  var helpOv=$("helpOverlay"), sampleOv=$("sampleOverlay"), feedEl=$("sampleFeed"), chipsEl=$("sampleChips");
+  function openHelp(){ if(helpOv) helpOv.classList.add("open"); }
+  function closeHelp(){ if(helpOv) helpOv.classList.remove("open"); }
+  document.querySelectorAll("[data-open-help]").forEach(function(b){ b.addEventListener("click", openHelp); });
+  document.querySelectorAll("[data-close-help]").forEach(function(b){ b.addEventListener("click", closeHelp); });
+  document.querySelectorAll("[data-close-sample]").forEach(function(b){ b.addEventListener("click", function(){ if(sampleOv) sampleOv.classList.remove("open"); }); });
+  document.querySelectorAll("[data-open-sample]").forEach(function(b){ b.addEventListener("click", function(){ openSample(); }); });
+
+  var S=null, scope="follow", colSel=null;
+  var HEAT=[null,{e:"👀",label:"気になる"},{e:"🔥",label:"行きたい"},{e:"🌱",label:"行けたら行く"},{e:"🏃",label:"行く"},{e:"💯",label:"絶対行く"}];
+  function strSet(a){ var s=new Set(); (a||[]).forEach(function(x){ s.add(String(x)); }); return s; }
+  function nameHit(ev, names){ if(!names || !names.size) return false; return (ev._perfList||[]).some(function(p){ return names.has(p) || names.has(resolveArtistName(p)); }); }
+  function upcoming(ev){ var end=ev.dateEnd||ev.date; return !!end && end>=todayStr(); }
+  function byDate(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; return (a.startMin==null?9999:a.startMin)-(b.startMin==null?9999:b.startMin); }
+  function wordHit(ev){ if(!S.words || !S.words.length) return false; var hay=null; return S.words.some(function(w){ var n=normSearch(String(w||"")); if(!n) return false; if(hay===null) hay=searchHay(ev); return hay.indexOf(n)>=0; }); }
+  function sets(){
+    return {
+      fav: strSet(S.favEvents), oshi: strSet(S.oshi),
+      fArt: strSet((S.follows||{}).artists), fVen: strSet((S.follows||{}).venues), fOrg: strSet((S.follows||{}).organizers)
+    };
+  }
+  function calMatch(def, ev, st){
+    if(def.artists && nameHit(ev, strSet(def.artists))) return true;
+    if(def.venues && def.venues.indexOf(ev.venue)>=0) return true;
+    if(def.organizers && def.organizers.indexOf(ev.organizerName||"")>=0) return true;
+    var h=(S.heat||{})[String(ev.id)]||0;
+    if(def.fav && st.fav.has(String(ev.id))) return true;
+    if(def.want && h>=2) return true;
+    if(def.int && h===1) return true;
+    if(def.oshiAll && nameHit(ev, st.oshi)) return true;
+    if(def.intAll && nameHit(ev, st.fArt)) return true;
+    return false;
+  }
+  function colEvents(col, st){
+    if(col.kind==="cal"){ return allEvents.filter(function(ev){ return upcoming(ev) && calMatch(col.def, ev, st); }).sort(byDate); }
+    var ids=strSet(col.def.events);
+    return allEvents.filter(function(ev){ return ids.has(String(ev.id)); }).sort(byDate);
+  }
+  function collections(st){
+    var cols=[];
+    (S.lists||[]).forEach(function(l){ cols.push({kind:"list", label:"リスト", name:l.name||"リスト", def:l}); });
+    (S.plans||[]).forEach(function(p){ cols.push({kind:"plan", label:"回しプラン", name:p.name||"回しプラン", def:p}); });
+    (S.cals||[]).forEach(function(c){ cols.push({kind:"cal", label:"マイタブ", name:c.name||"マイタブ", def:c}); });
+    cols.forEach(function(c){ c.count=colEvents(c, st).length; });
+    return cols;
+  }
+  function renderSample(){
+    if(!S || !feedEl) return;
+    var st=sets();
+    var chipDefs=[["follow","フォロー中"],["oshi","推しが出る"],["heat","行きたい・気になる"],["fav","お気に入り"],["cols","まとめ一覧"]];
+    chipsEl.innerHTML=chipDefs.map(function(cd){ return '<button type="button" class="sample-chip" data-sample-scope="'+cd[0]+'" aria-pressed="'+(scope===cd[0]||(scope==="col"&&cd[0]==="cols")?"true":"false")+'">'+cd[1]+'</button>'; }).join("");
+    var evs=[], html="";
+    if(scope==="cols"){
+      var cols=collections(st);
+      if(!cols.length){ html='<p style="color:var(--muted)">サンプルのリスト・回しプラン・マイタブは準備中です。</p>'; }
+      else{
+        html=cols.map(function(c,i){ return '<button type="button" class="sample-col-row" data-sample-col="'+i+'"><span>'+esc(c.label)+"："+esc(c.name)+'</span><span class="cnt">'+c.count+'件</span></button>'; }).join("");
+        renderSample._cols=cols;
+      }
+      feedEl.innerHTML=html; return;
+    }
+    if(scope==="col" && colSel){
+      evs=colEvents(colSel, st);
+      html='<p class="sample-heat-cap">'+esc(colSel.label)+"："+esc(colSel.name)+"（"+evs.length+'件）</p>';
+    } else if(scope==="follow"){
+      evs=allEvents.filter(function(ev){ return upcoming(ev) && (nameHit(ev, st.oshi) || nameHit(ev, st.fArt) || st.fVen.has(ev.venue) || st.fOrg.has(ev.organizerName||"") || st.fav.has(String(ev.id)) || wordHit(ev)); }).sort(byDate);
+    } else if(scope==="oshi"){
+      evs=allEvents.filter(function(ev){ return upcoming(ev) && nameHit(ev, st.oshi); }).sort(byDate);
+    } else if(scope==="heat"){
+      evs=allEvents.filter(function(ev){ return upcoming(ev) && ((S.heat||{})[String(ev.id)]||0)>=1; }).sort(byDate);
+    } else if(scope==="fav"){
+      evs=allEvents.filter(function(ev){ return upcoming(ev) && st.fav.has(String(ev.id)); }).sort(byDate);
+    }
+    if(!evs.length && scope!=="col"){ html+='<p style="color:var(--muted)">この範囲のイベントはまだありません（サンプルは準備中です）。</p>'; }
+    var cap=80;
+    html+=evs.slice(0,cap).map(function(ev){
+      var capHtml="";
+      if(scope==="heat"){ var lv=(S.heat||{})[String(ev.id)]||0; if(HEAT[lv]) capHtml='<p class="sample-heat-cap">'+HEAT[lv].e+" "+HEAT[lv].label+'</p>'; }
+      return capHtml+cardHTML(ev);
+    }).join("");
+    if(evs.length>cap) html+='<p style="color:var(--muted)">ほか '+(evs.length-cap)+'件あります（見本では一部だけ表示しています）。</p>';
+    feedEl.innerHTML=html;
+  }
+  if(chipsEl) chipsEl.addEventListener("click", function(e){
+    var b=e.target.closest("[data-sample-scope]"); if(!b) return;
+    scope=b.getAttribute("data-sample-scope"); colSel=null; renderSample();
+  });
+  if(feedEl) feedEl.addEventListener("click", function(e){
+    var col=e.target.closest("[data-sample-col]");
+    if(col && renderSample._cols){ colSel=renderSample._cols[Number(col.getAttribute("data-sample-col"))]; scope="col"; renderSample(); return; }
+    var card=e.target.closest(".card"); if(!card) return;
+    if(e.target.closest("button") || e.target.closest("a")) return;
+    var ev=allEvents.find(function(x){ return String(x.id)===card.getAttribute("data-id"); });
+    if(ev){ var ov=$("overlay"); if(ov) ov.classList.add("prof-above"); openModal(ev); }
+  });
+  function openSample(){
+    closeHelp();
+    if(sampleOv) sampleOv.classList.add("open");
+    if(S){ renderSample(); return; }
+    fetch("sample/sample.json", {cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error("nf"); return r.json(); }).then(function(d){ S=d||{}; renderSample(); }).catch(function(){ if(feedEl) feedEl.innerHTML='<p style="color:var(--muted)">サンプルを読み込めませんでした。通信の良いところでもう一度開いてください。</p>'; });
+  }
+})();
+</script>
   </body></html>
