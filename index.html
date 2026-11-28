@@ -1142,7 +1142,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v265';
+  window.__kgShell='v266';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -6619,16 +6619,18 @@ function presetSet(p){
   if(p==="fav") return favEvents;
   if(p==="want") return wantEvents;
   if(p==="int") return intEvents;
+  /* 気持ちの度合いに統合した統合タブ（v266）: 印のある全件（Lv1〜5） */
+  if(p==="heat"){ var hs=new Set(); wantEvents.forEach(function(x){ hs.add(x); }); intEvents.forEach(function(x){ hs.add(x); }); return hs; }
   return new Set();
 }
-function presetLabel(p){ return p==="fav" ? "お気に入り" : p==="want" ? "行きたい" : p==="int" ? "気になる" : p==="oshi" ? "推しが出る" : p==="plan" ? "回しプラン" : ""; }
+function presetLabel(p){ return p==="fav" ? "お気に入り" : p==="heat" ? "行きたい・気になる" : p==="want" ? "行きたい" : p==="int" ? "気になる" : p==="oshi" ? "推しが出る" : p==="plan" ? "回しプラン" : ""; }
 function presetCount(p){
   var s=presetSet(p), n=0;
   allEvents.forEach(function(ev){ if(s.has(String(ev.id))) n++; });
   return n;
 }
 function presetTabsHTML(){
-  return [["fav","♥ お気に入り"],["want","✓ 行きたい"],["int","● 気になる"]].map(function(x){
+  return [["fav","♥ お気に入り"],["heat","★ 行きたい・気になる"]].map(function(x){
     return '<button type="button" role="tab" aria-selected="'+(listPreset===x[0])+'" class="lists-tab preset'+(listPreset===x[0]?" on":"")+'" data-lists-preset="'+x[0]+'">'+x[1]+'<span class="lists-cnt">'+presetCount(x[0])+'件</span></button>';
   }).join("");
 }
@@ -10480,12 +10482,12 @@ function renderTlScope(){
   el.classList.remove("hidden");
   var anySel=!!(tlScopeListId||tlScopePreset||tlScopeArtist||tlCalId);
   el.innerHTML='<button type="button" data-tlscope="" class="'+(anySel?"":"on")+'">すべて</button>'
-    + ["fav","want","int","plan"].map(function(p){ return '<button type="button" data-tlscope="p:'+p+'" class="'+(tlScopePreset===p?"on":"")+'">'+esc(presetLabel(p))+'</button>'; }).join("")
+    + ["fav","heat","plan"].map(function(p){ return '<button type="button" data-tlscope="p:'+p+'" class="'+(tlScopePreset===p?"on":"")+'">'+esc(presetLabel(p))+'</button>'; }).join("")
     + '<button type="button" data-tlscope="p:follow" class="'+(tlScopePreset==="follow"?"on":"")+'">フォロー中</button>'
     + myLists.map(function(l){ return '<button type="button" data-tlscope="'+esc(l.id)+'" class="'+(tlScopeListId===l.id?"on":"")+'">'+esc(l.name)+'</button>'; }).join("")
     + myCalendars.map(function(c){ return '<button type="button" data-tlcal="'+esc(c.id)+'" class="'+(tlCalId===c.id?"on":"")+'">'+esc(c.name)+'</button>'; }).join("")
     + '<button type="button" data-tlcal-mgr="1">マイタブを追加・編集</button>'
-    + ((tlScopePreset==="want"||tlScopePreset==="int")? '<button type="button" data-tl-go-plan="'+tlScopePreset+'">回しプランで開く</button>' : '')
+    + (tlScopePreset==="heat"? '<button type="button" data-tl-go-plan="heat">回しプランで開く</button>' : '')
     + (tlScopeArtist? '<button type="button" data-tlscope-artist="1" class="on">フォロー：'+esc(tlScopeArtist)+' ✕</button>' : '');
   renderTlSort();
 }
