@@ -1142,7 +1142,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v266';
+  window.__kgShell='v267';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -7768,6 +7768,11 @@ document.querySelectorAll(".view-tab").forEach(function(t){
     tagFilter="";
     /* DBタブを切り替えたらDB検索の入力は残さない（アーティスト⇔会場でも、他の表示から戻ったときも） */
     if(nv!==view && (nv==="artists"||nv==="venues"||view==="artists"||view==="venues")){ dirQuery=""; if(els.dirSearch) els.dirSearch.value=""; }
+    /* タブを手で切り替えたら、メイン検索の入力もリセットする（Kota指示
+       2026-11-27、v267で実装）。検索が別タブへ持ち越されると、アーティスト・
+       会場DBなど他の検索と干渉するため。検索から自動で移る切り替えや、
+       ワード指定で直接開く経路はこのハンドラを通らないので影響しない */
+    if(nv!==view && query){ query=""; exactTarget=null; if(els.searchInput) els.searchInput.value=""; if(els.clearSearch) els.clearSearch.style.display="none"; if(els.suggest) els.suggest.classList.remove("show"); }
     view=nv;
     if(view==="artists"||view==="venues") loadProfiles();
     render(); window.scrollTo({top:0,behavior:"smooth"});
