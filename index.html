@@ -1163,7 +1163,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v270';
+  window.__kgShell='v271';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -8377,8 +8377,38 @@ function evCachePut(events, lite){
      壊れた部分データが端末内の正常な控えを置き換えるのを防ぐ */
   return evCacheGet().then(function(cur){
     if(cur && cur.events && cur.events.length>=1000 && events.length < Math.floor(cur.events.length*0.6)) return false;
+    slimSnapshotWrite(events);
     return evCachePutInner(events, lite);
   });
+}
+/* 軽量スナップショット（v271）: IndexedDB の控えが端末の容量不足などで
+   消えた場合でも、次回起動で真っ白な読み込み画面を見せないための保険。
+   開催予定分だけを localStorage（IndexedDB とは別の保存領域）に小さく
+   残す。表示専用の割り切りで、出演者・説明などの詳細は含めない。
+   書き込みは裏で行い、容量不足で失敗しても本処理には影響させない */
+var SLIM_LS_KEY="kg_slim_events_v1";
+function slimSnapshotWrite(events){
+  try{
+    setTimeout(function(){
+      try{
+        var slim=[];
+        events.forEach(function(ev){
+          if(!ev || ev.id==null || isEnded(ev)) return;
+          slim.push({id:ev.id, title:ev.title||"", date:ev.date||"", dateEnd:ev.dateEnd||null, timeLabel:ev.timeLabel||"", startMin:(ev.startMin==null?null:ev.startMin), endMin:(ev.endMin==null?null:ev.endMin), venue:ev.venue||"", area:ev.area||"", prefecture:ev.prefecture||"", category:ev.category||"", categories:[], price:ev.price||"", imageUrl:ev.imageUrl||"", isFree:!!ev.isFree, priceClass:ev.priceClass||""});
+        });
+        if(slim.length<500) return;
+        localStorage.setItem(SLIM_LS_KEY, JSON.stringify({savedAt:Date.now(), events:slim}));
+      }catch(e){}
+    }, 0);
+  }catch(e){}
+}
+function slimSnapshotRead(){
+  try{
+    var raw=localStorage.getItem(SLIM_LS_KEY); if(!raw) return null;
+    var d=JSON.parse(raw);
+    if(d && Array.isArray(d.events) && d.events.length>=500) return d;
+  }catch(e){}
+  return null;
 }
 function evCachePutInner(events, lite){
   /* 容量不足の端末では全件保存が失敗することがある。その場合は
@@ -8461,10 +8491,17 @@ function load(force){
   /* 端末内に保存データがあれば即表示し、最新の取得は裏で続ける。
      保存データがない初回だけ、従来どおり取得完了を待つ */
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
-  var mirrorWait=Promise.race([restoreLocalMirror(), new Promise(function(res){ setTimeout(res, 4000); })]);
+  /* ミラー復元とキャッシュ読みは並行に進める（v271）: 復元が遅い端末でも
+     一覧の表示を待たせない。復元の待ち上限は1.5秒に縮め、上限を超えた
+     場合は復元が終わった時点で状態を読み直して画面に反映する */
+  var mirrorSettled=false;
+  var mirrorP=restoreLocalMirror().then(function(){ mirrorSettled=true; });
+  var mirrorWait=Promise.race([mirrorP, new Promise(function(res){ setTimeout(res, 1500); })]);
+  var cacheP=evCacheGet();
   mirrorWait.then(function(){
   resyncLocalState();
-  evCacheGet().then(function(cached){
+  if(!mirrorSettled){ mirrorP.then(function(){ resyncLocalState(); if(allEvents.length) render(); }); }
+  cacheP.then(function(cached){
     if(cached && cached.events && cached.events.length){
       detailsState = cached.lite ? "pending" : "merged";
       try{ applyData(cached.events, cached.savedAt, cached.slim, cached.lite); }
@@ -8482,7 +8519,18 @@ function load(force){
          手動操作（force）では常に最新を取得する */
       if(force || cached.lite || (ageMin>=60 && !dataSaver)) startNetworkLoad(true);
     }else{
-      startNetworkLoad(false);
+      /* IndexedDB の控えが無い（消えた）場合でも、localStorage の軽量
+         スナップショットがあれば先に一覧だけ出して、裏で最新を取りに
+         行く（v271）。真っ白な読み込み画面のまま待たせないため */
+      var slimSnap=slimSnapshotRead();
+      if(slimSnap){
+        detailsState="pending";
+        try{ applyData(slimSnap.events, slimSnap.savedAt, true, true); }
+        catch(e){ startNetworkLoad(false); return; }
+        startNetworkLoad(true);
+      }else{
+        startNetworkLoad(false);
+      }
     }
   });
   });
