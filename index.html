@@ -1163,7 +1163,7 @@
   var KEY='kg_boot_guard_v1';
   function read(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
   function save(o){ try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-  window.__kgShell='v269';
+  window.__kgShell='v270';
   var st=read()||{};
   var prevBusy0=''; try{ prevBusy0=localStorage.getItem('kg_busy_v1')||''; }catch(e){}
   /* 遅いだけの起動を「失敗」と数えない（v235）: 前回に処理段階の形跡
@@ -6458,6 +6458,118 @@ document.getElementById("lbClose").addEventListener("click", closeLightbox);
     lbZoomAt(p.x, p.y, lbScale*f, false);
   }, {passive:false});
   lbImg.addEventListener("dragstart", function(e){ e.preventDefault(); });
+/* 使い方ページとサンプルアカウント見本（v268）。見本は読み取り専用で、
+   見る人の端末データ・同期には一切触れない（localStorageへ書かない） */
+(function(){
+  "use strict";
+  function $(id){ return document.getElementById(id); }
+  var helpOv=$("helpOverlay"), sampleOv=$("sampleOverlay"), feedEl=$("sampleFeed"), chipsEl=$("sampleChips");
+  function openHelp(){ if(helpOv) helpOv.classList.add("open"); }
+  function closeHelp(){ if(helpOv) helpOv.classList.remove("open"); }
+  document.querySelectorAll("[data-open-help]").forEach(function(b){ b.addEventListener("click", openHelp); });
+  document.querySelectorAll("[data-close-help]").forEach(function(b){ b.addEventListener("click", closeHelp); });
+  document.querySelectorAll("[data-close-sample]").forEach(function(b){ b.addEventListener("click", function(){ if(sampleOv) sampleOv.classList.remove("open"); }); });
+  document.querySelectorAll("[data-open-sample]").forEach(function(b){ b.addEventListener("click", function(){ openSample(); }); });
+
+  var S=null, scope="follow", colSel=null;
+  var HEAT=[null,{e:"👀",label:"気になる"},{e:"🔥",label:"行きたい"},{e:"🌱",label:"行けたら行く"},{e:"🏃",label:"行く"},{e:"💯",label:"絶対行く"}];
+  function strSet(a){ var s=new Set(); (a||[]).forEach(function(x){ s.add(String(x)); }); return s; }
+  function nameHit(ev, names){ if(!ev || !names || !names.size) return false; return (ev._perfList||[]).some(function(p){ return names.has(p) || names.has(resolveArtistName(p)); }); }
+  function upcoming(ev){ if(!ev) return false; var end=ev.dateEnd||ev.date; return !!end && end>=todayStr(); }
+  function byDate(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; return (a.startMin==null?9999:a.startMin)-(b.startMin==null?9999:b.startMin); }
+  function wordHit(ev){ if(!S.words || !S.words.length) return false; var hay=null; return S.words.some(function(w){ var n=normSearch(String(w||"")); if(!n) return false; if(hay===null) hay=searchHay(ev); return hay.indexOf(n)>=0; }); }
+  function sets(){
+    return {
+      fav: strSet(S.favEvents), oshi: strSet(S.oshi),
+      fArt: strSet((S.follows||{}).artists), fVen: strSet((S.follows||{}).venues), fOrg: strSet((S.follows||{}).organizers)
+    };
+  }
+  function calMatch(def, ev, st){
+    if(!ev) return false;
+    if(def.artists && nameHit(ev, strSet(def.artists))) return true;
+    if(def.venues && def.venues.indexOf(ev.venue)>=0) return true;
+    if(def.organizers && def.organizers.indexOf(ev.organizerName||"")>=0) return true;
+    var h=(S.heat||{})[String(ev.id)]||0;
+    if(def.fav && st.fav.has(String(ev.id))) return true;
+    if(def.want && h>=2) return true;
+    if(def.int && h===1) return true;
+    if(def.oshiAll && nameHit(ev, st.oshi)) return true;
+    if(def.intAll && nameHit(ev, st.fArt)) return true;
+    return false;
+  }
+  function colEvents(col, st){
+    if(col.kind==="cal"){ return allEvents.filter(function(ev){ return upcoming(ev) && calMatch(col.def, ev, st); }).sort(byDate); }
+    var ids=strSet(col.def.events);
+    return allEvents.filter(function(ev){ return !!ev && ids.has(String(ev.id)); }).sort(byDate);
+  }
+  function collections(st){
+    var cols=[];
+    (S.lists||[]).forEach(function(l){ cols.push({kind:"list", label:"リスト", name:l.name||"リスト", def:l}); });
+    (S.plans||[]).forEach(function(p){ cols.push({kind:"plan", label:"回しプラン", name:p.name||"回しプラン", def:p}); });
+    (S.cals||[]).forEach(function(c){ cols.push({kind:"cal", label:"マイタブ", name:c.name||"マイタブ", def:c}); });
+    cols.forEach(function(c){ c.count=colEvents(c, st).length; });
+    return cols;
+  }
+  function renderSample(){
+    try{ renderSampleInner(); }
+    catch(e){ if(feedEl) feedEl.innerHTML='<p style="color:var(--muted)">表示を準備できませんでした。サンプルは準備中です。</p>'; }
+  }
+  function renderSampleInner(){
+    if(!S || !feedEl) return;
+    var st=sets();
+    var chipDefs=[["follow","フォロー中"],["oshi","推しが出る"],["heat","行きたい・気になる"],["fav","お気に入り"],["cols","まとめ一覧"]];
+    chipsEl.innerHTML=chipDefs.map(function(cd){ return '<button type="button" class="sample-chip" data-sample-scope="'+cd[0]+'" aria-pressed="'+(scope===cd[0]||(scope==="col"&&cd[0]==="cols")?"true":"false")+'">'+cd[1]+'</button>'; }).join("");
+    var evs=[], html="";
+    if(scope==="cols"){
+      var cols=collections(st);
+      if(!cols.length){ html='<p style="color:var(--muted)">サンプルのリスト・回しプラン・マイタブは準備中です。</p>'; }
+      else{
+        html=cols.map(function(c,i){ return '<button type="button" class="sample-col-row" data-sample-col="'+i+'"><span>'+esc(c.label)+"："+esc(c.name)+'</span><span class="cnt">'+c.count+'件</span></button>'; }).join("");
+        renderSample._cols=cols;
+      }
+      feedEl.innerHTML=html; return;
+    }
+    if(scope==="col" && colSel){
+      evs=colEvents(colSel, st);
+      html='<p class="sample-heat-cap">'+esc(colSel.label)+"："+esc(colSel.name)+"（"+evs.length+'件）</p>';
+    } else if(scope==="follow"){
+      evs=allEvents.filter(function(ev){ return upcoming(ev) && (nameHit(ev, st.oshi) || nameHit(ev, st.fArt) || st.fVen.has(ev.venue) || st.fOrg.has(ev.organizerName||"") || st.fav.has(String(ev.id)) || wordHit(ev)); }).sort(byDate);
+    } else if(scope==="oshi"){
+      evs=allEvents.filter(function(ev){ return upcoming(ev) && nameHit(ev, st.oshi); }).sort(byDate);
+    } else if(scope==="heat"){
+      evs=allEvents.filter(function(ev){ return upcoming(ev) && ((S.heat||{})[String(ev.id)]||0)>=1; }).sort(byDate);
+    } else if(scope==="fav"){
+      evs=allEvents.filter(function(ev){ return upcoming(ev) && st.fav.has(String(ev.id)); }).sort(byDate);
+    }
+    if(!evs.length && scope!=="col"){ html+='<p style="color:var(--muted)">この範囲のイベントはまだありません（サンプルは準備中です）。</p>'; }
+    var cap=80;
+    html+=evs.slice(0,cap).map(function(ev){
+      var capHtml="";
+      if(scope==="heat"){ var lv=(S.heat||{})[String(ev.id)]||0; if(HEAT[lv]) capHtml='<p class="sample-heat-cap">'+HEAT[lv].e+" "+HEAT[lv].label+'</p>'; }
+      return capHtml+cardHTML(ev);
+    }).join("");
+    if(evs.length>cap) html+='<p style="color:var(--muted)">ほか '+(evs.length-cap)+'件あります（見本では一部だけ表示しています）。</p>';
+    feedEl.innerHTML=html;
+  }
+  if(chipsEl) chipsEl.addEventListener("click", function(e){
+    var b=e.target.closest("[data-sample-scope]"); if(!b) return;
+    scope=b.getAttribute("data-sample-scope"); colSel=null; renderSample();
+  });
+  if(feedEl) feedEl.addEventListener("click", function(e){
+    var col=e.target.closest("[data-sample-col]");
+    if(col && renderSample._cols){ colSel=renderSample._cols[Number(col.getAttribute("data-sample-col"))]; scope="col"; renderSample(); return; }
+    var card=e.target.closest(".card"); if(!card) return;
+    if(e.target.closest("button") || e.target.closest("a")) return;
+    var ev=allEvents.find(function(x){ return String(x.id)===card.getAttribute("data-id"); });
+    if(ev){ var ov=$("overlay"); if(ov) ov.classList.add("prof-above"); openModal(ev); }
+  });
+  function openSample(){
+    closeHelp();
+    if(sampleOv) sampleOv.classList.add("open");
+    if(S){ renderSample(); return; }
+    fetch("sample/sample.json", {cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error("nf"); return r.json(); }).then(function(d){ S=d||{}; renderSample(); }).catch(function(){ if(feedEl) feedEl.innerHTML='<p style="color:var(--muted)">サンプルを読み込めませんでした。通信の良いところでもう一度開いてください。</p>'; });
+  }
+})();
 })();
 if(!window.PointerEvent){
   lbImg.addEventListener("click", function(){ if(lbOpen) toggleLbZoom(); });
@@ -11473,118 +11585,4 @@ load();
 
 <script src="./pwa-ui.js"></script>
 <script src="./device-transfer.js"></script>
-<script>
-/* 使い方ページとサンプルアカウント見本（v268）。見本は読み取り専用で、
-   見る人の端末データ・同期には一切触れない（localStorageへ書かない） */
-(function(){
-  "use strict";
-  function $(id){ return document.getElementById(id); }
-  var helpOv=$("helpOverlay"), sampleOv=$("sampleOverlay"), feedEl=$("sampleFeed"), chipsEl=$("sampleChips");
-  function openHelp(){ if(helpOv) helpOv.classList.add("open"); }
-  function closeHelp(){ if(helpOv) helpOv.classList.remove("open"); }
-  document.querySelectorAll("[data-open-help]").forEach(function(b){ b.addEventListener("click", openHelp); });
-  document.querySelectorAll("[data-close-help]").forEach(function(b){ b.addEventListener("click", closeHelp); });
-  document.querySelectorAll("[data-close-sample]").forEach(function(b){ b.addEventListener("click", function(){ if(sampleOv) sampleOv.classList.remove("open"); }); });
-  document.querySelectorAll("[data-open-sample]").forEach(function(b){ b.addEventListener("click", function(){ openSample(); }); });
-
-  var S=null, scope="follow", colSel=null;
-  var HEAT=[null,{e:"👀",label:"気になる"},{e:"🔥",label:"行きたい"},{e:"🌱",label:"行けたら行く"},{e:"🏃",label:"行く"},{e:"💯",label:"絶対行く"}];
-  function strSet(a){ var s=new Set(); (a||[]).forEach(function(x){ s.add(String(x)); }); return s; }
-  function nameHit(ev, names){ if(!ev || !names || !names.size) return false; return (ev._perfList||[]).some(function(p){ return names.has(p) || names.has(resolveArtistName(p)); }); }
-  function upcoming(ev){ if(!ev) return false; var end=ev.dateEnd||ev.date; return !!end && end>=todayStr(); }
-  function byDate(a,b){ if(a.date!==b.date) return a.date<b.date?-1:1; return (a.startMin==null?9999:a.startMin)-(b.startMin==null?9999:b.startMin); }
-  function wordHit(ev){ if(!S.words || !S.words.length) return false; var hay=null; return S.words.some(function(w){ var n=normSearch(String(w||"")); if(!n) return false; if(hay===null) hay=searchHay(ev); return hay.indexOf(n)>=0; }); }
-  function sets(){
-    return {
-      fav: strSet(S.favEvents), oshi: strSet(S.oshi),
-      fArt: strSet((S.follows||{}).artists), fVen: strSet((S.follows||{}).venues), fOrg: strSet((S.follows||{}).organizers)
-    };
-  }
-  function calMatch(def, ev, st){
-    if(!ev) return false;
-    if(def.artists && nameHit(ev, strSet(def.artists))) return true;
-    if(def.venues && def.venues.indexOf(ev.venue)>=0) return true;
-    if(def.organizers && def.organizers.indexOf(ev.organizerName||"")>=0) return true;
-    var h=(S.heat||{})[String(ev.id)]||0;
-    if(def.fav && st.fav.has(String(ev.id))) return true;
-    if(def.want && h>=2) return true;
-    if(def.int && h===1) return true;
-    if(def.oshiAll && nameHit(ev, st.oshi)) return true;
-    if(def.intAll && nameHit(ev, st.fArt)) return true;
-    return false;
-  }
-  function colEvents(col, st){
-    if(col.kind==="cal"){ return allEvents.filter(function(ev){ return upcoming(ev) && calMatch(col.def, ev, st); }).sort(byDate); }
-    var ids=strSet(col.def.events);
-    return allEvents.filter(function(ev){ return !!ev && ids.has(String(ev.id)); }).sort(byDate);
-  }
-  function collections(st){
-    var cols=[];
-    (S.lists||[]).forEach(function(l){ cols.push({kind:"list", label:"リスト", name:l.name||"リスト", def:l}); });
-    (S.plans||[]).forEach(function(p){ cols.push({kind:"plan", label:"回しプラン", name:p.name||"回しプラン", def:p}); });
-    (S.cals||[]).forEach(function(c){ cols.push({kind:"cal", label:"マイタブ", name:c.name||"マイタブ", def:c}); });
-    cols.forEach(function(c){ c.count=colEvents(c, st).length; });
-    return cols;
-  }
-  function renderSample(){
-    try{ renderSampleInner(); }
-    catch(e){ if(feedEl) feedEl.innerHTML='<p style="color:var(--muted)">表示を準備できませんでした。サンプルは準備中です。</p>'; }
-  }
-  function renderSampleInner(){
-    if(!S || !feedEl) return;
-    var st=sets();
-    var chipDefs=[["follow","フォロー中"],["oshi","推しが出る"],["heat","行きたい・気になる"],["fav","お気に入り"],["cols","まとめ一覧"]];
-    chipsEl.innerHTML=chipDefs.map(function(cd){ return '<button type="button" class="sample-chip" data-sample-scope="'+cd[0]+'" aria-pressed="'+(scope===cd[0]||(scope==="col"&&cd[0]==="cols")?"true":"false")+'">'+cd[1]+'</button>'; }).join("");
-    var evs=[], html="";
-    if(scope==="cols"){
-      var cols=collections(st);
-      if(!cols.length){ html='<p style="color:var(--muted)">サンプルのリスト・回しプラン・マイタブは準備中です。</p>'; }
-      else{
-        html=cols.map(function(c,i){ return '<button type="button" class="sample-col-row" data-sample-col="'+i+'"><span>'+esc(c.label)+"："+esc(c.name)+'</span><span class="cnt">'+c.count+'件</span></button>'; }).join("");
-        renderSample._cols=cols;
-      }
-      feedEl.innerHTML=html; return;
-    }
-    if(scope==="col" && colSel){
-      evs=colEvents(colSel, st);
-      html='<p class="sample-heat-cap">'+esc(colSel.label)+"："+esc(colSel.name)+"（"+evs.length+'件）</p>';
-    } else if(scope==="follow"){
-      evs=allEvents.filter(function(ev){ return upcoming(ev) && (nameHit(ev, st.oshi) || nameHit(ev, st.fArt) || st.fVen.has(ev.venue) || st.fOrg.has(ev.organizerName||"") || st.fav.has(String(ev.id)) || wordHit(ev)); }).sort(byDate);
-    } else if(scope==="oshi"){
-      evs=allEvents.filter(function(ev){ return upcoming(ev) && nameHit(ev, st.oshi); }).sort(byDate);
-    } else if(scope==="heat"){
-      evs=allEvents.filter(function(ev){ return upcoming(ev) && ((S.heat||{})[String(ev.id)]||0)>=1; }).sort(byDate);
-    } else if(scope==="fav"){
-      evs=allEvents.filter(function(ev){ return upcoming(ev) && st.fav.has(String(ev.id)); }).sort(byDate);
-    }
-    if(!evs.length && scope!=="col"){ html+='<p style="color:var(--muted)">この範囲のイベントはまだありません（サンプルは準備中です）。</p>'; }
-    var cap=80;
-    html+=evs.slice(0,cap).map(function(ev){
-      var capHtml="";
-      if(scope==="heat"){ var lv=(S.heat||{})[String(ev.id)]||0; if(HEAT[lv]) capHtml='<p class="sample-heat-cap">'+HEAT[lv].e+" "+HEAT[lv].label+'</p>'; }
-      return capHtml+cardHTML(ev);
-    }).join("");
-    if(evs.length>cap) html+='<p style="color:var(--muted)">ほか '+(evs.length-cap)+'件あります（見本では一部だけ表示しています）。</p>';
-    feedEl.innerHTML=html;
-  }
-  if(chipsEl) chipsEl.addEventListener("click", function(e){
-    var b=e.target.closest("[data-sample-scope]"); if(!b) return;
-    scope=b.getAttribute("data-sample-scope"); colSel=null; renderSample();
-  });
-  if(feedEl) feedEl.addEventListener("click", function(e){
-    var col=e.target.closest("[data-sample-col]");
-    if(col && renderSample._cols){ colSel=renderSample._cols[Number(col.getAttribute("data-sample-col"))]; scope="col"; renderSample(); return; }
-    var card=e.target.closest(".card"); if(!card) return;
-    if(e.target.closest("button") || e.target.closest("a")) return;
-    var ev=allEvents.find(function(x){ return String(x.id)===card.getAttribute("data-id"); });
-    if(ev){ var ov=$("overlay"); if(ov) ov.classList.add("prof-above"); openModal(ev); }
-  });
-  function openSample(){
-    closeHelp();
-    if(sampleOv) sampleOv.classList.add("open");
-    if(S){ renderSample(); return; }
-    fetch("sample/sample.json", {cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error("nf"); return r.json(); }).then(function(d){ S=d||{}; renderSample(); }).catch(function(){ if(feedEl) feedEl.innerHTML='<p style="color:var(--muted)">サンプルを読み込めませんでした。通信の良いところでもう一度開いてください。</p>'; });
-  }
-})();
-</script>
   </body></html>
